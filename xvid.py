@@ -11,29 +11,68 @@ from typing import Any, Optional
 # Assuming ratelimit is installed
 from ratelimit import limits, sleep_and_retry  # type: ignore
 
-# Explicitly import individual engine clients from pornLib for direct access.
-# Wrap in try-except to allow running even if some specific engine modules are missing.
-# Adjust these imports if your pornLib version exposes them differently (e.g., from pornLib.clients import XVideos).
-try:
-    from pornLib.xvideos import XVideos
-except ImportError:
-    XVideos = None
-    logging.warning("pornLib.xvideos.XVideos client not found. Xvideos engine may not work.")
-try:
-    from pornLib.pornhub import Pornhub
-except ImportError:
-    Pornhub = None
-    logging.warning("pornLib.pornhub.Pornhub client not found. Pornhub engine may not work.")
-try:
-    from pornLib.redtube import Redtube
-except ImportError:
-    Redtube = None
-    logging.warning("pornLib.redtube.Redtube client not found. Redtube engine may not work.")
-try:
-    from pornLib.youporn import Youporn
-except ImportError:
-    Youporn = None
-    logging.warning("pornLib.youporn.Youporn client not found. Youporn engine may not work.")
+import importlib # For dynamic module importing
+import inspect # For checking function signatures
+# Static imports for pornLib clients will be removed and handled dynamically.
+
+# Engine mapping for dynamic import - adapted from vid.py
+ENGINE_MODULE_MAP = {
+    'xvideos': 'xvideos.XVideos',
+    'pornhub': 'pornhub.Pornhub',
+    'redtube': 'redtube.Redtube',
+    'youporn': 'youporn.Youporn',
+}
+
+# ==============================================================================
+# Dynamic PornLib Client Loader - Adapted from vid.py
+# ==============================================================================
+def _get_pornlib_client_dynamically(engine_name: str) -> Optional[Any]:
+    """
+    Dynamically imports and returns the pornLib client for the specified engine.
+    Handles ImportErrors gracefully if a specific client is missing.
+    Returns the client instance or None on failure.
+    """
+    engine_name = engine_name.lower()
+    try:
+        # Ensure base pornLib module is accessible if needed by submodules,
+        # though direct submodule import often suffices.
+        # For simplicity, this version assumes pornLib is in PYTHONPATH
+        # and submodules can be imported directly.
+        # global pornLib # vid.py used this, but it's often better to avoid global if possible.
+        # if 'pornLib' not in sys.modules:
+        #     pornLib = importlib.import_module('pornLib')
+        #     logger.debug("Base pornLib module imported dynamically.")
+        # else:
+        #     pornLib = sys.modules['pornLib']
+
+        if engine_name not in ENGINE_MODULE_MAP:
+            logger.critical(f"Unsupported engine: {engine_name}. Supported are: {', '.join(ENGINE_MODULE_MAP.keys())}")
+            return None
+
+        module_path_in_lib, class_name = ENGINE_MODULE_MAP[engine_name].rsplit('.', 1)
+        full_module_path = f'pornLib.{module_path_in_lib}'
+
+        logger.debug(f"Dynamically importing module: {full_module_path}")
+        submodule = importlib.import_module(full_module_path)
+
+        logger.debug(f"Getting class '{class_name}' from module '{full_module_path}'")
+        client_class = getattr(submodule, class_name)
+
+        logger.info(f"Successfully loaded '{class_name}' from '{full_module_path}'. Instantiating client.")
+        return client_class()
+
+    except ImportError as e:
+        logger.critical(f"Failed to import pornLib module '{full_module_path}' or its dependencies for engine '{engine_name}'. Error: {e}")
+        logger.critical(f"Please ensure pornLib is installed correctly and the module for '{engine_name}' exists.")
+        logger.critical(f"Try: pip install git+https://github.com/scoutbaker/pornLib.git or check pornLib documentation.")
+        return None
+    except AttributeError as e:
+        logger.critical(f"AttributeError: Could not find class '{class_name}' in module '{full_module_path}' for engine '{engine_name}'. Error: {e}")
+        logger.critical("This might indicate an outdated pornLib version or structural changes in the library.")
+        return None
+    except Exception as e:
+        logger.critical(f"An unexpected error occurred while dynamically loading client for '{engine_name}': {e}", exc_info=True)
+        return None
 
 # ==============================================================================
 # Configuration
@@ -55,7 +94,8 @@ DEFAULT_OUTPUT_DIR_STR = "."
 DEFAULT_SEARCH_LIMIT = 30
 DEFAULT_PAGE = 1
 DEFAULT_ENGINE = "xvideos"
-VALID_ENGINES = ["xvideos", "pornhub", "redtube", "youporn"]
+# VALID_ENGINES will be derived from ENGINE_MODULE_MAP.keys() for consistency
+VALID_ENGINES = list(ENGINE_MODULE_MAP.keys())
 DEFAULT_SOUP_SLEEP = 1.0 # This parameter is passed to PornClient but internal pornLib clients handle actual sleep.
 DEFAULT_FILENAME_PREFIX = "{engine}_search_{query_part}_{timestamp}"
 DEFAULT_AUTO_OPEN = 'y'
@@ -108,28 +148,15 @@ class PornClient:
 
     def _initialize_client(self, engine: str) -> Any:
         """Initializes the appropriate client from pornLib based on the engine name."""
-        logger.debug(f"Attempting to initialize pornLib client for engine: {engine}")
-        try:
-            if engine == "xvideos":
-                if XVideos: return XVideos()
-                else: raise ImportError(f"XVideos client for pornLib not available. Cannot initialize engine '{engine}'.")
-            elif engine == "pornhub":
-                if Pornhub: return Pornhub()
-                else: raise ImportError(f"Pornhub client for pornLib not available. Cannot initialize engine '{engine}'.")
-            elif engine == "redtube":
-                if Redtube: return Redtube()
-                else: raise ImportError(f"Redtube client for pornLib not available. Cannot initialize engine '{engine}'.")
-            elif engine == "youporn":
-                if Youporn: return Youporn()
-                else: raise ImportError(f"Youporn client for pornLib not available. Cannot initialize engine '{engine}'.")
-            else:
-                raise ValueError(f"No valid pornLib client mapping found for engine: {engine}.")
-        except ImportError as e:
-            logger.critical(f"Failed to initialize pornLib client for '{engine}': {e}. Please ensure the necessary pornLib modules are installed.")
-            raise # Re-raise to stop execution if client cannot be initialized
-        except Exception as e:
-            logger.critical(f"An unexpected error occurred during client initialization for '{engine}': {e}", exc_info=True)
-            raise
+        logger.debug(f"Attempting to initialize pornLib client for engine: {engine} using dynamic loader.")
+        # The actual loading logic will be replaced by a call to the new get_pornlib_client function
+        # This section will be updated in a subsequent step.
+        # For now, let's make it clear it's a placeholder for the dynamic client loading.
+        client = _get_pornlib_client_dynamically(engine) # Placeholder for the new dynamic loader
+        if not client:
+            # _get_pornlib_client_dynamically will handle its own logging for critical errors.
+            raise RuntimeError(f"Failed to initialize PornLib client for '{engine}' using dynamic loader.")
+        return client
 
     @sleep_and_retry
     @limits(calls=API_CALLS_LIMIT, period=API_PERIOD_SECONDS)
@@ -141,11 +168,34 @@ class PornClient:
         logger.info(f"Searching {self.engine} for '{query}' (limit={limit}, page={page})...")
         results: list[VideoDataClass] = []
         try:
-            # Call the actual pornLib client's search method
-            search_data = self._client.search(query, page=page)
+            # Dynamically determine if the client's search method supports 'page'
+            search_kwargs = {'keyword': query} # 'keyword' is standard in pornLib
+
+            # Some clients might take 'limit', others might not.
+            # Most pornLib search methods don't standardize 'limit' in the call,
+            # results are often sliced after. For now, we assume limit is handled by slicing.
+            # If a client explicitly supports 'limit' in its signature, it could be added here.
+
+            client_search_signature = inspect.signature(self._client.search)
+            if 'page' in client_search_signature.parameters:
+                search_kwargs['page'] = page
+                logger.debug(f"Client for '{self.engine}' supports 'page' parameter. Using page={page}.")
+            else:
+                if page != DEFAULT_PAGE: # Only warn if user tried to use a non-default page
+                    logger.warning(f"Client for '{self.engine}' does not support 'page' parameter in its search method. Ignoring page={page}.")
+
+            # Call the actual pornLib client's search method with appropriate arguments
+            logger.debug(f"Calling {self.engine} client search with arguments: {search_kwargs}")
+            search_data = self._client.search(**search_kwargs)
             logger.debug(f"Raw search results from {self.engine} (first 2 items): {search_data[:2]}")
 
-            for i, item in enumerate(search_data):
+            # Ensure search_data is a list before slicing, some clients might return None on no results
+            if search_data is None:
+                search_data = []
+                logger.warning(f"Search on {self.engine} for '{query}' returned None. Treating as empty results.")
+
+
+            for i, item in enumerate(search_data): # Slicing for 'limit' will be done after parsing all available
                 if len(results) >= limit: # Respect the limit
                     break
 
@@ -175,7 +225,13 @@ class PornClient:
                     channel_name=item.get('channel', item.get('uploader_name')), # Channel might be 'channel' or 'uploader_name'
                     quality=item.get('quality') # Add quality if available
                 ))
-            logger.info(f"Successfully parsed {len(results)} videos from {self.engine}.")
+            # The 'if len(results) >= limit: break' inside the loop handles the limit.
+            # The redundant block below has been removed.
+
+            logger.info(f"Successfully parsed {len(results)} videos from {self.engine} for query '{query}'.")
+            # If the client doesn't support 'page' and we got results, they are effectively from page 1.
+            # The limit is applied to these results.
+
         except Exception as e:
             logger.error(f"Error during search on {self.engine} for query '{query}': {e}", exc_info=True)
             # Depending on severity, you might want to re-raise or return empty results.

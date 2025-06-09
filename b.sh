@@ -72,24 +72,37 @@ python -m pip install --upgrade pip
 echo -e "${GREEN}Pip conduit fully empowered.${NC}"
 echo
 
-# 3. Install Python Dependencies
-print_header "Summoning Python Libraries from the PyPI Aether"
-# Ensure Pillow is explicitly mentioned and installed for advanced image analysis
-REQUIRED_LIBS="bing-image-downloader colorama tqdm Pillow"
-
-echo -e "${BLUE}Chanting the installation spell for: ${REQUIRED_LIBS}...${NC}"
-python -m pip install $REQUIRED_LIBS
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}All Python libraries have manifested successfully!${NC}"
+# 3. Install Python Dependencies from requirements.txt
+print_header "Summoning Python Libraries from 'requirements.txt'"
+if [ -f "requirements.txt" ]; then
+    echo -e "${BLUE}Found 'requirements.txt'. Chanting the installation spell from the scroll...${NC}"
+    python -m pip install -r requirements.txt
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}All Python libraries from 'requirements.txt' have manifested successfully!${NC}"
+    else
+        echo -e "${RED}Error: One or more Python libraries resisted the summoning from 'requirements.txt'. Inspect the ethereal echoes above.${NC}"
+        exit 1
+    fi
 else
-    echo -e "${RED}Error: One or more Python libraries resisted the summoning. Inspect the ethereal echoes above.${NC}"
-    exit 1
+    echo -e "${RED}Error: 'requirements.txt' not found. Cannot summon Python libraries. Please ensure the scroll is present.${NC}"
+    # Optionally, you could fall back to installing default essential libraries here if desired
+    # echo -e "${YELLOW}Attempting to install essential default libraries (Pillow, bing-image-downloader, colorama, tqdm)...${NC}"
+    # python -m pip install Pillow bing-image-downloader colorama tqdm
+    # if [ $? -ne 0 ]; then
+    #     echo -e "${RED}Failed to install even default libraries. The ritual is unstable.${NC}"
+    #     exit 1
+    # fi
+    exit 1 # Strict: exit if requirements.txt is missing
 fi
 echo
 
 # 4. Forging scrapey.py, the Scrying Script
-print_header "Forging 'scrapey.py', the Enhanced Scrying Script"
-cat << 'EOF' > scrapey.py
+print_header "Checking for 'scrapey.py', the Enhanced Scrying Script"
+if [ -f "scrapey.py" ]; then
+    echo -e "${YELLOW}INFO: 'scrapey.py' already exists. Skipping creation.${NC}"
+else
+    echo -e "${BLUE}Forging 'scrapey.py', the Enhanced Scrying Script...${NC}"
+    cat << 'EOF' > scrapey.py
 #!/usr/bin/env python3
 
 """Enhanced Bing Image Downloader Script
@@ -221,77 +234,103 @@ def create_directory(path: str) -> bool:
 
 
 def rename_files(file_paths: List[str], base_query: str) -> List[str]:
-    """Renames downloaded files sequentially, imbuing them with a query-based prefix."""
-    renamed_paths: List[str] = []
+    """Renames downloaded files sequentially with a sanitized query prefix.
+    Returns a list of final paths for files that were processed.
+    If a file is renamed, its new path is in the list.
+    If renaming failed or was skipped for an existing file, its original path is in the list.
+    Files from input that were not found or were not files are skipped and not in the output list.
+    (Adopted from bimgx.py for robustness)
+    """
+    final_paths_after_rename: List[str] = []
     if not file_paths:
-        print_warning("No file paths provided for the renaming ritual.")
+        print_warning("No file paths provided for the renaming ritual.") # Retained scrapey.py's wording
         return []
 
     sanitized_query = sanitize_filename(base_query)
     if not sanitized_query:
-        sanitized_query = "image"  # Fallback if the query is too ethereal
-        print_warning(f"Query '{base_query}' yielded an empty name, using fallback 'image'.")
+        sanitized_query = "image"  # Fallback base name
+        print_warning(f"Query '{base_query}' sanitized to empty string, using fallback 'image'.")
 
-    # Ascertaining the sacred directory from the first path
-    if not os.path.dirname(file_paths[0]):
-         print_error("Cannot discern the directory for renaming files.")
+    first_valid_dir = next((os.path.dirname(p) for p in file_paths if p), None)
+    if first_valid_dir is None and file_paths:
+         print_error("Cannot discern the directory for renaming files. All paths are invalid.") # Retained scrapey.py's wording
+         return list(file_paths)
+    elif first_valid_dir is None and not file_paths:
          return []
-    dir_name = os.path.dirname(file_paths[0])
 
-    print_info(f"Imbuing {len(file_paths)} files in '{dir_name}' with the prefix '{sanitized_query}'...")
+    dir_name = first_valid_dir if first_valid_dir is not None else "."
 
-    file_paths.sort()  # For consistent ordering in the renaming sequence
+    print_info(f"Imbuing {len(file_paths)} files in '{dir_name}' with the prefix '{sanitized_query}'...") # Retained scrapey.py's wording
+
+    sorted_file_paths = sorted(file_paths) # bimgx.py sorts for consistency
+
+    actual_renames_count = 0
 
     for idx, old_path in enumerate(
-        tqdm(file_paths, desc=Fore.BLUE + "🔄 Renaming Files", unit="file", ncols=100, leave=False), start=1
+        tqdm(sorted_file_paths, desc=Fore.BLUE + "🔄 Renaming Files", unit="file", ncols=100, leave=False), start=1 # Retained scrapey.py's tqdm desc
     ):
+        current_file_final_path = old_path
+
         try:
             if not os.path.exists(old_path):
-                print_warning(f"File not found for renaming (already transformed or vanished?): {old_path}")
+                print_warning(f"File not found for renaming (already transformed or vanished?): {old_path}") # Retained scrapey.py's wording
                 continue
             if not os.path.isfile(old_path):
-                 print_warning(f"Path is not a tangible file, skipping rename: {old_path}")
+                 print_warning(f"Path is not a tangible file, skipping rename: {old_path}") # Retained scrapey.py's wording
                  continue
 
             _, ext = os.path.splitext(old_path)
-            # Crafting the new name within the same sacred directory
-            new_name = f"{sanitized_query}_{idx}{ext}"
-            new_path = os.path.join(dir_name, new_name)
+            new_base_name = f"{sanitized_query}_{idx}"
+            new_filename = f"{new_base_name}{ext}"
+            potential_new_path = os.path.join(dir_name, new_filename)
 
-            # Addressing potential name collisions (a rare but possible anomaly)
-            counter = 1
-            while os.path.exists(new_path):
-                # If it's the same file, no actual collision, just a redundant rename
-                if os.path.samefile(old_path, new_path):
-                    logger.debug(f"Skipping rename for {os.path.basename(old_path)} as target name is identical.")
-                    renamed_paths.append(old_path)  # Keep its track
-                    break  # Break the collision loop for this file
+            target_path_for_rename = potential_new_path
+            collision_counter = 1
 
-                # If a different file exists, append a counter sigil
-                new_name = f"{sanitized_query}_{idx}_{counter}{ext}"
-                new_path = os.path.join(dir_name, new_name)
-                counter += 1
-                if counter > 100:  # A safety ward against infinite loops
-                    print_error(f"Could not find a unique name for {os.path.basename(old_path)} after 100 attempts. Skipping.")
-                    new_path = None  # Mark as failed
-                    break
-            else:  # This block executes if no 'break' occurred in the while loop
+            while os.path.exists(target_path_for_rename):
                 try:
-                    os.rename(old_path, new_path)
-                    renamed_paths.append(new_path)
+                    if os.path.samefile(old_path, target_path_for_rename):
+                        logger.debug(f"Skipping rename for {os.path.basename(old_path)} as target name '{os.path.basename(target_path_for_rename)}' is identical and points to the same file.")
+                        target_path_for_rename = old_path
+                        break
+                except FileNotFoundError:
+                    print_warning(f"File not found during samefile check: {old_path} or {target_path_for_rename}")
+                    target_path_for_rename = old_path
+                    break
+
+                new_filename = f"{new_base_name}_{collision_counter}{ext}"
+                target_path_for_rename = os.path.join(dir_name, new_filename)
+                collision_counter += 1
+                if collision_counter > 100:
+                    print_error(f"Could not find a unique name for {os.path.basename(old_path)} after 100 attempts. Skipping rename for this file.")
+                    target_path_for_rename = old_path
+                    break
+
+            if old_path == target_path_for_rename:
+                pass
+            else:
+                try:
+                    os.rename(old_path, target_path_for_rename)
+                    current_file_final_path = target_path_for_rename
+                    actual_renames_count +=1
                 except OSError as e:
-                    print_error(f"Error transforming {os.path.basename(old_path)} to {os.path.basename(new_path)}: {e}")
+                    print_error(f"Error transforming {os.path.basename(old_path)} to {os.path.basename(target_path_for_rename)}: {e}") # Retained scrapey.py's wording for error
                 except Exception as e:
-                    print_error(f"An unforeseen error occurred during renaming {os.path.basename(old_path)}: {e}")
+                    print_error(f"An unforeseen error occurred during renaming {os.path.basename(old_path)} to {os.path.basename(target_path_for_rename)}: {e}") # Retained scrapey.py's wording
+
+            final_paths_after_rename.append(current_file_final_path)
 
         except Exception as e:
-            print_error(f"An unexpected anomaly occurred while processing {os.path.basename(old_path)} for renaming: {e}")
+            print_error(f"An unexpected anomaly occurred while processing {os.path.basename(old_path)} for renaming: {e}. Retaining original path.") # Retained scrapey.py's wording
+            if os.path.exists(old_path):
+                 final_paths_after_rename.append(old_path)
 
-    if renamed_paths:
-        print_success(f"Successfully processed {len(renamed_paths)} files for renaming (check warnings for minor disturbances).")
-    else:
-        print_warning("No files were successfully renamed in this ritual phase.")
-    return renamed_paths
+    if final_paths_after_rename:
+        print_success(f"Successfully processed {len(final_paths_after_rename)} files for renaming. Actual transformations: {actual_renames_count}.") # Harmonized log message
+    elif file_paths:
+        print_warning("No files were successfully processed for renaming (e.g., all source files missing).")
+
+    return final_paths_after_rename
 
 
 def apply_filters(**kwargs: str | None) -> str:
@@ -310,12 +349,22 @@ def apply_filters(**kwargs: str | None) -> str:
 
     for key, value in kwargs.items():
         if value and value.strip():
-            formatted_value = value.strip().capitalize() # Capitalize for Bing's preference
-            # Specific adjustments for certain filter values if Bing is particular
-            if key == "color" and formatted_value.lower() == "monochrome":
-                formatted_value = "Monochrome"
-            elif key == "color" and formatted_value.lower() == "coloronly":
-                 formatted_value = "ColorOnly"
+            formatted_value = value.strip()
+            # Apply specific formatting as per bimgx.py's logic for better compatibility
+            if key == "color":
+                if formatted_value.lower() == "coloronly": formatted_value = "ColorOnly"
+                elif formatted_value.lower() == "monochrome": formatted_value = "Monochrome"
+                else: formatted_value = formatted_value.capitalize() # Default for other colors
+            elif key in ["size", "type", "layout", "people", "date", "license"]:
+                 # Most Bing filters capitalize the value (e.g. Size:Large, Type:Photo)
+                 formatted_value = formatted_value.capitalize()
+            # For other keys not explicitly handled, use capitalized value if that's a general good default,
+            # or pass as is if Bing is inconsistent. Current scrapey capitalized all.
+            # Sticking to bimgx.py's explicit list for capitalization. Other filters, if any, pass value as is (or capitalized by default).
+            # The current filter_map only includes keys that bimgx.py capitalizes, so this is fine.
+            else: # For any other filter keys that might be added to filter_map later
+                formatted_value = formatted_value.capitalize()
+
 
             if template := filter_map.get(key):
                 filters.append(template.format(formatted_value))
@@ -342,8 +391,9 @@ def download_images_with_bing(
         # Weaving the site filter into the query string
         effective_query += f" site:{site_filter}"
 
-    # The downloader creates a sub-chamber named after the raw 'query' within the base directory.
-    query_based_subdir_name = query
+    # The downloader creates a sub-chamber named after the 'query' argument given to it.
+    # This will be 'effective_query' if a site_filter is applied.
+    query_based_subdir_name = effective_query # Use effective_query here
     query_specific_output_dir = os.path.join(output_dir_base, query_based_subdir_name)
 
     downloaded_files: List[str] = []
@@ -465,7 +515,8 @@ def get_local_file_metadata(file_path: str, query_based_subdir_name: str) -> Dic
         elif not PIL_AVAILABLE:
             err_msg = "Pillow library not installed. Advanced image properties (dimensions, format, etc.) will remain a mystery."
             metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata['error'] else err_msg
-            print_warning("Pillow library not found. Image dimensions and other properties will not be extracted. Install it using: pip install Pillow")
+            # This warning is better placed where it's called once, e.g. in extract_metadata_parallel or main
+            # print_warning("Pillow library not found. Image dimensions and other properties will not be extracted. Install it using: pip install Pillow")
 
     except OSError as e:
         err_msg = f"OS error accessing file: {e}"
@@ -497,7 +548,7 @@ def extract_metadata_parallel(image_paths: List[str], query_based_subdir_name: s
         futures = {executor.submit(get_local_file_metadata, path, query_based_subdir_name): path for path in image_paths}
 
         # Processing results as they emerge from the ether with a progress sigil
-        for future in tqdm(futures, total=len(image_paths), desc=Fore.BLUE + "📄 Extracting Metadata", unit="file", ncols=100, leave=False):
+        for future in tqdm(futures.keys(), total=len(image_paths), desc=Fore.BLUE + "📄 Extracting Metadata", unit="file", ncols=100, leave=False): # Changed from futures.keys()
             original_path = futures[future]
             try:
                 result = future.result()
@@ -525,11 +576,11 @@ def save_metadata(metadata_list: List[Dict[str, Any]], output_dir_base: str, que
         print_warning("No metadata collected to inscribe.")
         return False
 
-    sanitized_query = sanitize_filename(query)
-    if not sanitized_query:
-        sanitized_query = "unknown_query"
+    sanitized_query_for_filename = sanitize_filename(query) # Changed variable name for clarity
+    if not sanitized_query_for_filename:
+        sanitized_query_for_filename = "unknown_query"
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    metadata_filename = f"{METADATA_FILENAME_PREFIX}{sanitized_query}_{timestamp}.json"
+    metadata_filename = f"{METADATA_FILENAME_PREFIX}{sanitized_query_for_filename}_{timestamp}.json"
     metadata_file_path = os.path.join(output_dir_base, metadata_filename)
 
     print_info(f"Attempting to inscribe metadata to: {metadata_file_path}")
@@ -561,12 +612,19 @@ def generate_master_manifest(output_dir_base: str) -> None:
 
     if not metadata_files_found:
         print_warning(f"No individual metadata JSON scrolls found in '{output_dir_base}'. The Master Manifest will be empty.")
+        # It's good practice to still write an empty list to the master manifest if it's expected by the viewer
+        # master_manifest_path = os.path.join(output_dir_base, MASTER_MANIFEST_FILENAME)
+        # try:
+        #     with open(master_manifest_path, "w", encoding='utf-8') as f:
+        #         json.dump([], f, indent=4, ensure_ascii=False)
+        #     print_info(f"Empty Master Manifest forged at: {master_manifest_path}")
+        # except Exception as e:
+        #     print_error(f"Failed to forge empty master manifest: {e}")
         return
+
 
     print_info(f"Discovered {len(metadata_files_found)} individual metadata scrolls to merge.")
 
-    # Use a set to track unique file paths to avoid duplicates in the master manifest
-    # This can happen if scrapey.py is run multiple times for the same query
     unique_entries: Dict[str, Dict[str, Any]] = {}
 
     for meta_file_path in tqdm(metadata_files_found, desc=Fore.BLUE + "Merging Metadata Scrolls", unit="file", ncols=100, leave=False):
@@ -575,12 +633,14 @@ def generate_master_manifest(output_dir_base: str) -> None:
                 data = json.load(f)
                 if isinstance(data, list):
                     for entry in data:
-                        # Use a unique identifier for each image, e.g., its full relative path
-                        # Assuming 'file_path' is unique and relative to the base output dir
-                        if 'file_path' in entry:
-                            # Normalize path for consistent keys (e.g., replace backslashes on Windows)
-                            normalized_path = os.path.normpath(entry['file_path'])
-                            unique_entries[normalized_path] = entry
+                        if 'file_path' in entry and entry.get('filename'): # Ensure essential keys are present
+                            # Create a more robust unique key, e.g. combining folder and filename
+                            # This helps if filenames are not unique across different query folders
+                            unique_key = os.path.join(entry.get('query_based_subdir_name', 'unknown_folder'), entry['filename'])
+                            normalized_key = os.path.normpath(unique_key)
+                            unique_entries[normalized_key] = entry
+                        else:
+                            logger.debug(f"Skipping entry in {os.path.basename(meta_file_path)} due to missing 'file_path' or 'filename'. Entry: {entry}")
                 else:
                     print_warning(f"Skipping malformed metadata scroll (not a list): {os.path.basename(meta_file_path)}")
         except json.JSONDecodeError as e:
@@ -589,6 +649,9 @@ def generate_master_manifest(output_dir_base: str) -> None:
             print_error(f"An unexpected error occurred while reading {os.path.basename(meta_file_path)}: {e}")
 
     master_manifest_data = list(unique_entries.values())
+    # Sort master manifest for consistency, e.g., by file path or query folder then filename
+    master_manifest_data.sort(key=lambda x: (x.get('query_based_subdir_name', ''), x.get('filename', '')))
+
 
     master_manifest_path = os.path.join(output_dir_base, MASTER_MANIFEST_FILENAME)
 
@@ -704,7 +767,7 @@ def main() -> None:
         timeout: int = user_inputs["timeout"]
         adult_filter_off: bool = user_inputs["adult_filter_off"]
         filters_dict: Dict[str, str] = user_inputs["filters"]
-        site_filter: Optional[str] = user_inputs["site_filter"]
+        site_filter: Optional[str] = user_inputs["site_filter"] or None # Ensure None if empty string
 
         # Ensuring the base manifestation chamber exists *before* scrying
         if not create_directory(output_dir_base):
@@ -727,63 +790,80 @@ def main() -> None:
             generate_master_manifest(output_dir_base) # Still attempt to update the grand ledger
             return
 
-        # The downloader creates a sub-chamber based on the raw query.
-        query_based_subdir_name_for_metadata = query
+        effective_query_for_subdir = query # Determine the subdir name used by downloader
+        if site_filter:
+            effective_query_for_subdir += f" site:{site_filter}"
+        query_based_subdir_name_for_metadata = effective_query_for_subdir
+
 
         # --- Renaming Ritual ---
         # The renaming happens in-place, transforming the filenames.
-        renamed_paths = rename_files(downloaded_file_paths, query)
+        renamed_paths = rename_files(downloaded_file_paths, query) # base_query for renaming prefix should be the original query
 
-        # Deciding which paths to use for metadata extraction
-        if not renamed_paths:
-            print_warning("Renaming ritual failed or yielded no results. Attempting metadata extraction on original downloaded paths.")
-            paths_for_metadata = downloaded_file_paths
-        else:
-            paths_for_metadata = renamed_paths
+        # renamed_paths from the new rename_files function contains final paths of successfully processed files
+        paths_for_metadata = renamed_paths # Directly use the result
+
+        # Fallback logic similar to bimgx.py, if rename_files returns empty but there were downloads
+        if not paths_for_metadata and downloaded_file_paths:
+            print_warning("Renaming ritual yielded no usable file paths. "
+                          "Attempting metadata extraction on original downloaded paths if they still exist.")
+            paths_for_metadata = [p for p in downloaded_file_paths if os.path.exists(p) and os.path.isfile(p)]
+
 
         # --- Extracting Metadata ---
         metadata = []
         if paths_for_metadata:
+             # Pass the actual subdirectory name where files are located for metadata record
              metadata = extract_metadata_parallel(paths_for_metadata, query_based_subdir_name_for_metadata)
         else:
             print_warning("No valid file paths remained after scrying/renaming to extract metadata from.")
 
         # --- Inscribing Metadata ---
         if metadata:
-            save_metadata(metadata, output_dir_base, query)
-        else:
-            print_warning("No metadata was generated for inscription.")
+            save_metadata(metadata, output_dir_base, query) # query for metadata filename should be original query
+        elif paths_for_metadata: # files existed, but metadata extraction yielded nothing (e.g. all failed)
+            print_warning("Metadata extraction failed for all processed files or yielded no data.")
+        else: # No paths_for_metadata, so metadata list is also empty
+            print_warning("No metadata was generated for inscription as no files were available.")
+
 
         # --- Forging the Master Manifest (The Grand Ledger) ---
         generate_master_manifest(output_dir_base)
 
         # --- Final Revelation: Summary of the Ritual ---
         print_header("📊 Revelation Summary")
-        total_downloaded = len(downloaded_file_paths)
-        total_renamed = len(renamed_paths)
+        total_initial_downloads = len(downloaded_file_paths) # Renamed from total_downloaded
+        total_accounted_for_after_rename = len(paths_for_metadata) # Renamed from total_renamed (as paths_for_metadata is the list after rename logic)
         total_metadata_extracted = len(metadata)
         errors_in_metadata = sum(1 for item in metadata if item.get("error"))
 
-        print_info(f"Initial manifestations found after scrying: {total_downloaded}")
-        print_info(f"Manifestations successfully processed for renaming: {total_renamed}")
+        print_info(f"Initial manifestations found after scrying: {total_initial_downloads}")
+        # This reflects files that were confirmed to exist and were processed by rename_files (renamed or kept original name).
+        print_info(f"Files accounted for after renaming attempt: {total_accounted_for_after_rename}")
         print_info(f"Metadata records inscribed: {total_metadata_extracted}")
+
         if errors_in_metadata > 0:
-            print_warning(f"Encountered errors during metadata extraction for {errors_in_metadata} manifestation(s). Consult the individual scroll: '{METADATA_FILENAME_PREFIX}{sanitize_filename(query)}_*.json'.")
+            metadata_file_name_part = f"{METADATA_FILENAME_PREFIX}{sanitize_filename(query)}" # Use original query for metadata file name
+            print_warning(f"Encountered errors during metadata extraction for {errors_in_metadata} manifestation(s). "
+                          f"Consult the individual scroll: '{metadata_file_name_part}_*.json'.")
 
         if metadata:
-            print_info("First few metadata revelations:")
+            print_info("First few metadata revelations (up to 5):") # Changed wording
             for item in metadata[:min(5, len(metadata))]:
                 size_str = f"{item.get('file_size_bytes', 'N/A')} bytes"
                 dim_str = item.get('dimensions', 'N/A')
                 format_str = item.get('format', 'N/A')
                 mode_str = item.get('mode', 'N/A')
-                frames_str = f"Frames: {item['frame_count']}" if item.get('is_animated') else ""
-                error_str = f"{Fore.RED}(Error: {item['error']}){Style.RESET_ALL}" if item.get("error") else ""
-                print(f"  - {Fore.MAGENTA}{item['filename']}{Style.RESET_ALL}: Dims: {dim_str}, Format: {format_str}, Mode: {mode_str} {frames_str} {error_str}")
+                frames_str = f", Frames: {item['frame_count']}" if item.get('is_animated') else "" # Adjusted formatting
+                error_str = f" {Fore.RED}(Error: {item['error']}){Style.RESET_ALL}" if item.get("error") else ""
+                print(f"  - {Fore.MAGENTA}{item.get('filename', 'N/A')}{Style.RESET_ALL}: Dims: {dim_str}, Format: {format_str}, Mode: {mode_str}{frames_str}{error_str}")
             if len(metadata) > 5:
-                print(f"  ... and {len(metadata) - 5} more secrets.")
+                print(f"  ... and {len(metadata) - 5} more secrets in the JSON scroll.") # Changed wording
+        elif total_accounted_for_after_rename > 0: # Files were there, but metadata list is empty
+             print_warning("No metadata was extracted, though files were present after renaming.")
         else:
-            print_warning("No metadata was extracted or inscribed.")
+            print_warning("No metadata to display as no files were processed for metadata.")
+
 
         end_time = datetime.now()
         duration = end_time - start_time
@@ -791,22 +871,27 @@ def main() -> None:
 
     except KeyboardInterrupt:
         print_error("\nOperation cancelled by the seeker's will (Ctrl+C detected). The ritual is halted.")
-        sys.exit(1)
+        sys.exit(130) # Standard exit code for SIGINT
     except Exception as e:
         print_error(f"\nAn unexpected critical anomaly occurred during the ritual: {e}")
-        logger.exception("Unhandled exception trace:")
+        logger.exception("Unhandled exception trace:") # Log full traceback
         sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
 EOF
-echo -e "${GREEN}The 'scrapey.py' enhanced scrying script has been forged!${NC}"
+    echo -e "${GREEN}The 'scrapey.py' script has been forged!${NC}"
+fi
 echo
 
 # 5. Crafting image_viewer.html, the Scrying Pool
-print_header "Crafting 'image_viewer.html', the Enhanced Scrying Pool"
-cat << 'EOF' > image_viewer.html
+print_header "Checking for 'image_viewer.html', the Enhanced Scrying Pool"
+if [ -f "image_viewer.html" ]; then
+    echo -e "${YELLOW}INFO: 'image_viewer.html' already exists. Skipping creation.${NC}"
+else
+    echo -e "${BLUE}Crafting 'image_viewer.html', the Enhanced Scrying Pool...${NC}"
+    cat << 'EOF' > image_viewer.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1327,12 +1412,13 @@ cat << 'EOF' > image_viewer.html
 </body>
 </html>
 EOF
-echo -e "${GREEN}The 'image_viewer.html' enhanced scrying pool has been crafted!${NC}"
+    echo -e "${GREEN}The 'image_viewer.html' has been crafted!${NC}"
+fi
 echo
 
 print_header "Setup Ritual Complete!"
 echo -e "${GREEN}All components for your Enhanced Bing Image Scrying and Viewing system are now in place.${NC}"
-echo -e "${MAGENTA}To summon images, invoke the scrying script:${NC}"
+echo -e "${MAGENTA}To summon images, invoke the scrying script (ensure 'requirements.txt' is present):${NC}"
 echo -e "${CYAN}  python scrapey.py${NC}"
 echo
 echo -e "${MAGENTA}To view your manifested images in the enhanced scrying pool:${NC}"

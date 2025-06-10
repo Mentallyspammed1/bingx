@@ -319,13 +319,13 @@
             <div class="relative mb-4 sm:mb-0">
                 <label for="driverSelect" class="sr-only">Search Provider</label>
                 <select id="driverSelect" aria-label="Select Search Provider" class="select-neon w-full sm:w-auto">
-                    <option value="Pornhub">Pornhub</option>
+                    <option value="Pornhub" selected>Pornhub</option>
                     <option value="Xvideos">XVideos</option>
-                    <option value="Redtube" selected>Redtube</option>
-                    <!-- Add other drivers from your config.json/customScrapersMap here -->
-                    <!-- <option value="Sex">Sex.com</option> -->
-                    <!-- <option value="Xhamster">Xhamster</option> -->
-                    <!-- <option value="Youporn">Youporn</option> -->
+                    <option value="Redtube">Redtube</option>
+                    <option value="Xhamster">Xhamster</option>
+                    <option value="SexCom">SexCom</option>
+                    <option value="YouPorn">YouPorn</option>
+                    <option value="Motherless">Motherless</option>
                     <option value="mock">Mock (Test)</option>
                 </select>
             </div>
@@ -447,9 +447,13 @@
             staticThumbImg.alt = ''; // Decorative
             staticThumbImg.loading = 'lazy';
             staticThumbImg.className = 'static-thumb';
-            staticThumbImg.onerror = () => {
-                log.warn(`Static thumbnail load failed: ${staticThumbnailUrl} for "${item.title}". Using placeholder.`);
-                staticThumbImg.src = PLACEHOLDER_GIF_DATA_URI;
+            staticThumbImg.onerror = function() { // Use 'function' for 'this' to refer to the element if needed, or pass item explicitly
+                log.warn(`Static Thumbnail Load Failed:
+            - URL: ${this.src}
+            - Title: ${item.title || 'N/A'}
+            - Source: ${item.source || 'N/A'}
+            - Item Type: ${itemActualType}`);
+                this.src = PLACEHOLDER_GIF_DATA_URI; // Fallback
                 if (!animatedPreviewUrl && !mediaContainer.querySelector('.media-error-placeholder')) {
                     renderMediaErrorPlaceholder(mediaContainer, 'Thumb Error');
                 }
@@ -464,7 +468,13 @@
                     gifPreviewImg.alt = ''; // Decorative
                     gifPreviewImg.loading = 'lazy';
                     gifPreviewImg.className = 'preview-gif-image';
-                    gifPreviewImg.onerror = () => { log.warn(`Animated GIF preview load failed: ${animatedPreviewUrl}`); gifPreviewImg.remove(); };
+                    gifPreviewImg.onerror = function() {
+                        log.warn(`Animated GIF Preview Load Failed:
+            - URL: ${this.src}
+            - Title: ${item.title || 'N/A'}
+            - Source: ${item.source || 'N/A'}`);
+                        this.remove(); // Keep existing behavior of removing the element
+                    };
                     mediaContainer.appendChild(gifPreviewImg);
                 } else if (!isDirectGifPreview && itemActualType === 'videos') { // Only use <video> for video type if preview is not .gif
                     const videoPreviewEl = document.createElement('video');
@@ -472,7 +482,24 @@
                     videoPreviewEl.poster = staticThumbnailUrl;
                     videoPreviewEl.muted = true; videoPreviewEl.loop = true; videoPreviewEl.playsInline = true; videoPreviewEl.preload = 'metadata';
                     videoPreviewEl.className = 'preview-video';
-                    videoPreviewEl.onerror = (e) => { log.warn(`Preview video load failed: ${animatedPreviewUrl}`, e); videoPreviewEl.remove(); };
+                    videoPreviewEl.addEventListener('error', function(e) {
+                        let errorText = 'Unknown error';
+                        if (this.error) {
+                            switch (this.error.code) {
+                                case MediaError.MEDIA_ERR_ABORTED: errorText = 'Aborted by user'; break;
+                                case MediaError.MEDIA_ERR_NETWORK: errorText = 'Network error'; break;
+                                case MediaError.MEDIA_ERR_DECODE: errorText = 'Decode error'; break;
+                                case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: errorText = 'Source not supported/found'; break;
+                                default: errorText = `Code ${this.error.code}`;
+                            }
+                        }
+                        log.warn(`Preview Video Load Failed:
+            - URL: ${this.src}
+            - Title: ${item.title || 'N/A'}
+            - Source: ${item.source || 'N/A'}
+            - Error: ${errorText}`, e);
+                        this.remove(); // Keep existing behavior
+                    });
                     mediaContainer.appendChild(videoPreviewEl);
                 } else {
                      log.warn(`Preview URL ${animatedPreviewUrl} type does not match item type ${itemActualType} or is not a recognized video format. Static thumb will be shown.`);
@@ -528,13 +555,39 @@
                     mediaElement = document.createElement('video');
                     mediaElement.src = mediaSourceUrl;
                     mediaElement.controls = true; mediaElement.autoplay = true; mediaElement.loop = false;
+                    mediaElement.addEventListener('error', function(e) {
+                        let errorText = 'Unknown error';
+                        if (this.error) {
+                            switch (this.error.code) {
+                                case MediaError.MEDIA_ERR_ABORTED: errorText = 'Aborted by user'; break;
+                                case MediaError.MEDIA_ERR_NETWORK: errorText = 'Network error'; break;
+                                case MediaError.MEDIA_ERR_DECODE: errorText = 'Decode error'; break;
+                                case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: errorText = 'Source not supported/found'; break;
+                                default: errorText = `Code ${this.error.code}`;
+                            }
+                        }
+                        log.warn(`Modal Video Load Failed:
+            - URL: ${this.src}
+            - Title: ${titleText || 'N/A'}
+            - Original Item Source: ${itemData.source || 'N/A'}
+            - Error: ${errorText}`, e);
+                        renderMediaErrorPlaceholder(modalContent, 'Error loading video in modal.');
+                    });
                 } else {
                     mediaElement = document.createElement('img');
                     mediaElement.src = mediaSourceUrl; mediaElement.alt = titleText;
+                    mediaElement.onerror = function() {
+                        log.warn(`Modal Image Load Failed:
+            - URL: ${this.src}
+            - Title: ${titleText || 'N/A'}
+            - Original Item Source: ${itemData.source || 'N/A'}`);
+                        renderMediaErrorPlaceholder(modalContent, 'Error loading image in modal.');
+                    };
                 }
                 mediaElement.style.maxHeight = 'calc(95vh - 100px)';
                 mediaElement.style.maxWidth = '100%';
-                mediaElement.onerror = () => renderMediaErrorPlaceholder(modalContent, 'Error loading media in modal.');
+                // Note: video 'onerror' is an event listener, img 'onerror' is a property.
+                // The generic appendChild will work for both.
                 modalContent.appendChild(mediaElement);
             }
 

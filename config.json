@@ -1,0 +1,10 @@
+{
+  "defaultStrategy": "custom",
+  "siteOverrides": {
+    "exampleSite": "pornsearch"
+  },
+  "customScrapersMap": {
+    "pornhub": "./modules/custom_scrapers/pornhubScraper.js",
+    "xvideos": "./modules/custom_scrapers/xvideosScraper.js"
+  }
+}

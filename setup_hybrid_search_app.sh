@@ -111,10 +111,12 @@ cat << 'EOF' > config.json
   },
   "customScrapersMap": {
     "Pornhub": "./modules/custom_scrapers/pornhubScraper.js",
-    "Xvideos": "./modules/custom_scrapers/xvideosScraper.js"
-    // "SexCom": "./modules/custom_scrapers/sexComScraper.js",
-    // "Youporn": "./modules/custom_scrapers/youpornScraper.js",
-    // "Xhamster": "./modules/custom_scrapers/xhamsterScraper.js"
+    "Xvideos": "./modules/custom_scrapers/xvideosScraper.js",
+    "SexCom": "./modules/custom_scrapers/sexComScraper.js",
+    "Youporn": "./modules/custom_scrapers/youpornScraper.js",
+    "Xhamster": "./modules/custom_scrapers/xhamsterScraper.js",
+    "Motherless": "./modules/custom_scrapers/motherlessScraper.js",
+    "Redtube": "./modules/custom_scrapers/redtubeScraper.js"
   }
 }
 EOF
@@ -632,6 +634,43 @@ class XhamsterScraper extends AbstractModule.with(VideoMixin, GifMixin) {
 }
 module.exports = XhamsterScraper;
 EOF
+
+cat << 'EOF' > modules/custom_scrapers/motherlessScraper.js
+// Placeholder for Motherless custom scraper
+const AbstractModule = require('../../core/AbstractModule');
+const VideoMixin = require('../../core/VideoMixin');
+const GifMixin = require('../../core/GifMixin'); // Or just VideoMixin if GIFs are not distinct
+const log = require('../../core/log').child({ module: 'MotherlessScraper' }); // Basic log setup
+
+class MotherlessScraper extends AbstractModule.with(VideoMixin, GifMixin) { // Adjust mixins as needed
+    constructor(options) { super(options); this.baseUrl = 'https://motherless.com'; log.info('MotherlessScraper instantiated'); }
+    get name() { return 'Motherless'; }
+    videoUrl(query, page) { log.warn('Motherless videoUrl not implemented'); return `\${this.baseUrl}/term/videos/\${encodeURIComponent(query)}?page=\${page}`; } // Example URL
+    async videoParser($, rawData) { log.warn('Motherless videoParser not implemented'); return [{title:'Motherless Video Scraper Not Implemented Yet', source: this.name}]; }
+    gifUrl(query, page) { log.warn('Motherless gifUrl not implemented'); return `\${this.baseUrl}/term/images/\${encodeURIComponent(query)}?page=\${page}`; } // Example URL for images/gifs
+    async gifParser($, rawData) { log.warn('Motherless gifParser not implemented'); return [{title:'Motherless GIF Scraper Not Implemented Yet', source: this.name}]; }
+}
+module.exports = MotherlessScraper;
+EOF
+
+cat << 'EOF' > modules/custom_scrapers/redtubeScraper.js
+// Placeholder for Redtube custom scraper
+const AbstractModule = require('../../core/AbstractModule');
+const VideoMixin = require('../../core/VideoMixin');
+// const GifMixin = require('../../core/GifMixin'); // Likely not needed for Redtube
+const log = require('../../core/log').child({ module: 'RedtubeScraper' }); // Basic log setup
+
+class RedtubeScraper extends AbstractModule.with(VideoMixin) {
+    constructor(options) { super(options); this.baseUrl = 'https://www.redtube.com'; log.info('RedtubeScraper instantiated'); }
+    get name() { return 'Redtube'; }
+    videoUrl(query, page) { log.warn('Redtube videoUrl not implemented'); return `\${this.baseUrl}/?search=\${encodeURIComponent(query)}&page=\${page}`; } // Example URL
+    async videoParser($, rawData) { log.warn('Redtube videoParser not implemented'); return [{title:'Redtube Video Scraper Not Implemented Yet', source: this.name}]; }
+    gifUrl(query, page) { log.warn('Redtube gifUrl not implemented - site is video focused'); return ''; }
+    async gifParser($, rawData) { log.warn('Redtube gifParser not implemented - site is video focused'); return []; }
+}
+module.exports = RedtubeScraper;
+EOF
+
 success "Custom scraper modules created."
 
 # --- Generate server.js ---

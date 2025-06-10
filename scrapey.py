@@ -129,77 +129,103 @@ def create_directory(path: str) -> bool:
 
 
 def rename_files(file_paths: List[str], base_query: str) -> List[str]:
-    """Renames downloaded files sequentially, imbuing them with a query-based prefix."""
-    renamed_paths: List[str] = []
+    """Renames downloaded files sequentially with a sanitized query prefix.
+    Returns a list of final paths for files that were processed.
+    If a file is renamed, its new path is in the list.
+    If renaming failed or was skipped for an existing file, its original path is in the list.
+    Files from input that were not found or were not files are skipped and not in the output list.
+    (Adopted from bimgx.py for robustness)
+    """
+    final_paths_after_rename: List[str] = []
     if not file_paths:
-        print_warning("No file paths provided for the renaming ritual.")
+        print_warning("No file paths provided for the renaming ritual.") # Retained scrapey.py's wording
         return []
 
     sanitized_query = sanitize_filename(base_query)
     if not sanitized_query:
-        sanitized_query = "image"  # Fallback if the query is too ethereal
-        print_warning(f"Query '{base_query}' yielded an empty name, using fallback 'image'.")
+        sanitized_query = "image"  # Fallback base name
+        print_warning(f"Query '{base_query}' sanitized to empty string, using fallback 'image'.")
 
-    # Ascertaining the sacred directory from the first path
-    if not os.path.dirname(file_paths[0]):
-         print_error("Cannot discern the directory for renaming files.")
+    first_valid_dir = next((os.path.dirname(p) for p in file_paths if p), None)
+    if first_valid_dir is None and file_paths:
+         print_error("Cannot discern the directory for renaming files. All paths are invalid.") # Retained scrapey.py's wording
+         return list(file_paths)
+    elif first_valid_dir is None and not file_paths:
          return []
-    dir_name = os.path.dirname(file_paths[0])
 
-    print_info(f"Imbuing {len(file_paths)} files in '{dir_name}' with the prefix '{sanitized_query}'...")
+    dir_name = first_valid_dir if first_valid_dir is not None else "."
 
-    file_paths.sort()  # For consistent ordering in the renaming sequence
+    print_info(f"Imbuing {len(file_paths)} files in '{dir_name}' with the prefix '{sanitized_query}'...") # Retained scrapey.py's wording
+
+    sorted_file_paths = sorted(file_paths) # bimgx.py sorts for consistency
+
+    actual_renames_count = 0
 
     for idx, old_path in enumerate(
-        tqdm(file_paths, desc=Fore.BLUE + "🔄 Renaming Files", unit="file", ncols=100, leave=False), start=1
+        tqdm(sorted_file_paths, desc=Fore.BLUE + "🔄 Renaming Files", unit="file", ncols=100, leave=False), start=1 # Retained scrapey.py's tqdm desc
     ):
+        current_file_final_path = old_path
+
         try:
             if not os.path.exists(old_path):
-                print_warning(f"File not found for renaming (already transformed or vanished?): {old_path}")
+                print_warning(f"File not found for renaming (already transformed or vanished?): {old_path}") # Retained scrapey.py's wording
                 continue
             if not os.path.isfile(old_path):
-                 print_warning(f"Path is not a tangible file, skipping rename: {old_path}")
+                 print_warning(f"Path is not a tangible file, skipping rename: {old_path}") # Retained scrapey.py's wording
                  continue
 
             _, ext = os.path.splitext(old_path)
-            # Crafting the new name within the same sacred directory
-            new_name = f"{sanitized_query}_{idx}{ext}"
-            new_path = os.path.join(dir_name, new_name)
+            new_base_name = f"{sanitized_query}_{idx}"
+            new_filename = f"{new_base_name}{ext}"
+            potential_new_path = os.path.join(dir_name, new_filename)
 
-            # Addressing potential name collisions (a rare but possible anomaly)
-            counter = 1
-            while os.path.exists(new_path):
-                # If it's the same file, no actual collision, just a redundant rename
-                if os.path.samefile(old_path, new_path):
-                    logger.debug(f"Skipping rename for {os.path.basename(old_path)} as target name is identical.")
-                    renamed_paths.append(old_path)  # Keep its track
-                    break  # Break the collision loop for this file
+            target_path_for_rename = potential_new_path
+            collision_counter = 1
 
-                # If a different file exists, append a counter sigil
-                new_name = f"{sanitized_query}_{idx}_{counter}{ext}"
-                new_path = os.path.join(dir_name, new_name)
-                counter += 1
-                if counter > 100:  # A safety ward against infinite loops
-                    print_error(f"Could not find a unique name for {os.path.basename(old_path)} after 100 attempts. Skipping.")
-                    new_path = None  # Mark as failed
-                    break
-            else:  # This block executes if no 'break' occurred in the while loop
+            while os.path.exists(target_path_for_rename):
                 try:
-                    os.rename(old_path, new_path)
-                    renamed_paths.append(new_path)
+                    if os.path.samefile(old_path, target_path_for_rename):
+                        logger.debug(f"Skipping rename for {os.path.basename(old_path)} as target name '{os.path.basename(target_path_for_rename)}' is identical and points to the same file.")
+                        target_path_for_rename = old_path
+                        break
+                except FileNotFoundError:
+                    print_warning(f"File not found during samefile check: {old_path} or {target_path_for_rename}")
+                    target_path_for_rename = old_path
+                    break
+
+                new_filename = f"{new_base_name}_{collision_counter}{ext}"
+                target_path_for_rename = os.path.join(dir_name, new_filename)
+                collision_counter += 1
+                if collision_counter > 100:
+                    print_error(f"Could not find a unique name for {os.path.basename(old_path)} after 100 attempts. Skipping rename for this file.")
+                    target_path_for_rename = old_path
+                    break
+
+            if old_path == target_path_for_rename:
+                pass
+            else:
+                try:
+                    os.rename(old_path, target_path_for_rename)
+                    current_file_final_path = target_path_for_rename
+                    actual_renames_count +=1
                 except OSError as e:
-                    print_error(f"Error transforming {os.path.basename(old_path)} to {os.path.basename(new_path)}: {e}")
+                    print_error(f"Error transforming {os.path.basename(old_path)} to {os.path.basename(target_path_for_rename)}: {e}") # Retained scrapey.py's wording for error
                 except Exception as e:
-                    print_error(f"An unforeseen error occurred during renaming {os.path.basename(old_path)}: {e}")
+                    print_error(f"An unforeseen error occurred during renaming {os.path.basename(old_path)} to {os.path.basename(target_path_for_rename)}: {e}") # Retained scrapey.py's wording
+
+            final_paths_after_rename.append(current_file_final_path)
 
         except Exception as e:
-            print_error(f"An unexpected anomaly occurred while processing {os.path.basename(old_path)} for renaming: {e}")
+            print_error(f"An unexpected anomaly occurred while processing {os.path.basename(old_path)} for renaming: {e}. Retaining original path.") # Retained scrapey.py's wording
+            if os.path.exists(old_path):
+                 final_paths_after_rename.append(old_path)
 
-    if renamed_paths:
-        print_success(f"Successfully processed {len(renamed_paths)} files for renaming (check warnings for minor disturbances).")
-    else:
-        print_warning("No files were successfully renamed in this ritual phase.")
-    return renamed_paths
+    if final_paths_after_rename:
+        print_success(f"Successfully processed {len(final_paths_after_rename)} files for renaming. Actual transformations: {actual_renames_count}.") # Harmonized log message
+    elif file_paths:
+        print_warning("No files were successfully processed for renaming (e.g., all source files missing).")
+
+    return final_paths_after_rename
 
 
 def apply_filters(**kwargs: str | None) -> str:
@@ -218,12 +244,22 @@ def apply_filters(**kwargs: str | None) -> str:
 
     for key, value in kwargs.items():
         if value and value.strip():
-            formatted_value = value.strip().capitalize() # Capitalize for Bing's preference
-            # Specific adjustments for certain filter values if Bing is particular
-            if key == "color" and formatted_value.lower() == "monochrome":
-                formatted_value = "Monochrome"
-            elif key == "color" and formatted_value.lower() == "coloronly":
-                 formatted_value = "ColorOnly"
+            formatted_value = value.strip()
+            # Apply specific formatting as per bimgx.py's logic for better compatibility
+            if key == "color":
+                if formatted_value.lower() == "coloronly": formatted_value = "ColorOnly"
+                elif formatted_value.lower() == "monochrome": formatted_value = "Monochrome"
+                else: formatted_value = formatted_value.capitalize() # Default for other colors
+            elif key in ["size", "type", "layout", "people", "date", "license"]:
+                 # Most Bing filters capitalize the value (e.g. Size:Large, Type:Photo)
+                 formatted_value = formatted_value.capitalize()
+            # For other keys not explicitly handled, use capitalized value if that's a general good default,
+            # or pass as is if Bing is inconsistent. Current scrapey capitalized all.
+            # Sticking to bimgx.py's explicit list for capitalization. Other filters, if any, pass value as is (or capitalized by default).
+            # The current filter_map only includes keys that bimgx.py capitalizes, so this is fine.
+            else: # For any other filter keys that might be added to filter_map later
+                formatted_value = formatted_value.capitalize()
+
 
             if template := filter_map.get(key):
                 filters.append(template.format(formatted_value))
@@ -250,8 +286,9 @@ def download_images_with_bing(
         # Weaving the site filter into the query string
         effective_query += f" site:{site_filter}"
 
-    # The downloader creates a sub-chamber named after the raw 'query' within the base directory.
-    query_based_subdir_name = query
+    # The downloader creates a sub-chamber named after the 'query' argument given to it.
+    # This will be 'effective_query' if a site_filter is applied.
+    query_based_subdir_name = effective_query # Use effective_query here
     query_specific_output_dir = os.path.join(output_dir_base, query_based_subdir_name)
 
     downloaded_files: List[str] = []
@@ -635,19 +672,27 @@ def main() -> None:
             generate_master_manifest(output_dir_base) # Still attempt to update the grand ledger
             return
 
-        # The downloader creates a sub-chamber based on the raw query.
-        query_based_subdir_name_for_metadata = query
+        # The downloader creates a sub-chamber based on effective_query (if site filter used) or query.
+        # This name is needed for metadata and locating files.
+        effective_query_for_subdir = query
+        if site_filter:
+            effective_query_for_subdir += f" site:{site_filter}"
+        query_based_subdir_name_for_metadata = effective_query_for_subdir
 
         # --- Renaming Ritual ---
         # The renaming happens in-place, transforming the filenames.
         renamed_paths = rename_files(downloaded_file_paths, query)
 
-        # Deciding which paths to use for metadata extraction
-        if not renamed_paths:
-            print_warning("Renaming ritual failed or yielded no results. Attempting metadata extraction on original downloaded paths.")
-            paths_for_metadata = downloaded_file_paths
-        else:
-            paths_for_metadata = renamed_paths
+        # renamed_paths from the new rename_files function contains final paths of successfully processed files
+        # (either new name or original name if rename failed/skipped but file exists).
+        # It will be shorter than downloaded_file_paths if some files disappeared before renaming.
+        paths_for_metadata = renamed_paths # Directly use the result
+
+        # Fallback logic similar to bimgx.py, if rename_files returns empty but there were downloads
+        if not paths_for_metadata and downloaded_file_paths:
+            print_warning("Renaming ritual yielded no usable file paths. "
+                          "Attempting metadata extraction on original downloaded paths if they still exist.")
+            paths_for_metadata = [p for p in downloaded_file_paths if os.path.exists(p) and os.path.isfile(p)]
 
         # --- Extracting Metadata ---
         metadata = []

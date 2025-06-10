@@ -1,5 +1,43 @@
 #!/bin/bash
 
+# ==============================================================================
+# NEON SEARCH APP - SETUP SCRIPT
+# ==============================================================================
+#
+# This script generates a Node.js web application for searching adult content.
+#
+# Key Characteristics:
+# --------------------
+# 1.  **Backend (`server.js`):**
+#     The server handles API requests for searching.
+#
+# 2.  **Custom Scrapers (`modules/` directory):**
+#     The backend relies on custom-written scraper modules (e.g., modules/Pornhub.js,
+#     modules/Xvideos.js, etc.). These modules are responsible for fetching and
+#     parsing HTML content from the target websites.
+#
+# 3.  **Scraping Libraries:**
+#     The custom scraper modules primarily use:
+#       - `axios`: For making HTTP requests to fetch web pages.
+#       - `cheerio`: For parsing HTML content (similar to jQuery) to extract data.
+#
+# 4.  **Maintenance Requirement:**
+#     Since this application uses direct HTML scraping, the scraper modules in the
+#     `modules/` directory are sensitive to changes in the HTML structure of the
+#     target websites. If a target website updates its layout, the corresponding
+#     scraper module will likely need to be updated to continue functioning correctly.
+#
+# Basic Post-Setup Instructions:
+# ------------------------------
+# 1. Run this script: `bash neon_search_app.sh`
+# 2. Navigate to the app directory: `cd neon_search_app` (if not already created by this script)
+#    (Note: This script creates files in the current directory. You might want to `mkdir neon_search_app && cd neon_search_app` before running it.)
+# 3. Install dependencies: `npm install express cors axios cheerio babel-runtime`
+# 4. Run the server: `node server.js`
+# 5. Open your browser to `http://localhost:3000` (or your device's IP).
+#
+# ==============================================================================
+
 # Create necessary directories
 echo "Creating directories: core and modules..."
 mkdir -p core modules
@@ -4360,4 +4398,3 @@ echo "   d. Compare the actual HTML structure and element classes/IDs with the"
 echo "      'VIDEO_SELECTOR', 'GIF_SELECTOR', and URL patterns in the driver's parser methods."
 echo "   e. Adjust the selectors and regex patterns in the driver file if necessary."
 echo "--------------------------------------------------------------------------------"
-

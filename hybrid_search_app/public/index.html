@@ -222,7 +222,7 @@
 
         .modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--modal-bg);
-            display: flex; justify-content: center; align-items: center; z-index: 100;
+            display: flex; justify-content: center; align-items: center; z-index: 1000;
             opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0s linear 0.3s;
         }
         .modal.is-open { opacity: 1; visibility: visible; transition-delay: 0s; }
@@ -319,13 +319,13 @@
             <div class="relative mb-4 sm:mb-0">
                 <label for="driverSelect" class="sr-only">Search Provider</label>
                 <select id="driverSelect" aria-label="Select Search Provider" class="select-neon w-full sm:w-auto">
-                    <option value="Pornhub" selected>Pornhub</option>
+                    <option value="Pornhub">Pornhub</option>
                     <option value="Xvideos">XVideos</option>
-                    <option value="Redtube">Redtube</option>
-                    <option value="Xhamster">Xhamster</option>
-                    <option value="SexCom">SexCom</option>
-                    <option value="YouPorn">YouPorn</option>
-                    <option value="Motherless">Motherless</option>
+                    <option value="Redtube" selected>Redtube</option>
+                    <!-- Add other drivers from your config.json/customScrapersMap here -->
+                    <!-- <option value="SexCom">SexCom</option> -->
+                    <!-- <option value="YouPorn">YouPorn</option> -->
+                    <!-- <option value="Xhamster">Xhamster</option> -->
                     <option value="mock">Mock (Test)</option>
                 </select>
             </div>
@@ -372,11 +372,10 @@
         const HOVER_PAUSE_DELAY_MS = 100;
         const API_TIMEOUT_MS = 30000;
         const SKELETON_COUNT = 6;
-        const RESULTS_PER_PAGE_HEURISTIC = 10; // Default, will be updated by API responses
+        const RESULTS_PER_PAGE_HEURISTIC = 10;
         const PLACEHOLDER_GIF_DATA_URI = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
         const FAVORITES_STORAGE_KEY = 'neonSearchFavorites';
 
-        // DOM Elements
         const searchInput = document.getElementById('searchInput');
         const clearSearchBtn = document.getElementById('clearSearchBtn');
         const typeSelect = document.getElementById('typeSelect');
@@ -402,7 +401,6 @@
         const favoritesGrid = document.getElementById('favoritesGrid');
         const noFavoritesMessage = document.getElementById('noFavoritesMessage');
 
-        // App State
         const appState = {
             isLoading: false, currentPage: 1, currentQuery: '', currentDriver: driverSelect.value, currentType: typeSelect.value,
             resultsCache: [], lastFocusedElement: null, maxResultsHeuristic: RESULTS_PER_PAGE_HEURISTIC,
@@ -410,7 +408,6 @@
             favorites: [], showingFavorites: false,
         };
 
-        // Logging utility
         const log = {
             info: (message, ...args) => console.info(`%c[FE INFO] ${message}`, 'color: #00ffff; font-weight: bold;', ...args),
             warn: (message, ...args) => console.warn(`%c[FE WARN] ${message}`, 'color: #ff8800; font-weight: bold;', ...args),
@@ -431,7 +428,6 @@
             log.warn('Rendered media error placeholder:', message);
         }
 
-        // Enhanced createMediaContainer
         function createMediaContainer(item, itemActualType) {
             const mediaContainer = document.createElement('div');
             mediaContainer.className = 'card-media-container';
@@ -444,16 +440,12 @@
 
             const staticThumbImg = document.createElement('img');
             staticThumbImg.src = staticThumbnailUrl;
-            staticThumbImg.alt = ''; // Decorative
+            staticThumbImg.alt = '';
             staticThumbImg.loading = 'lazy';
             staticThumbImg.className = 'static-thumb';
-            staticThumbImg.onerror = function() { // Use 'function' for 'this' to refer to the element if needed, or pass item explicitly
-                log.warn(`Static Thumbnail Load Failed:
-            - URL: ${this.src}
-            - Title: ${item.title || 'N/A'}
-            - Source: ${item.source || 'N/A'}
-            - Item Type: ${itemActualType}`);
-                this.src = PLACEHOLDER_GIF_DATA_URI; // Fallback
+            staticThumbImg.onerror = () => {
+                log.warn(`Static thumbnail load failed: ${staticThumbnailUrl} for "${item.title}". Using placeholder.`);
+                staticThumbImg.src = PLACEHOLDER_GIF_DATA_URI;
                 if (!animatedPreviewUrl && !mediaContainer.querySelector('.media-error-placeholder')) {
                     renderMediaErrorPlaceholder(mediaContainer, 'Thumb Error');
                 }
@@ -462,44 +454,21 @@
 
             if (animatedPreviewUrl) {
                 const isDirectGifPreview = animatedPreviewUrl.toLowerCase().endsWith('.gif');
-                if (isDirectGifPreview && itemActualType === 'gifs') { // Only use <img> for GIF type if preview is .gif
+                if (isDirectGifPreview && itemActualType === 'gifs') {
                     const gifPreviewImg = document.createElement('img');
                     gifPreviewImg.src = animatedPreviewUrl;
-                    gifPreviewImg.alt = ''; // Decorative
+                    gifPreviewImg.alt = '';
                     gifPreviewImg.loading = 'lazy';
                     gifPreviewImg.className = 'preview-gif-image';
-                    gifPreviewImg.onerror = function() {
-                        log.warn(`Animated GIF Preview Load Failed:
-            - URL: ${this.src}
-            - Title: ${item.title || 'N/A'}
-            - Source: ${item.source || 'N/A'}`);
-                        this.remove(); // Keep existing behavior of removing the element
-                    };
+                    gifPreviewImg.onerror = () => { log.warn(`Animated GIF preview load failed: ${animatedPreviewUrl}`); gifPreviewImg.remove(); };
                     mediaContainer.appendChild(gifPreviewImg);
-                } else if (!isDirectGifPreview && itemActualType === 'videos') { // Only use <video> for video type if preview is not .gif
+                } else if (!isDirectGifPreview && itemActualType === 'videos') {
                     const videoPreviewEl = document.createElement('video');
                     videoPreviewEl.src = animatedPreviewUrl;
                     videoPreviewEl.poster = staticThumbnailUrl;
                     videoPreviewEl.muted = true; videoPreviewEl.loop = true; videoPreviewEl.playsInline = true; videoPreviewEl.preload = 'metadata';
                     videoPreviewEl.className = 'preview-video';
-                    videoPreviewEl.addEventListener('error', function(e) {
-                        let errorText = 'Unknown error';
-                        if (this.error) {
-                            switch (this.error.code) {
-                                case MediaError.MEDIA_ERR_ABORTED: errorText = 'Aborted by user'; break;
-                                case MediaError.MEDIA_ERR_NETWORK: errorText = 'Network error'; break;
-                                case MediaError.MEDIA_ERR_DECODE: errorText = 'Decode error'; break;
-                                case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: errorText = 'Source not supported/found'; break;
-                                default: errorText = `Code ${this.error.code}`;
-                            }
-                        }
-                        log.warn(`Preview Video Load Failed:
-            - URL: ${this.src}
-            - Title: ${item.title || 'N/A'}
-            - Source: ${item.source || 'N/A'}
-            - Error: ${errorText}`, e);
-                        this.remove(); // Keep existing behavior
-                    });
+                    videoPreviewEl.onerror = (e) => { log.warn(`Preview video load failed: ${animatedPreviewUrl}`, e); videoPreviewEl.remove(); };
                     mediaContainer.appendChild(videoPreviewEl);
                 } else {
                      log.warn(`Preview URL ${animatedPreviewUrl} type does not match item type ${itemActualType} or is not a recognized video format. Static thumb will be shown.`);
@@ -515,7 +484,6 @@
             return mediaContainer;
         }
 
-        // Enhanced openModal
         function openModal(itemData, itemTypeFromCard) {
             appState.lastFocusedElement = document.activeElement;
             modalContent.innerHTML = '';
@@ -524,26 +492,24 @@
             const displayType = itemTypeFromCard || itemData.type || appState.currentType;
             const titleText = itemData.title || (displayType === 'gifs' ? 'GIF' : 'Video');
 
-            let mediaSourceUrl = itemData.preview_video || itemData.url; // Prefer preview_video for modal display if available
+            let mediaSourceUrl = itemData.preview_video || itemData.url;
             let isVideoForModal = displayType === 'videos';
 
-            // If it's a GIF, and preview_video is a GIF, use that. Otherwise, item.url might be the direct GIF.
             if (displayType === 'gifs') {
                 if (itemData.preview_video && itemData.preview_video.toLowerCase().endsWith('.gif')) {
                     mediaSourceUrl = itemData.preview_video;
                 } else if (itemData.url && itemData.url.toLowerCase().endsWith('.gif')) {
                     mediaSourceUrl = itemData.url;
-                } else { // Fallback to thumbnail if no direct GIF found for preview
+                } else {
                     mediaSourceUrl = itemData.thumbnail || itemData.thumb || PLACEHOLDER_GIF_DATA_URI;
                 }
-                isVideoForModal = false; // It's a GIF, so display as image
-            } else { // It's a video
-                // Prefer video preview if it's a video format. Otherwise, use thumbnail as static image.
+                isVideoForModal = false;
+            } else {
                 if (itemData.preview_video && (itemData.preview_video.toLowerCase().endsWith('.mp4') || itemData.preview_video.toLowerCase().endsWith('.webm'))) {
                     mediaSourceUrl = itemData.preview_video;
-                } else { // Fallback to thumbnail for videos if no proper video preview
+                } else {
                     mediaSourceUrl = itemData.thumbnail || itemData.thumb || PLACEHOLDER_GIF_DATA_URI;
-                    isVideoForModal = false; // Displaying as image
+                    isVideoForModal = false;
                 }
             }
 
@@ -555,39 +521,13 @@
                     mediaElement = document.createElement('video');
                     mediaElement.src = mediaSourceUrl;
                     mediaElement.controls = true; mediaElement.autoplay = true; mediaElement.loop = false;
-                    mediaElement.addEventListener('error', function(e) {
-                        let errorText = 'Unknown error';
-                        if (this.error) {
-                            switch (this.error.code) {
-                                case MediaError.MEDIA_ERR_ABORTED: errorText = 'Aborted by user'; break;
-                                case MediaError.MEDIA_ERR_NETWORK: errorText = 'Network error'; break;
-                                case MediaError.MEDIA_ERR_DECODE: errorText = 'Decode error'; break;
-                                case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: errorText = 'Source not supported/found'; break;
-                                default: errorText = `Code ${this.error.code}`;
-                            }
-                        }
-                        log.warn(`Modal Video Load Failed:
-            - URL: ${this.src}
-            - Title: ${titleText || 'N/A'}
-            - Original Item Source: ${itemData.source || 'N/A'}
-            - Error: ${errorText}`, e);
-                        renderMediaErrorPlaceholder(modalContent, 'Error loading video in modal.');
-                    });
                 } else {
                     mediaElement = document.createElement('img');
                     mediaElement.src = mediaSourceUrl; mediaElement.alt = titleText;
-                    mediaElement.onerror = function() {
-                        log.warn(`Modal Image Load Failed:
-            - URL: ${this.src}
-            - Title: ${titleText || 'N/A'}
-            - Original Item Source: ${itemData.source || 'N/A'}`);
-                        renderMediaErrorPlaceholder(modalContent, 'Error loading image in modal.');
-                    };
                 }
                 mediaElement.style.maxHeight = 'calc(95vh - 100px)';
                 mediaElement.style.maxWidth = '100%';
-                // Note: video 'onerror' is an event listener, img 'onerror' is a property.
-                // The generic appendChild will work for both.
+                mediaElement.onerror = () => renderMediaErrorPlaceholder(modalContent, 'Error loading media in modal.');
                 modalContent.appendChild(mediaElement);
             }
 
@@ -603,18 +543,6 @@
             requestAnimationFrame(() => closeModalBtn.focus());
             log.modal('Modal opened for:', itemData.title);
         }
-
-        // --- (The rest of the JS from neon_search_app.sh: debounce, loadFavorites, saveFavorites, isFavorite, toggleFavorite,
-        //      updateFavoritesCountDisplay, displayFavoritesView, hideFavoritesView, fetchResultsFromApi, showError, hideError,
-        //      showSkeletons, setSearchState, createCard, renderItems, displaySearchResults, closeModal, updatePaginationButtons,
-        //      updateURL, handleUrlOrState, performSearch, and all event listeners and DOMContentLoaded)
-        //      should be pasted here, ensuring createCard and openModal use the refined versions from above.
-        //      The createMediaContainer is called by createCard.
-        //      For brevity in this tool call, I am not re-pasting the entire unchanged block of JS,
-        //      but in a real scenario, it would be here. The key is that the functions above are the *updated* versions.
-        //      The crucial part is that createCard will use the new createMediaContainer, and openModal is the new version.
-        //      All other functions from the original neon_search_app.sh JavaScript section should be assumed to be present.
-        //      Pasting just a few key functions that are called by the above or are top-level logic:
 
         function debounce(func, delay) {
             let timeout;
@@ -704,7 +632,7 @@
             updateFavoritesCountDisplay();
             log.favorites('Displaying favorites view.');
             if (toggleFavoritesBtn) toggleFavoritesBtn.innerHTML = `Back to Search`;
-            updateURL(true); // Update URL for favorites view
+            updateURL(true);
         }
 
         function hideFavoritesView() {
@@ -722,7 +650,7 @@
             }
             log.favorites('Hiding favorites, returning to search results.');
             if (toggleFavoritesBtn) toggleFavoritesBtn.innerHTML = `View Favorites (<span id="favoritesCountDisplay">${appState.favorites.length}</span>)`;
-            updateURL(true); // Update URL for search view
+            updateURL(true);
         }
 
         async function fetchResultsFromApi(query, driver, type, page) {
@@ -783,7 +711,7 @@
             if (targetGrid === resultsDiv && !appState.showingFavorites) initialMessage?.classList.add('hidden');
 
             targetGrid.setAttribute('aria-busy', 'true');
-            targetGrid.removeAttribute('aria-live');
+            targetGrid.removeAttribute('aria-live'); // Avoid announcing skeleton addition
 
             setTimeout(() => {
                 if (appState.isLoading) {
@@ -810,16 +738,19 @@
                 searchBtnText.classList.add('hidden');
                 loadingIndicator.classList.remove('hidden');
                 if (!appState.showingFavorites) showSkeletons(SKELETON_COUNT, resultsDiv);
-                 else showSkeletons(SKELETON_COUNT, favoritesGrid); // Also show skeletons for favs if it were to load
+                 else showSkeletons(SKELETON_COUNT, favoritesGrid);
             } else {
                 searchBtnText.classList.remove('hidden');
                 loadingIndicator.classList.add('hidden');
+                if (resultsDiv.getAttribute('aria-busy') === 'true') resultsDiv.setAttribute('aria-busy', 'false'); // Reset only if it was set
+                if (favoritesGrid.getAttribute('aria-busy') === 'true') favoritesGrid.setAttribute('aria-busy', 'false');
+                if (!appState.showingFavorites) resultsDiv.setAttribute('aria-live', 'polite'); // Restore live region for results
+                else favoritesGrid.setAttribute('aria-live', 'polite'); // Restore live region for favorites
             }
-            // ARIA busy states handled by individual render functions
         }
 
         function createCard(itemData) {
-            const itemActualType = itemData.type || (appState.showingFavorites ? 'videos' : appState.currentType); // Infer type for favorites if missing
+            const itemActualType = itemData.type || (appState.showingFavorites && itemData.type ? itemData.type : appState.currentType);
             const card = document.createElement('div');
             card.className = 'card relative group';
             card.setAttribute('data-url', itemData.url);
@@ -884,7 +815,11 @@
         function renderItems(items, targetGridElement) {
             targetGridElement.innerHTML = '';
             targetGridElement.setAttribute('aria-busy', 'false');
-            targetGridElement.setAttribute('aria-live', 'polite');
+             // Set live region only if it's the main resultsDiv and not showing favorites
+            if (targetGridElement === resultsDiv && !appState.showingFavorites) {
+                targetGridElement.setAttribute('aria-live', 'polite');
+            }
+
 
             if (!items || items.length === 0) {
                 const messageP = document.createElement('p');
@@ -893,25 +828,25 @@
                     messageP.textContent = `No results found for "${appState.currentQuery}".`;
                     messageP.style.textShadow = '0 0 5px var(--neon-purple)';
                 } else if (targetGridElement === favoritesGrid) {
-                    // This case is handled by noFavoritesMessage visibility
-                    return;
+                     // This is now handled by noFavoritesMessage visibility, so this part might not be needed
+                     // Or, ensure noFavoritesMessage is used consistently
                 }
-                targetGridElement.appendChild(messageP);
+                targetGridElement.appendChild(messageP); // Append if noFavoritesMessage isn't the primary way
                 return;
             }
 
             const fragment = document.createDocumentFragment();
-            items.forEach(item => fragment.appendChild(createCard(item))); // createCard infers type
+            items.forEach(item => fragment.appendChild(createCard(item)));
             targetGridElement.appendChild(fragment);
         }
 
         function displaySearchResults(results) {
-            appState.resultsCache = results;
+            appState.resultsCache = results; // Store for pagination/history
             initialMessage?.classList.add('hidden');
-            favoritesView.classList.add('hidden'); // Ensure favorites view is hidden
-            resultsDiv.classList.remove('hidden'); // Ensure results view is shown
+            favoritesView.classList.add('hidden');
+            resultsDiv.classList.remove('hidden');
             renderItems(results, resultsDiv);
-            updatePaginationButtons(); // Update pagination based on new results
+            updatePaginationButtons();
         }
 
         function closeModal() {
@@ -927,14 +862,14 @@
             if (appState.lastFocusedElement) {
                 requestAnimationFrame(() => {
                     try { appState.lastFocusedElement.focus({ preventScroll: true }); }
-                    catch (e) { searchInput.focus(); }
+                    catch (e) { searchInput.focus(); } // Fallback focus
                 });
             } else { searchInput.focus(); }
             appState.lastFocusedElement = null;
         }
 
         function updatePaginationButtons() {
-            if (appState.isLoading || appState.showingFavorites || !errorMessage.classList.contains('hidden')) {
+            if (appState.isLoading || appState.showingFavorites || !errorMessage.classList.contains('hidden') ) {
                  paginationControls.classList.add('hidden'); return;
             }
             const hasResults = appState.resultsCache.length > 0;
@@ -951,18 +886,26 @@
 
         function updateURL(replace = false) {
             let newUrl;
+            const currentPath = window.location.pathname; // Keep current path
             if (appState.showingFavorites) {
-                newUrl = `${window.location.pathname}#favorites`;
+                newUrl = `${currentPath}#favorites`;
             } else {
                 const params = new URLSearchParams();
                 if (appState.currentQuery) params.set('q', appState.currentQuery);
                 if (appState.currentDriver) params.set('driver', appState.currentDriver);
                 if (appState.currentType) params.set('type', appState.currentType);
                 if (appState.currentPage > 1) params.set('page', appState.currentPage);
-                newUrl = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+                newUrl = `${currentPath}${params.toString() ? '?' + params.toString() : ''}`;
             }
             const historyMethod = replace ? window.history.replaceState : window.history.pushState;
-            historyMethod.call(window.history, { ...appState, resultsCache: null }, '', newUrl);
+            // Store less data in history state to avoid exceeding limits
+            historyMethod.call(window.history, {
+                currentQuery: appState.currentQuery,
+                currentDriver: appState.currentDriver,
+                currentType: appState.currentType,
+                currentPage: appState.currentPage,
+                showingFavorites: appState.showingFavorites
+            }, '', newUrl);
             log.info(`${replace ? 'Replaced' : 'Pushed'} history state: ${newUrl}`);
         }
 
@@ -979,8 +922,8 @@
             const showingFavoritesFromState = state?.showingFavorites || urlHasFavoritesHash;
 
             searchInput.value = query;
-            driverSelect.value = driver; // Ensure dropdown reflects the state/URL
-            typeSelect.value = type;   // Ensure dropdown reflects the state/URL
+            driverSelect.value = driver;
+            typeSelect.value = type;
 
             if (showingFavoritesFromState) {
                 displayFavoritesView();
@@ -988,22 +931,24 @@
                 return;
             }
 
-            if (appState.showingFavorites) hideFavoritesView();
+            if (appState.showingFavorites) hideFavoritesView(); // Ensure we switch from fav view if needed
 
             if (query) {
                 appState.currentQuery = query;
                 appState.currentDriver = driver;
                 appState.currentType = type;
                 // appState.currentPage will be set by performSearch
-                await performSearch(page, false); // false: not user-initiated, use replaceState
+                await performSearch(page, false);
             } else {
                 resultsDiv.innerHTML = '';
                 initialMessage?.classList.remove('hidden');
                 paginationControls.classList.add('hidden');
                 hideError();
-                setSearchState(false); // Ensure UI is not stuck in loading
+                setSearchState(false);
                 appState.currentQuery = ''; appState.currentPage = 1; appState.resultsCache = [];
-                if (window.location.search || window.location.hash) updateURL(true);
+                if (window.location.search || window.location.hash) {
+                    updateURL(true); // Clean URL if it had params/hash but no query
+                }
             }
         }
 
@@ -1019,13 +964,12 @@
             const isNewSearchContext = query !== appState.currentQuery || driver !== appState.currentDriver || type !== appState.currentType;
             const targetPage = (isUserInitiated && isNewSearchContext) ? 1 : Math.max(1, page);
 
-            // Update state *before* API call
             appState.currentQuery = query;
             appState.currentDriver = driver;
             appState.currentType = type;
             appState.currentPage = targetPage;
 
-            if (appState.showingFavorites && isUserInitiated) hideFavoritesView(); // Switch to search view if user starts a new search
+            if (appState.showingFavorites && isUserInitiated) hideFavoritesView();
 
             hideError();
             setSearchState(true);
@@ -1034,7 +978,7 @@
             const apiResponse = await fetchResultsFromApi(query, driver, type, targetPage);
 
             if (query === appState.currentQuery && driver === appState.currentDriver && type === appState.currentType && targetPage === appState.currentPage) {
-                setSearchState(false); // Reset loading state *only if* this is the relevant response
+                setSearchState(false);
                 if (apiResponse.success) {
                     displaySearchResults(apiResponse.data);
                     updateURL(isUserInitiated ? false : true);
@@ -1044,7 +988,6 @@
                 }
             } else {
                 log.info('Search result discarded, state changed during request.');
-                // If this was an older, slower request, don't turn off loading indicator as a newer one is active.
             }
         }
 

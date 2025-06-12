@@ -6,6 +6,9 @@ from datetime import datetime
 from colorama import init, Fore, Style
 import webbrowser
 import importlib # For dynamic module importing
+import requests # Added for downloading thumbnails
+import shutil # Added for file operations (potentially, though os.makedirs is often enough)
+import re # Added for sanitizing filenames
 
 # Initialize Colorama for cross-platform colored output
 init(autoreset=True)
@@ -36,9 +39,10 @@ logger = logging.getLogger(__name__)
 # Suppress noisy external library warnings
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("chardet").setLevel(logging.WARNING)
-logging.getLogger("requests").setLevel(logging.WARNING)
+# logging.getLogger("requests").setLevel(logging.WARNING) # Keep requests logs for now for debugging downloads
 
 # --- Global Defaults ---
+THUMBNAILS_DIR = "downloaded_thumbnails"
 DEFAULT_SOUP_SLEEP = 1.0
 DEFAULT_SEARCH_LIMIT = 30
 DEFAULT_PAGE_NUMBER = 1 # Note: Most pornLib forks don't directly support 'page' in search()
@@ -94,6 +98,58 @@ def get_pornlib_client(engine_name: str):
         logger.critical(f"{NEON_RED}An unexpected error occurred while loading the '{engine_name}' client: {e}{RESET_ALL}")
         return None
 
+# --- Helper Functions ---
+def ensure_directory_exists(directory_path: str):
+    """Creates a directory if it doesn't exist."""
+    if not os.path.exists(directory_path):
+        try:
+            os.makedirs(directory_path)
+            logger.info(f"{NEON_GREEN}Created directory: {directory_path}{RESET_ALL}")
+        except OSError as e:
+            logger.error(f"{NEON_RED}Error creating directory {directory_path}: {e}{RESET_ALL}")
+            raise # Re-raise the exception if directory creation fails
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitizes a string to be suitable for use as a filename.
+    Removes or replaces characters that are problematic in filenames.
+    Limits length to avoid issues with max filename length on some OS.
+    """
+    if not filename:
+        return "unknown_title"
+    # Remove punctuation and problematic characters, replace spaces with underscores
+    filename = re.sub(r'[^\w\s-]', '', filename.lower())
+    filename = re.sub(r'[-\s]+', '_', filename).strip('_')
+    # Limit length
+    max_len = 100 # Max length for the sanitized part
+    if len(filename) > max_len:
+        filename = filename[:max_len]
+    return filename if filename else "sanitized_empty_title"
+
+def download_file(url: str, local_filepath: str, timeout: int = 10) -> bool:
+    """
+    Downloads a file from a URL to a local path.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        logger.debug(f"Attempting to download: {url} to {local_filepath}")
+        response = requests.get(url, stream=True, timeout=timeout, headers={'User-Agent': 'Mozilla/5.0'})
+        if response.status_code == 200:
+            with open(local_filepath, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            logger.info(f"{NEON_GREEN}Successfully downloaded {url} to {local_filepath}{RESET_ALL}")
+            return True
+        else:
+            logger.warning(f"{NEON_YELLOW}Failed to download {url}. Status code: {response.status_code}{RESET_ALL}")
+            return False
+    except requests.exceptions.RequestException as e:
+        logger.error(f"{NEON_RED}Error downloading {url}: {e}{RESET_ALL}")
+        return False
+    except IOError as e:
+        logger.error(f"{NEON_RED}Error saving file to {local_filepath}: {e}{RESET_ALL}")
+        return False
+
 # --- PornClient Class ---
 class PornClient:
     def __init__(self, engine_name: str, soup_sleep: float = DEFAULT_SOUP_SLEEP):
@@ -121,13 +177,19 @@ class PornClient:
         if not self._client:
             logger.error(f"{NEON_RED}PornLib client not initialized for {self.engine_name}. Cannot perform search.{RESET_ALL}")
             return []
-        
+
         logger.info(f"{NEON_BLUE}Performing search for query: '{query}' on {self.engine_name}...{RESET_ALL}")
-        
+
+        # Prepare directory for thumbnails for this engine
+        engine_thumbnail_dir = os.path.join(THUMBNAILS_DIR, self.engine_name)
         try:
-            # Check if the search method supports 'page' or just 'keyword' and 'limit'
-            # Most pornLib implementations only take keyword and limit for search.
-            # If the underlying library search method doesn't support 'page', we will omit it.
+            ensure_directory_exists(engine_thumbnail_dir)
+        except Exception as e:
+            logger.error(f"{NEON_RED}Could not create thumbnail directory {engine_thumbnail_dir}. Thumbnails will not be downloaded. Error: {e}{RESET_ALL}")
+            # Optionally, decide if you want to proceed without thumbnails or halt.
+            # For now, we'll proceed and use online URLs.
+
+        try:
             import inspect
             sig = inspect.signature(self._client.search)
             search_kwargs = {'keyword': query, 'limit': limit}
@@ -143,13 +205,39 @@ class PornClient:
             parsed_results = []
             if results:
                 for i, item in enumerate(results):
-                    # Robust check for VideoDataClass attributes
                     if hasattr(item, 'title') and hasattr(item, 'img') and hasattr(item, 'link'):
+                        original_img_url = item.img
+                        local_img_path = original_img_url # Default to original URL
+
+                        if original_img_url and isinstance(original_img_url, str) and original_img_url.startswith('http'):
+                            try:
+                                video_title_sanitized = sanitize_filename(item.title if item.title else f"video_{i}")
+                                # Try to get extension from URL, default to .jpg
+                                img_ext = os.path.splitext(original_img_url)[1]
+                                if not img_ext or len(img_ext) > 5: # basic check for valid extension
+                                    img_ext = ".jpg"
+
+                                thumbnail_filename = f"{video_title_sanitized}_{i}{img_ext}"
+                                local_filepath = os.path.join(engine_thumbnail_dir, thumbnail_filename)
+
+                                # Ensure engine_thumbnail_dir actually exists before downloading
+                                if os.path.exists(engine_thumbnail_dir):
+                                    if download_file(original_img_url, local_filepath):
+                                        # Use relative path for HTML
+                                        local_img_path = os.path.join(THUMBNAILS_DIR, self.engine_name, thumbnail_filename)
+                                    else:
+                                        logger.warning(f"{NEON_YELLOW}Failed to download thumbnail for '{item.title}'. Using original URL.{RESET_ALL}")
+                                else:
+                                    logger.warning(f"{NEON_YELLOW}Thumbnail directory {engine_thumbnail_dir} not available. Using original URL for '{item.title}'.{RESET_ALL}")
+
+                            except Exception as e: # Catch any error during file path creation or download
+                                logger.error(f"{NEON_RED}Error processing thumbnail for '{item.title}': {e}. Using original URL.{RESET_ALL}")
+
                         parsed_results.append({
                             'title': item.title,
-                            'img': item.img,
+                            'img': local_img_path, # This will be local path if download succeeded, else original URL
                             'link': item.link,
-                            'quality': getattr(item, 'quality', 'N/A'), # Use getattr for robustness
+                            'quality': getattr(item, 'quality', 'N/A'),
                             'time': getattr(item, 'time', 'N/A'),
                             'channel_name': getattr(item, 'channel_name', 'N/A'),
                             'channel_link': getattr(item, 'channel_link', '#'),
@@ -179,6 +267,10 @@ def generate_html_output(results, query, engine, search_limit, output_dir=".", p
     output_filename = os.path.join(output_dir, f"{filename_prefix}.html")
 
     os.makedirs(output_dir, exist_ok=True)
+    # Ensure THUMBNAILS_DIR exists at the root level where HTML might be, or adjust path logic
+    # This is a general ensure, specific engine subdirectories are handled in search
+    ensure_directory_exists(THUMBNAILS_DIR)
+
 
     html_content = f"""
     <!DOCTYPE html>
@@ -339,7 +431,7 @@ def generate_html_output(results, query, engine, search_limit, output_dir=".", p
         html_content += f"""
                 <div class="video-item">
                     <a href="{link}" target="_blank" rel="noopener noreferrer">
-                        <img src="{img}" alt="{title}">
+                        <img src="{img}" alt="{title}" onerror="this.onerror=null; this.src='https://via.placeholder.com/300x200?text=Image+Error';">
                     </a>
                     <div class="video-info">
                         <h3><a href="{link}" target="_blank" rel="noopener noreferrer">{title}</a></h3>
@@ -351,7 +443,19 @@ def generate_html_output(results, query, engine, search_limit, output_dir=".", p
                     </div>
                 </div>
         """
-    
+    # Small fix for image onerror handling in case a local path is broken or an online URL also fails client-side.
+    # The path logic in generate_html_output assumes that if item['img'] is a local path,
+    # it's relative to the project root (e.g., "downloaded_thumbnails/engine/file.jpg").
+    # If the HTML file is in `output_dir` (e.g. "./output/"), and THUMBNAILS_DIR is at root,
+    # paths like "../downloaded_thumbnails/engine/file.jpg" might be needed if output_dir is not "."
+    # However, the current generate_html_output saves HTML to output_dir (default '.'),
+    # so paths like "downloaded_thumbnails/[engine]/[file].jpg" should work if THUMBNAILS_DIR
+    # is in the same root as the script and where HTML is generated.
+    # The current implementation of local_img_path is already relative like "downloaded_thumbnails/xvideos/title.jpg"
+    # This should work fine if the HTML is generated in the project root.
+    # If HTML is in a subfolder (e.g. `results/`), then image paths would need to be `../downloaded_thumbnails/...`
+    # For now, assuming HTML and downloaded_thumbnails are siblings or HTML is at root.
+
     html_content += """
             </div>
         </div>

@@ -6,17 +6,18 @@ const VideoMixin = require('../../core/VideoMixin');
 const GifMixin = require('../../core/GifMixin');
 const cheerio = require('cheerio');
 
-const log = {
-    debug: (message, ...args) => { if (process.env.DEBUG === 'true') console.log(`[PornhubScraper DEBUG] ${new Date().toISOString()}: ${message}`, ...args);},
-    info: (message, ...args) => console.log(`[PornhubScraper INFO] ${new Date().toISOString()}: ${message}`, ...args),
-    warn: (message, ...args) => console.warn(`[PornhubScraper WARN] ${new Date().toISOString()}: ${message}`, ...args),
-};
-
 class PornhubScraper extends AbstractModule.with(VideoMixin, GifMixin) {
     constructor(options) {
         super(options);
         this.baseUrl = 'https://www.pornhub.com';
-        log.debug(`PornhubScraper instantiated. Query: "${this.query}", Page: ${this.page}`);
+        // Initialize this.log directly in the constructor
+        this.log = {
+            debug: (message, ...args) => { if (process.env.DEBUG === 'true') console.log(`[PornhubScraper DEBUG] ${new Date().toISOString()}: ${message}`, ...args);},
+            info: (message, ...args) => console.log(`[PornhubScraper INFO] ${new Date().toISOString()}: ${message}`, ...args),
+            warn: (message, ...args) => console.warn(`[PornhubScraper WARN] ${new Date().toISOString()}: ${message}`, ...args),
+            error: (message, ...args) => console.error(`[PornhubScraper ERROR] ${new Date().toISOString()}: ${message}`, ...args),
+        };
+        this.log.debug(`PornhubScraper instantiated. Query: "${this.query}", Page: ${this.page}`);
     }
 
     get name() { return 'Pornhub'; }
@@ -25,25 +26,25 @@ class PornhubScraper extends AbstractModule.with(VideoMixin, GifMixin) {
     videoUrl(query, page) {
         const searchPage = page || this.firstpage;
         const url = `${this.baseUrl}/video/search?search=${encodeURIComponent(query)}&page=${searchPage}`;
-        log.debug(`Constructed video URL: ${url}`);
+        this.log.debug(`Constructed video URL: ${url}`);
         return url;
     }
 
     async searchVideos(query, page) {
         const url = this.videoUrl(query, page);
-        log.info(`Fetching HTML for Pornhub videos from: ${url}`);
+        this.log.info(`Fetching HTML for Pornhub videos from: ${url}`);
         try {
             const html = await this._fetchHtml(url);
             const $ = cheerio.load(html);
             return this.videoParser($, html);
         } catch (error) {
-            log.error(`Error in searchVideos for query "${query}" on page ${page}: ${error.message}`);
+            this.log.error(`Error in searchVideos for query "${query}" on page ${page}: ${error.message}`);
             return [];
         }
     }
 
     videoParser($, rawData) {
-        log.info(`Parsing Pornhub video data...`);
+        this.log.info(`Parsing Pornhub video data...`);
         const videos = [];
         $('ul.videos.search-video-thumbs li.pcVideoListItem').each((i, elem) => {
             const $elem = $(elem);
@@ -63,35 +64,35 @@ class PornhubScraper extends AbstractModule.with(VideoMixin, GifMixin) {
                     source: this.name,
                 });
             } else {
-                log.warn('Skipped a Pornhub video item due to missing title or URL.');
+                this.log.warn('Skipped a Pornhub video item due to missing title or URL.');
             }
         });
-        log.info(`Parsed ${videos.length} video items from Pornhub.`);
+        this.log.info(`Parsed ${videos.length} video items from Pornhub.`);
         return videos;
     }
 
     gifUrl(query, page) {
         const searchPage = page || this.firstpage;
         const url = `${this.baseUrl}/gifs/search?search=${encodeURIComponent(query)}&page=${searchPage}`;
-        log.debug(`Constructed GIF URL: ${url}`);
+        this.log.debug(`Constructed GIF URL: ${url}`);
         return url;
     }
 
     async searchGifs(query, page) {
         const url = this.gifUrl(query, page);
-        log.info(`Fetching HTML for Pornhub GIFs from: ${url}`);
+        this.log.info(`Fetching HTML for Pornhub GIFs from: ${url}`);
         try {
             const html = await this._fetchHtml(url);
             const $ = cheerio.load(html);
             return this.gifParser($, html);
         } catch (error) {
-            log.error(`Error in searchGifs for query "${query}" on page ${page}: ${error.message}`);
+            this.log.error(`Error in searchGifs for query "${query}" on page ${page}: ${error.message}`);
             return [];
         }
     }
 
     gifParser($, rawData) {
-        log.info(`Parsing Pornhub GIF data...`);
+        this.log.info(`Parsing Pornhub GIF data...`);
         const gifs = [];
         $('ul.gifs.gifLink li.gifVideoBlock').each((i, elem) => {
             const $elem = $(elem);
@@ -109,10 +110,10 @@ class PornhubScraper extends AbstractModule.with(VideoMixin, GifMixin) {
                     source: this.name,
                 });
             } else {
-                log.warn('Skipped a Pornhub GIF item due to missing title or URL.');
+                this.log.warn('Skipped a Pornhub GIF item due to missing title or URL.');
             }
         });
-        log.info(`Parsed ${gifs.length} GIF items from Pornhub.`);
+        this.log.info(`Parsed ${gifs.length} GIF items from Pornhub.`);
         return gifs;
     }
 }

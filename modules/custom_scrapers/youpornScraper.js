@@ -60,17 +60,20 @@ class YouPornScraper extends AbstractModule.with(VideoMixin) { // No GifMixin in
                         preview_video = urlMatch[1];
                     }
                 }
-                preview_video = this._makeAbsolute(preview_video, this.baseUrl);
+                preview_video = preview_video ? this._makeAbsolute(preview_video, this.baseUrl) : null;
 
                 if (title && url) {
-                    videos.push({
+                    const videoData = {
                         title,
                         url,
                         thumbnail,
                         duration,
-                        preview_video: preview_video || thumbnail, // Fallback
                         source: this.name,
-                    });
+                    };
+                    if (preview_video) {
+                        videoData.preview_video = preview_video;
+                    }
+                    videos.push(videoData);
                 } else {
                     // log.debug(`Skipping item on ${this.name} due to missing title or URL. HTML: ${$elem.html().substring(0,100)}`);
                 }

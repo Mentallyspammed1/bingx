@@ -52,19 +52,28 @@ class MotherlessScraper extends AbstractModule.with(VideoMixin, GifMixin) {
 
                 // Preview video: Motherless might have on-hover previews or this might be same as thumbnail.
                 // It might also be on the actual video page, not the search results.
-                // Let's assume for now it's not readily available on the search/listing page, or is the thumbnail itself.
-                let preview_video = $elem.find('img').attr('data-preview-url'); // A guess
-                preview_video = this._makeAbsolute(preview_video, this.baseUrl);
+                // Let's assume for now it's not readily available on the search/listing page.
+                // Attempt to find a preview URL. Common attributes could be 'data-preview-url', 'data-gif-url', 'data-video-src'.
+                // For Motherless, often the thumbnail itself might be a GIF, or a specific video preview isn't provided on listings.
+                // We will prioritize an explicit preview attribute if found.
+                let preview_video_url = $elem.find('img').attr('data-preview-url'); // Example: Check for a specific attribute
+                // Add more attempts if other attributes are identified, e.g.:
+                // if (!preview_video_url) preview_video_url = $elem.find('img').attr('data-gif-preview');
+
+                preview_video_url = preview_video_url ? this._makeAbsolute(preview_video_url, this.baseUrl) : null;
 
                 if (title && url && url.includes('/GI')) { // Ensure it's a gallery item link
-                    videos.push({
+                    const videoData = {
                         title,
                         url,
                         thumbnail,
                         duration: duration || "N/A",
-                        preview_video: preview_video || thumbnail, // Fallback
                         source: this.name,
-                    });
+                    };
+                    if (preview_video_url) {
+                        videoData.preview_video = preview_video_url;
+                    }
+                    videos.push(videoData);
                 } else if (url && !url.includes('/GI')) {
                     log.debug(`Skipping non-gallery item on ${this.name}: ${url}`);
                 } else {

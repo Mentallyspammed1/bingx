@@ -179,16 +179,31 @@
             width: 100%; height: 100%; object-fit: cover; display: block; background-color: #05080f;
         }
         .card-media-container img.static-thumb {
-            position: absolute; top: 0; left: 0; opacity: 1; z-index: 1; transition: opacity 0.3s ease-in-out;
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; object-fit: cover; /* Ensure static thumb also covers */
+            opacity: 1; z-index: 1;
+            transition: opacity 0.3s ease-in-out;
         }
-        .card-media-container video.preview-video, .card-media-container img.preview-gif-image {
-            position: absolute; top: 0; left: 0; opacity: 0; pointer-events: none; z-index: 5; transition: opacity 0.3s ease-in-out;
+        .card-media-container video.preview-video,
+        .card-media-container img.preview-gif-image { /* Shared class for preview elements */
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; object-fit: cover; /* Ensure preview also covers */
+            opacity: 0; pointer-events: none; /* Initially hidden and not interactive */
+            z-index: 5; /* Above static thumb */
+            transition: opacity 0.3s ease-in-out;
         }
-        .card-media-container:hover .preview-video, .card:focus-within .card-media-container .preview-video,
-        .card-media-container:hover .preview-gif-image, .card:focus-within .card-media-container .preview-gif-image {
-            opacity: 1; pointer-events: auto;
+        /* Make preview visible on hover/focus of the card */
+        .card:hover .card-media-container .preview-video,
+        .card:focus-within .card-media-container .preview-video,
+        .card:hover .card-media-container .preview-gif-image, /* Keep existing rule for GIFs */
+        .card:focus-within .card-media-container .preview-gif-image { /* Keep existing rule for GIFs */
+            opacity: 1;
+            pointer-events: auto;
         }
-        .card-media-container:hover img.static-thumb, .card:focus-within .card-media-container img.static-thumb { opacity: 0.1; }
+        .card:hover .card-media-container img.static-thumb,
+        .card:focus-within .card-media-container img.static-thumb {
+            opacity: 0.1; /* Or 0, or display:none if preferred */
+        }
         .card-info {
             height: 100px; display: flex; flex-direction: column; justify-content: space-between;
             padding: 0.75rem; flex-grow: 1; overflow: hidden;
@@ -322,6 +337,7 @@
                     <option value="Pornhub" selected>Pornhub</option>
                     <option value="Xvideos">XVideos</option>
                     <option value="Redtube">Redtube</option>
+                    <option value="Spankbang">SpankBang</option>
                     <option value="Xhamster">Xhamster</option>
                     <option value="SexCom">SexCom</option>
                     <option value="YouPorn">YouPorn</option>
@@ -462,26 +478,19 @@
 
             if (animatedPreviewUrl) {
                 const isDirectGifPreview = animatedPreviewUrl.toLowerCase().endsWith('.gif');
-                if (isDirectGifPreview && itemActualType === 'gifs') { // Only use <img> for GIF type if preview is .gif
-                    const gifPreviewImg = document.createElement('img');
-                    gifPreviewImg.src = animatedPreviewUrl;
-                    gifPreviewImg.alt = ''; // Decorative
-                    gifPreviewImg.loading = 'lazy';
-                    gifPreviewImg.className = 'preview-gif-image';
-                    gifPreviewImg.onerror = function() {
-                        log.warn(`Animated GIF Preview Load Failed:
-            - URL: ${this.src}
-            - Title: ${item.title || 'N/A'}
-            - Source: ${item.source || 'N/A'}`);
-                        this.remove(); // Keep existing behavior of removing the element
-                    };
-                    mediaContainer.appendChild(gifPreviewImg);
-                } else if (!isDirectGifPreview && itemActualType === 'videos') { // Only use <video> for video type if preview is not .gif
+                // For videos, create a <video> element if a preview_video URL exists, regardless of its extension initially.
+                // The error handler will deal with it if it's not a real video.
+                if (itemActualType === 'videos' && animatedPreviewUrl) {
                     const videoPreviewEl = document.createElement('video');
                     videoPreviewEl.src = animatedPreviewUrl;
-                    videoPreviewEl.poster = staticThumbnailUrl;
-                    videoPreviewEl.muted = true; videoPreviewEl.loop = true; videoPreviewEl.playsInline = true; videoPreviewEl.preload = 'metadata';
+                    videoPreviewEl.poster = staticThumbnailUrl; // Use static thumb as poster
+                    videoPreviewEl.muted = true;
+                    videoPreviewEl.loop = true;
+                    videoPreviewEl.playsInline = true; // Important for iOS and inline play
+                    videoPreviewEl.preload = "metadata"; // Only load metadata initially
                     videoPreviewEl.className = 'preview-video';
+                    // videoPreviewEl.style.display = 'none'; // Initially hidden, CSS handles opacity
+
                     videoPreviewEl.addEventListener('error', function(e) {
                         let errorText = 'Unknown error';
                         if (this.error) {
@@ -493,16 +502,34 @@
                                 default: errorText = `Code ${this.error.code}`;
                             }
                         }
-                        log.warn(`Preview Video Load Failed:
+                        log.warn(`Preview Video Load Failed (removing element):
             - URL: ${this.src}
             - Title: ${item.title || 'N/A'}
             - Source: ${item.source || 'N/A'}
             - Error: ${errorText}`, e);
-                        this.remove(); // Keep existing behavior
+                        this.remove(); // Remove the video element if it fails to load
                     });
                     mediaContainer.appendChild(videoPreviewEl);
-                } else {
-                     log.warn(`Preview URL ${animatedPreviewUrl} type does not match item type ${itemActualType} or is not a recognized video format. Static thumb will be shown.`);
+
+                } else if (isDirectGifPreview && itemActualType === 'gifs') { // Handle GIF previews as before
+                    const gifPreviewImg = document.createElement('img');
+                    gifPreviewImg.src = animatedPreviewUrl;
+                    gifPreviewImg.alt = ''; // Decorative
+                    gifPreviewImg.loading = 'lazy';
+                    gifPreviewImg.className = 'preview-gif-image'; // This class is styled like preview-video
+                    gifPreviewImg.onerror = function() {
+                        log.warn(`Animated GIF Preview Load Failed:
+            - URL: ${this.src}
+            - Title: ${item.title || 'N/A'}
+            - Source: ${item.source || 'N/A'}`);
+                        this.remove();
+                    };
+                    mediaContainer.appendChild(gifPreviewImg);
+                } else if (itemActualType === 'videos' && !animatedPreviewUrl) {
+                    // This case is fine, static thumbnail will be shown. No warning needed unless thumbnail also fails.
+                }
+                 else {
+                     log.warn(`Preview URL ${animatedPreviewUrl} type does not match item type ${itemActualType} or is not a recognized video/gif format. Static thumb will be shown.`);
                 }
             }
 
@@ -867,15 +894,54 @@
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(itemData, itemActualType); }
             });
 
+            // Hover/Focus to play video previews
             if (itemActualType === 'videos') {
-                const videoPreview = mediaContainer.querySelector('video.preview-video');
-                if (videoPreview) {
-                    const playVideo = () => videoPreview.play().catch(e => {if (e.name !== 'AbortError') log.warn('Preview play error:', e.message);});
-                    const pauseVideo = () => { videoPreview.pause(); if (videoPreview.readyState > 0) videoPreview.currentTime = 0; };
-                    card.addEventListener('mouseenter', () => { clearTimeout(appState.hoverPauseTimeout); appState.hoverPlayTimeout = setTimeout(playVideo, HOVER_PLAY_DELAY_MS); });
-                    card.addEventListener('focusin', (e) => { if(card.contains(e.target)) {clearTimeout(appState.hoverPauseTimeout); appState.hoverPlayTimeout = setTimeout(playVideo, HOVER_PLAY_DELAY_MS);}});
-                    card.addEventListener('mouseleave', () => { clearTimeout(appState.hoverPlayTimeout); appState.hoverPauseTimeout = setTimeout(pauseVideo, HOVER_PAUSE_DELAY_MS); });
-                    card.addEventListener('focusout', (e) => { if (!card.contains(e.relatedTarget)) { clearTimeout(appState.hoverPlayTimeout); appState.hoverPauseTimeout = setTimeout(pauseVideo, HOVER_PAUSE_DELAY_MS); }});
+                const videoPreviewEl = mediaContainer.querySelector('video.preview-video');
+                // const staticThumbImg = mediaContainer.querySelector('img.static-thumb'); // CSS handles opacity
+
+                if (videoPreviewEl) {
+                    const playPreview = () => {
+                        // CSS handles visibility of video and static thumb
+                        videoPreviewEl.play().catch(err => {
+                            if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') { // NotAllowedError can happen if user interaction isn't detected yet
+                                log.warn(`Error playing preview video for "${itemData.title}": ${err.message}`);
+                            }
+                        });
+                    };
+
+                    const pausePreview = () => {
+                        videoPreviewEl.pause();
+                        if (videoPreviewEl.readyState > 0) { // Reset time only if video has loaded somewhat
+                           // videoPreviewEl.currentTime = 0; // Optional: reset video to start
+                        }
+                        // CSS handles visibility
+                    };
+
+                    card.addEventListener('mouseenter', () => {
+                        clearTimeout(appState.hoverPauseTimeout); // Clear any pending pause
+                        appState.hoverPlayTimeout = setTimeout(playPreview, HOVER_PLAY_DELAY_MS);
+                    });
+
+                    card.addEventListener('mouseleave', () => {
+                        clearTimeout(appState.hoverPlayTimeout); // Clear any pending play
+                        appState.hoverPauseTimeout = setTimeout(pausePreview, HOVER_PAUSE_DELAY_MS);
+                    });
+
+                    card.addEventListener('focusin', (e) => {
+                        // Ensure focus is within the card or on the card itself
+                        if (card.contains(e.target)) {
+                            clearTimeout(appState.hoverPauseTimeout);
+                            appState.hoverPlayTimeout = setTimeout(playPreview, HOVER_PLAY_DELAY_MS);
+                        }
+                    });
+
+                    card.addEventListener('focusout', (e) => {
+                        // Only pause if focus moves outside the card
+                        if (!card.contains(e.relatedTarget)) {
+                            clearTimeout(appState.hoverPlayTimeout);
+                            appState.hoverPauseTimeout = setTimeout(pausePreview, HOVER_PAUSE_DELAY_MS);
+                        }
+                    });
                 }
             }
             return card;

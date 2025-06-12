@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "start": "node server.js"
   },
   "keywords": [],
@@ -17,5 +17,8 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "pornsearch": "^2.4.3"
+  },
+  "devDependencies": {
+    "jest": "^30.0.0"
   }
 }

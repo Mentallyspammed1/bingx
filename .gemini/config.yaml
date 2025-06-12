@@ -1,0 +1,85 @@
+# This configuration is read by the custom action at ./.github/actions/gemini-code-reviewer
+version: 1.0 # Version of this config schema
+debug:
+  auto_apply_fixes: true
+  auto_debug: true
+  log_level: INFO # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_output_file: .gemini/logs/gemini_codeassist.log
+analysis:
+  enhancement_suggestions:
+    auto_apply_enhancements: true
+    max_suggestions_per_file: 10
+  code_quality:
+    enforce_style_guides: true
+    style_guides:
+      - pep8
+      - eslint
+  security_scanning:
+    enabled: true
+    severity_threshold: medium # low, medium, high, critical
+    scan_tools: # Placeholder for potential future integration (action itself won't run these directly)
+      - bandit
+      - semgrep
+      - dependabot
+      - snyk
+source_control:
+  auto_commit_push:
+    enabled: true
+    commit_on_fix_applied: true
+    commit_on_enhancement_applied: true
+    push_after_commit: true
+    commit_author_name: "Gemini AI Assistant"
+    commit_author_email: "gemini-ai-assistant[bot]@users.noreply.github.com"
+    commit_message_template: "feat(gemini): AI auto-fix and enhancements for {{file_count}} files. {{issue_summary}}"
+    conflict_resolution_strategy: "ours" # "ours" or "theirs" or "abort"
+file_filters:
+  include_patterns:
+    - "**/*.js"
+    - "**/*.ts"
+    - "**/*.py"
+    - "**/*.jsx"
+    - "**/*.tsx"
+    - "**/*.java"
+    - "**/*.go"
+    - "**/*.rb"
+    - "**/*.php"
+    - "**/*.cs"
+    - "**/*.c"
+    - "**/*.cpp"
+    - "**/*.sh"
+    - "**/*.yaml"
+    - "**/*.yml"
+    - "**/*.html"
+    - "**/*.css"
+  exclude_patterns:
+    - "**/dist/"
+    - "**/build/"
+    - "**/coverage/"
+    - "**/node_modules/"
+    - "**/venv/"
+    - "**/__pycache__/"
+    - "**/*.min.js"
+    - "**/*.map"
+    - "**/*.lock"
+    - "**/*.log"
+    - "**/*.md"
+    - "**/*.json"
+    - "**/tmp/"
+    - "**/vendor/"
+    - "**/docs/"
+    - "**/examples/"
+    - ".github/" # Exclude workflow files and action directories
+review_prompt: |
+  You are an expert AI code reviewer and auto-fix bot named Gemini.
+  Analyze the provided code for quality, bugs, security vulnerabilities, performance, maintainability, and consistency.
+  Provide detailed suggestions for improvements and enhancements, explaining *why* they are beneficial. Indicate specific line numbers if applicable.
+  If there are no issues or clear enhancement opportunities, state "No issues or enhancements found." clearly at the beginning of your response.
+fix_prompt: |
+  You are an expert AI code refactoring and automatic fix bot named Gemini.
+  Given the original code and the review suggestions, rewrite the code to incorporate ALL the suggested fixes and enhancements.
+  Crucially: Ensure the output is *only* the complete, fixed, and enhanced code. Do not include any additional text, comments, explanations, or markdown code block delimiters (like ```js). Just the raw, updated code. Maintain original formatting, comments, and overall structure as much as possible, only changing what's necessary for the fixes/enhancements.
+api_parameters:
+  temperature: 0.7
+  top_p: 0.95
+  top_k: 64
+  max_output_tokens: 8192

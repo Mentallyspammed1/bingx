@@ -48,11 +48,13 @@ class PornhubScraper extends AbstractModule.with(VideoMixin, GifMixin) {
         const videos = [];
         $('ul.videos.search-video-thumbs li.pcVideoListItem').each((i, elem) => {
             const $elem = $(elem);
+
             const title = $elem.find('span.title a').attr('title')?.trim();
             const videoPageUrl = $elem.find('span.title a').attr('href');
             const duration = $elem.find('var.duration').text()?.trim();
             let thumbnail = $elem.find('img').attr('data-mediumthumb') || $elem.find('img').attr('data-src') || $elem.find('img').attr('src');
-            let previewVideo = $elem.find('a.linkVideoThumb').attr('data-mediabook') || $elem.find('img').attr('data-previewvideo');
+            // Corrected selector for preview video
+            let previewVideo = $elem.find('img').attr('data-mediabook');
 
             if (title && videoPageUrl) {
                 videos.push({
@@ -96,10 +98,12 @@ class PornhubScraper extends AbstractModule.with(VideoMixin, GifMixin) {
         const gifs = [];
         $('ul.gifs.gifLink li.gifVideoBlock').each((i, elem) => {
             const $elem = $(elem);
+
             const title = $elem.find('a').attr('title')?.trim() || $elem.find('.title').text()?.trim();
             const gifPageUrl = $elem.find('a').attr('href');
             let previewVideo = $elem.find('video[data-webm]').attr('data-webm') || $elem.find('video source[type="video/webm"]').attr('src');
-            let thumbnail = $elem.find('img.thumb').attr('data-src') || $elem.find('img.thumb').attr('src');
+            // Corrected selector for static thumbnail for GIFs
+            let thumbnail = $elem.find('video.js-gifVideo').attr('data-poster');
 
             if (title && gifPageUrl) {
                 gifs.push({

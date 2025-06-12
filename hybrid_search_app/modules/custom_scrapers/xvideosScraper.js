@@ -47,6 +47,7 @@ class XvideosScraper extends AbstractModule.with(VideoMixin) {
         const videos = [];
         $('div.thumb-block').each((i, elem) => {
             const $elem = $(elem);
+
             const $titleLink = $elem.find('p.title a');
             const title = $titleLink.attr('title')?.trim();
             const videoPageUrl = $titleLink.attr('href');

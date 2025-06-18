@@ -454,25 +454,43 @@
             mediaContainer.appendChild(staticThumbImg);
 
             if (animatedPreviewUrl) {
-                const isDirectGifPreview = animatedPreviewUrl.toLowerCase().endsWith('.gif');
-                if (isDirectGifPreview && itemActualType === 'gifs') {
-                    const gifPreviewImg = document.createElement('img');
-                    gifPreviewImg.src = animatedPreviewUrl;
-                    gifPreviewImg.alt = '';
-                    gifPreviewImg.loading = 'lazy';
-                    gifPreviewImg.className = 'preview-gif-image';
-                    gifPreviewImg.onerror = () => { log.warn(`Animated GIF preview load failed: ${animatedPreviewUrl}`); gifPreviewImg.remove(); };
-                    mediaContainer.appendChild(gifPreviewImg);
-                } else if (!isDirectGifPreview && itemActualType === 'videos') {
-                    const videoPreviewEl = document.createElement('video');
-                    videoPreviewEl.src = animatedPreviewUrl;
-                    videoPreviewEl.poster = staticThumbnailUrl;
-                    videoPreviewEl.muted = true; videoPreviewEl.loop = true; videoPreviewEl.playsInline = true; videoPreviewEl.preload = 'metadata';
-                    videoPreviewEl.className = 'preview-video';
-                    videoPreviewEl.onerror = (e) => { log.warn(`Preview video load failed: ${animatedPreviewUrl}`, e); videoPreviewEl.remove(); };
-                    mediaContainer.appendChild(videoPreviewEl);
+                const isActualGifFile = animatedPreviewUrl.toLowerCase().endsWith('.gif');
+                if (itemActualType === 'gifs') {
+                    if (isActualGifFile) {
+                        // Create <img> for .gif URL
+                        const gifPreviewImg = document.createElement('img');
+                        gifPreviewImg.src = animatedPreviewUrl;
+                        gifPreviewImg.alt = ''; // Alt is empty for decorative previews
+                        gifPreviewImg.loading = 'lazy';
+                        gifPreviewImg.className = 'preview-gif-image'; // Ensure this class applies for CSS hover effects
+                        gifPreviewImg.onerror = () => { log.warn(`Animated GIF preview load failed: ${animatedPreviewUrl}`); gifPreviewImg.remove(); };
+                        mediaContainer.appendChild(gifPreviewImg);
+                    } else {
+                        // Create <video> for non-.gif preview URLs (e.g., .webm, .mp4) for a GIF item
+                        const videoPreviewEl = document.createElement('video');
+                        videoPreviewEl.src = animatedPreviewUrl;
+                        videoPreviewEl.poster = staticThumbnailUrl; // Use existing static thumb as poster
+                        videoPreviewEl.muted = true; videoPreviewEl.loop = true; videoPreviewEl.playsInline = true; videoPreviewEl.preload = 'metadata';
+                        videoPreviewEl.className = 'preview-video'; // Ensure this class applies for CSS hover effects
+                        videoPreviewEl.onerror = (e) => { log.warn(`GIF item's video preview load failed: ${animatedPreviewUrl}`, e); videoPreviewEl.remove(); };
+                        mediaContainer.appendChild(videoPreviewEl);
+                    }
+                } else if (itemActualType === 'videos') { // This is the existing logic for video items
+                    // Create <video> for video item
+                     if (!isActualGifFile) { // Defensive: videos should not have .gif previews typically
+                        const videoPreviewEl = document.createElement('video');
+                        videoPreviewEl.src = animatedPreviewUrl;
+                        videoPreviewEl.poster = staticThumbnailUrl;
+                        videoPreviewEl.muted = true; videoPreviewEl.loop = true; videoPreviewEl.playsInline = true; videoPreviewEl.preload = 'metadata';
+                        videoPreviewEl.className = 'preview-video';
+                        videoPreviewEl.onerror = (e) => { log.warn(`Preview video load failed: ${animatedPreviewUrl}`, e); videoPreviewEl.remove(); };
+                        mediaContainer.appendChild(videoPreviewEl);
+                    } else {
+                         log.warn(`Video item has a .gif preview URL, which is unusual: ${animatedPreviewUrl}`);
+                         // Optionally, render it as an image if this case is valid
+                    }
                 } else {
-                     log.warn(`Preview URL ${animatedPreviewUrl} type does not match item type ${itemActualType} or is not a recognized video format. Static thumb will be shown.`);
+                    log.warn(`Unhandled itemActualType '${itemActualType}' for preview URL: ${animatedPreviewUrl}`);
                 }
             }
 
@@ -518,18 +536,29 @@
                 renderMediaErrorPlaceholder(modalContent, 'Media not available for modal display.');
             } else {
                 let mediaElement;
-                if (isVideoForModal) {
+                const isSourceDirectGif = mediaSourceUrl.toLowerCase().endsWith('.gif');
+                if (displayType === 'gifs') {
+                    if (isSourceDirectGif) {
+                        mediaElement = document.createElement('img');
+                        mediaElement.src = mediaSourceUrl;
+                        mediaElement.alt = titleText;
+                    } else { // It's a GIF item, but preview is a video format (e.g., webm from Pornhub)
+                        mediaElement = document.createElement('video');
+                        mediaElement.src = mediaSourceUrl;
+                        mediaElement.controls = true; mediaElement.autoplay = true; mediaElement.loop = true; // Loop for GIF-like video previews
+                    }
+                } else { // displayType === 'videos'
                     mediaElement = document.createElement('video');
                     mediaElement.src = mediaSourceUrl;
-                    mediaElement.controls = true; mediaElement.autoplay = true; mediaElement.loop = false;
-                } else {
-                    mediaElement = document.createElement('img');
-                    mediaElement.src = mediaSourceUrl; mediaElement.alt = titleText;
+                    mediaElement.controls = true; mediaElement.autoplay = true; mediaElement.loop = false; // Videos typically don't loop by default in modal
                 }
-                mediaElement.style.maxHeight = 'calc(95vh - 100px)';
-                mediaElement.style.maxWidth = '100%';
-                mediaElement.onerror = () => renderMediaErrorPlaceholder(modalContent, 'Error loading media in modal.');
-                modalContent.appendChild(mediaElement);
+
+                if (mediaElement) { // Ensure mediaElement was created before setting styles/onerror
+                    mediaElement.style.maxHeight = 'calc(95vh - 100px)'; // Existing style
+                    mediaElement.style.maxWidth = '100%'; // Existing style
+                    mediaElement.onerror = () => renderMediaErrorPlaceholder(modalContent, 'Error loading media in modal.');
+                    modalContent.appendChild(mediaElement);
+                }
             }
 
             const sourceLink = document.createElement('a');

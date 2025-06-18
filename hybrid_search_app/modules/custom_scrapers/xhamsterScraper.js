@@ -14,124 +14,35 @@ class XhamsterScraper extends AbstractModule.with(VideoMixin, GifMixin) {
             warn: (message, ...args) => console.warn(`[XhamsterScraper WARN] ${new Date().toISOString()}: ${message}`, ...args),
             error: (message, ...args) => console.error(`[XhamsterScraper ERROR] ${new Date().toISOString()}: ${message}`, ...args),
         };
-        this.log.info('XhamsterScraper instantiated - Final duration refinement attempt');
+        this.log.info('XhamsterScraper instantiated - GIF Implementation Attempt');
     }
 
     get name() { return 'Xhamster'; }
+    get firstpage() { return 1; }
 
-    async searchVideos(query, page = 1) {
-        const url = this.videoUrl(query, page);
-        this.log.info(`Xhamster searchVideos: Fetching HTML from ${url}`);
-        try {
-            const html = await this._fetchHtml(url);
-            if (!html) {
-                this.log.warn(`No HTML content received from ${url} for ${this.name}`);
-                return [];
-            }
-            const $ = cheerio.load(html);
-            $._originalUrl = url; // Store the URL for context in parser
-            return this.videoParser($, html);
-        } catch (error) {
-            this.log.error(`Error in Xhamster searchVideos for query "${query}" on page ${page}: ${error.message}`);
-            this.log.debug(error.stack);
-            return [];
+    // --- Video Methods (previously implemented) ---
+    videoUrl(query, page) {
+        const pageNumber = page || this.firstpage;
+        let url = `${this.baseUrl}/search/${encodeURIComponent(query)}`;
+        if (pageNumber > 1) {
+            url += `?page=${pageNumber}`;
         }
-    }
-
-    videoUrl(query, page = 1) {
-        // Common pattern: https://xhamster.com/search/<query>?page=<page_number>
-        const url = `${this.baseUrl}/search/${encodeURIComponent(query)}?page=${page}`;
-        this.log.info(`Constructed ${this.name} video URL: ${url}`);
+        this.log.debug(`Constructed video URL: ${url}`);
         return url;
     }
 
-    async videoParser($, rawHtml) {
-        const videos = [];
-        if (!$) {
-            this.log.warn(`${this.name} videoParser received no cheerio object to process.`);
-            return videos;
-        }
-        this.log.info(`Parsing ${this.name} video page: ${$._originalUrl || 'URL not available'}`);
-
-        // Selectors for xHamster might include: 'div.video-thumb__image-container a', 'div.thumb-list__item video-thumb a.video-thumb-info__name'
-        // 'div.thumb-list__item.video-thumb', 'article.video-thumb', '.video-thumb__image-container a'
-        $('div.thumb-list__item.video-thumb, article.video-thumb, .video-thumb__image-container a, div.video-item').each((i, element) => {
-            try {
-                const $item = $(element);
-
-                let title, url, thumbnail, duration, preview_video;
-
-                // Try to get data from common xHamster structures
-                const $link = $item.is('a') ? $item : $item.find('a.video-thumb-info__name, a.video-thumb__image-link, a');
-
-                title = $link.attr('title') || $link.text().trim();
-                if (!title) {
-                     // Fallback if title is in a specific element within the item
-                    title = $item.find('.video-thumb-info__name, .video-title').text().trim();
-                }
-                if (!title) { // Try image alt as last resort for title
-                    title = $item.find('img').attr('alt');
-                }
-
-                url = $link.attr('href');
-                if (url) url = this._makeAbsolute(url, this.baseUrl);
-
-                const $img = $item.find('img.video-thumb__image, img.thumb');
-                thumbnail = $img.attr('data-src') || $img.attr('src');
-                if (thumbnail) thumbnail = this._makeAbsolute(thumbnail, this.baseUrl);
-
-                // Duration often in a specific span
-                duration = $item.find('span.video-duration, .duration, .video-thumb__duration').text().trim();
-
-                // Preview video (GIF or short clip)
-                // xHamster might use data-previewvideo on img or data-previewhtml5 on video tag
-                preview_video = $item.find('img[data-previewvideo]').attr('data-previewvideo') ||
-                                $item.find('video[data-previewhtml5]').attr('data-previewhtml5') ||
-                                $item.attr('data-previewvideo'); // if on main item
-                if (preview_video) preview_video = this._makeAbsolute(preview_video, this.baseUrl);
-
-
-                if (title && url) {
-                    videos.push({
-                        title: title.replace(/\s+/g, ' ').trim(), // Clean up whitespace
-                        url,
-                        thumbnail: thumbnail || "N/A",
-                        duration: duration || "N/A",
-                        preview_video: preview_video || "N/A",
-                        source: this.name,
-                    });
-                } else {
-                    // this.log.debug(`Skipping item on ${this.name}, missing title or URL. HTML snippet: ${$item.html().substring(0, 100)}`);
-                }
-            } catch (e) {
-                this.log.warn(`Error parsing video item on ${this.name}: ${e.message}. Item HTML: ${$(element).html().substring(0,100)}`);
-            }
-        });
-
-        if (videos.length === 0) {
-            this.log.warn(`No videos parsed from ${this.name} on ${$._originalUrl || 'current page'}. Selectors might need adjustment or page might be empty.`);
-            // this.log.debug(`Raw HTML received for ${this.name} (first 500 chars): ${rawHtml ? rawHtml.substring(0, 500) : 'N/A'}`);
-        } else {
-            this.log.info(`Parsed ${videos.length} video items from ${this.name} on ${$._originalUrl || 'current page'}`);
-        }
-        return videos;
-    }
-
-    async searchGifs(query, page = 1) {
-        const url = this.gifUrl(query, page);
-        this.log.info(`Xhamster searchGifs: Fetching HTML from ${url}`);
+    async searchVideos(query, page) {
+        const searchUrl = this.videoUrl(query, page);
+        this.log.info(`Xhamster searchVideos: Fetching HTML from ${searchUrl}`);
         try {
             const html = await this._fetchHtml(searchUrl);
             const $ = cheerio.load(html);
             const videoItems = [];
-
             const videoElements = $('div.thumb-list__item');
             this.log.info(`Found ${videoElements.length} potential video elements using 'div.thumb-list__item'.`);
-
             videoElements.each((i, el) => {
                 const itemHtml = $(el);
                 let title = '', url = '', thumbnail = '', preview_video = '', duration = 'N/A';
-
                 const itemAnchor = itemHtml.find('a.video-thumb__image-container, a.video-thumb-link').first();
                 if (itemAnchor.length) {
                     url = itemAnchor.attr('href');
@@ -141,31 +52,24 @@ class XhamsterScraper extends AbstractModule.with(VideoMixin, GifMixin) {
                     url = fallbackAnchor.attr('href');
                     url = this._makeAbsolute(url, this.baseUrl);
                 }
-
                 const imgTag = itemHtml.find('img.video-thumb__image, img').first();
-
                 if (imgTag.length) {
                     title = imgTag.attr('alt');
                     thumbnail = imgTag.attr('data-src') || imgTag.attr('src');
                     thumbnail = this._makeAbsolute(thumbnail, this.baseUrl);
-
                     preview_video = imgTag.attr('data-previewvideo_url') ||
                                     imgTag.attr('data-preview_url') ||
                                     imgTag.attr('data-sprite');
                 }
-
                 if (!title) {
                     title = itemHtml.find('.video-thumb-info__name, .video-thumb__name, .video-title').first().text().trim();
                 }
                 title = title ? title.trim() : '';
-
-                // Refined Duration selector: Xhamster often uses 'video-thumb__time' or similar within the link/thumb area
                 duration = itemAnchor.find('.video-thumb__time, .video-thumb__duration').first().text().trim();
                 if (!duration || duration.length === 0) {
                     duration = itemHtml.find('.video-thumb__time, .video-thumb__duration, .duration, [class*="time"]').first().text().trim();
                 }
                 duration = duration ? duration.replace(/[()]/g, '').trim() : 'N/A';
-
                 if (!preview_video) {
                     preview_video = itemAnchor.attr('data-preview-url') || itemAnchor.attr('data-previewvideo_url') ||
                                     itemHtml.attr('data-preview-url') || itemHtml.attr('data-previewvideo_url');
@@ -173,41 +77,128 @@ class XhamsterScraper extends AbstractModule.with(VideoMixin, GifMixin) {
                 if (!preview_video && thumbnail && thumbnail.toLowerCase().endsWith('.gif')) {
                     preview_video = thumbnail;
                 }
-
                 preview_video = this._makeAbsolute(preview_video, this.baseUrl);
-
                 if (title && url && title.length > 1) {
-                    videoItems.push({
-                        title,
-                        url,
-                        thumbnail: thumbnail || '',
-                        preview_video: preview_video || '',
-                        duration: duration,
-                        source: this.name
-                    });
+                    videoItems.push({ title, url, thumbnail: thumbnail || '', preview_video: preview_video || '', duration: duration, source: this.name });
                 } else {
-                    this.log.debug(`Skipped item due to missing title or URL. URL: ${url}, Title: '${title}'. HTML: ${itemHtml.html() ? itemHtml.html().substring(0,100) : 'N/A'}`);
+                    this.log.debug(`Skipped video item due to missing title or URL. URL: ${url}, Title: '${title}'.`);
                 }
             });
-
             this.log.info(`Extracted ${videoItems.length} video items from Xhamster.`);
             return videoItems;
-
         } catch (error) {
             this.log.error(`Error in Xhamster searchVideos for query "${query}" on page ${page}: ${error.message}`, error.stack);
             return [{title:'Xhamster Scraper Error', source: this.name, error: error.message }];
         }
     }
 
-    gifUrl(query, page = 1) {
-        this.log.warn('Xhamster gifUrl not implemented');
-        // Example: return `${this.baseUrl}/search/gifs/${encodeURIComponent(query)}?page=${page}`;
-        return `https://xhamster.com/search/gifs/${encodeURIComponent(query)}?page=${page}`; // Placeholder URL
+    // --- GIF Methods Implementation ---
+    gifUrl(query, page) {
+        const pageNumber = page || this.firstpage;
+        // Using structure: xhamster.com/search/gifs/QUERY?page=PAGE_NUMBER
+        // Or xhamster.com/gifs/search/QUERY?page=PAGE_NUMBER
+        // Let's try the /search/gifs/ path first as it's a common pattern.
+        let url = `${this.baseUrl}/search/gifs/${encodeURIComponent(query)}`;
+        if (pageNumber > 1) {
+            url += `?page=${pageNumber}`;
+        }
+        this.log.info(`${this.name} GIF search: Constructed URL: ${url}`);
+        return url;
     }
 
-    async gifParser($, rawData) {
-        this.log.warn('Xhamster gifParser not implemented.');
-        return [{title:'Xhamster GIF Scraper Not Implemented Yet', source: this.name}];
+    async gifParser($, rawHtml) {
+        this.log.info(`Parsing ${this.name} GIF page...`);
+        const gifs = [];
+        // Guessing selectors for GIFs. They might be in similar containers as videos or specific ones.
+        // Common item selectors: 'div.gif-thumb-container', 'div.gif-item', 'li.thumb-gif-cell'
+        // Or perhaps they reuse 'div.thumb-list__item' but have an internal structure indicating it's a GIF.
+        const gifElements = $('div.thumb-list__item'); // Start by assuming similar container as videos
+
+        this.log.info(`Found ${gifElements.length} potential GIF parent elements using 'div.thumb-list__item'.`);
+
+        gifElements.each((i, el) => {
+            const itemHtml = $(el);
+            let title = '', url = '', thumbnail = '', preview_video = ''; // preview_video must be a .gif
+
+            const itemAnchor = itemHtml.find('a.video-thumb__image-container, a.video-thumb-link, a').first(); // Generalize link finding
+            url = itemAnchor.attr('href');
+            url = this._makeAbsolute(url, this.baseUrl);
+
+            const imgTag = itemAnchor.find('img').first(); // Generalize image finding within link
+            if (imgTag.length) {
+                title = imgTag.attr('alt');
+                // For GIFs, data-src might point to a static thumb, src might be the animated one or vice-versa
+                // Or a specific data-gif-src attribute
+                thumbnail = imgTag.attr('data-src') || imgTag.attr('src'); // Static thumbnail
+
+                preview_video = imgTag.attr('data-gif-src') || // Preferred if exists
+                                imgTag.attr('data-original') || // Common for full version
+                                imgTag.attr('src');             // If src itself is the animated gif
+
+                // If preview_video from above isn't a .gif, but thumbnail is, use thumbnail.
+                if (preview_video && !preview_video.toLowerCase().endsWith('.gif') && thumbnail && thumbnail.toLowerCase().endsWith('.gif')) {
+                    preview_video = thumbnail;
+                }
+                // If no preview_video found yet, and thumbnail is a .gif, it's likely the preview.
+                if (!preview_video && thumbnail && thumbnail.toLowerCase().endsWith('.gif')) {
+                    preview_video = thumbnail;
+                }
+                // Fallback: check data attributes on itemAnchor if imgTag specific ones fail
+                if (!preview_video) {
+                    preview_video = itemAnchor.attr('data-gif-src') || itemAnchor.attr('data-preview-url');
+                }
+
+            }
+
+            title = title ? title.trim() : (itemAnchor.attr('title') || 'GIF');
+            thumbnail = this._makeAbsolute(thumbnail, this.baseUrl);
+            preview_video = this._makeAbsolute(preview_video, this.baseUrl);
+
+            if (title && url && preview_video && preview_video.toLowerCase().endsWith('.gif')) {
+                gifs.push({
+                    title,
+                    url,
+                    thumbnail: (thumbnail && !thumbnail.toLowerCase().endsWith('.gif')) ? thumbnail : preview_video, // Prefer static thumb if available
+                    preview_video, // Must be the .gif
+                    source: this.name,
+                    type: 'gifs'
+                });
+            } else {
+                if (imgTag.length > 0) { // Only log skip if we actually found an image tag to inspect
+                     this.log.debug(`Skipped GIF item: title='${title}', url='${url}', potential_preview='${preview_video}', thumb='${thumbnail}'. Does not meet GIF criteria.`);
+                }
+            }
+        });
+
+        if (gifs.length === 0 && gifElements.length > 0) {
+            this.log.warn(`Found ${gifElements.length} 'div.thumb-list__item' elements, but none yielded a valid .gif preview_video.`);
+        } else if (gifElements.length === 0) {
+            this.log.warn("No elements matched main GIF selector 'div.thumb-list__item'. Page might not contain GIFs or uses different structure.");
+        }
+        this.log.info(`Extracted ${gifs.length} GIFs from Xhamster.`);
+        return gifs;
+    }
+
+    async searchGifs(query = this.query, page = this.page) {
+        const searchUrl = this.gifUrl(query, page);
+        this.log.info(`${this.name} searchGifs: Fetching HTML from ${searchUrl}`);
+
+        if (!searchUrl) { // Should not happen with current gifUrl, but good check
+            this.log.warn(`${this.name} GIF search: No URL returned by gifUrl. Aborting.`);
+            return [];
+        }
+
+        try {
+            const html = await this._fetchHtml(searchUrl);
+            const $ = cheerio.load(html);
+            return this.gifParser($, html);
+        } catch (error) {
+            this.log.error(`Error in ${this.name} searchGifs for query "${query}" on page ${page}: ${error.message}`, error.stack);
+            if (error.message && error.message.includes('404')) {
+                this.log.warn(`${this.name} GIF search: Received 404 for URL ${searchUrl}. The GIF search URL structure is likely incorrect.`);
+            }
+            return [{ title: `${this.name} GIF Scraper Error`, source: this.name, error: error.message }];
+        }
     }
 
     async searchGifs(query = this.query, page = this.page) {

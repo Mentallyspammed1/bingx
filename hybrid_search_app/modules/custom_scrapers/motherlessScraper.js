@@ -9,7 +9,7 @@ class MotherlessScraper extends AbstractModule.with(VideoMixin, GifMixin) {
     constructor(options) {
         super(options);
         this.baseUrl = 'https://motherless.com';
-        log.debug(`${this.name} scraper initialized`);
+        log.debug(`${this.name} scraper initialized - New GIF parser selectors`);
     }
 
     get name() {
@@ -27,7 +27,7 @@ class MotherlessScraper extends AbstractModule.with(VideoMixin, GifMixin) {
         return url;
     }
 
-    async videoParser($, rawHtmlOrJsonData, sourceUrl = '') { // Added sourceUrl for logging
+    async videoParser($, rawHtmlOrJsonData, sourceUrl = '') {
         log.info(`Parsing ${this.name} video page... Query URL: ${sourceUrl}`);
         const videos = [];
         $('div.thumb.is-video a[href*="/GI"]').each((i, elem) => {
@@ -70,7 +70,7 @@ class MotherlessScraper extends AbstractModule.with(VideoMixin, GifMixin) {
         try {
             const html = await this._fetchHtml(searchUrl);
             const $ = cheerio.load(html);
-            return this.videoParser($, html, searchUrl); // Pass searchUrl for logging
+            return this.videoParser($, html, searchUrl);
         } catch (error) {
             log.error(`${this.name}: Error in searchVideos: ${error.message}`);
             return [];
@@ -85,23 +85,48 @@ class MotherlessScraper extends AbstractModule.with(VideoMixin, GifMixin) {
         return url;
     }
 
-    async gifParser($, rawHtmlOrJsonData, sourceUrl = '') { // Added sourceUrl for logging
-        log.info(`Parsing ${this.name} "GIF" (image) page... Query URL: ${sourceUrl}`);
+    async gifParser($, rawHtmlOrJsonData, sourceUrl = '') {
+        log.info(`Parsing ${this.name} "GIF" (image) page with new selectors... Query URL: ${sourceUrl}`);
         const gifs = [];
-        $('div.thumb.is-image a[href*="/GI"]').each((i, elem) => {
+        // New main item selector: Search for <a> tags linking to gallery items /GI/
+        // Then check if their parent div.thumb has class .is-image or if they contain an image.
+        const itemLinks = $('a[href*="/GI/"]');
+
+        log.info(`Found ${itemLinks.length} potential gallery links using 'a[href*="/GI/"]'.`);
+
+        itemLinks.each((i, elem) => {
+            const itemLink = $(elem); // itemLink is the <a> tag itself
+
+            // Check if the parent div.thumb has class .is-image
+            // Or, more broadly, just ensure it's primarily an image link not a video one if possible
+            const parentThumb = itemLink.closest('div.thumb');
+            if (parentThumb.length && parentThumb.hasClass('is-video')) {
+                log.debug(`Skipping item as its parent div.thumb is marked 'is-video': ${itemLink.attr('href')}`);
+                return; // Skip this item, it's likely a video
+            }
+            // If no 'is-video' class, or no 'div.thumb' parent, proceed with caution.
+            // This parser is for images/gifs.
+
             try {
-                const $elem = $(elem);
-                const title = $elem.find('img').attr('alt') || $elem.find('.title, .caption').text().trim();
-                let url = $elem.attr('href');
+                const imgTag = itemLink.find('img').first();
+                if (!imgTag.length) { // If no image inside the link, skip
+                    log.debug(`Skipping gallery link as it contains no img tag: ${itemLink.attr('href')}`);
+                    return;
+                }
+
+                const title = imgTag.attr('alt') || itemLink.attr('title') || 'Image/GIF'; // Fallback title
+                let url = itemLink.attr('href');
                 url = this._makeAbsolute(url, this.baseUrl);
 
-                let thumbnail = $elem.find('img').attr('src');
+                let thumbnail = imgTag.attr('src');
                 thumbnail = this._makeAbsolute(thumbnail, this.baseUrl);
 
-                let preview_video = $elem.find('img').attr('data-original-src') || thumbnail;
+                // For Motherless images/GIFs, preview_video is likely the same as the main image content.
+                // data-original-src might exist for higher-res, or it's just the thumbnail.
+                let preview_video = imgTag.attr('data-original-src') || imgTag.attr('data-src') || thumbnail;
                 preview_video = this._makeAbsolute(preview_video, this.baseUrl);
 
-                if (title && url && url.includes('/GI')) {
+                if (title && url) {
                     gifs.push({
                         title: title + " (Image/GIF)",
                         url,
@@ -110,16 +135,17 @@ class MotherlessScraper extends AbstractModule.with(VideoMixin, GifMixin) {
                         source: this.name,
                         type: 'gifs'
                     });
-                } else if (url && !url.includes('/GI')) {
-                     log.debug(`Skipping non-gallery image item on ${this.name}: ${url}`);
                 }
             } catch (e) {
-                log.warn(`Error parsing image/GIF item on ${this.name}: ${e.message}`);
+                log.warn(`Error parsing image/GIF item on ${this.name} from link ${itemLink.attr('href')}: ${e.message}`);
             }
         });
-        log.info(`Found ${gifs.length} image/GIF items on ${this.name} page.`);
-        if (gifs.length === 0 && typeof rawHtmlOrJsonData === 'string' && rawHtmlOrJsonData.length > 100) { // Check if rawHtml was actually HTML
-             log.warn(`No image/GIFs found for ${this.name} on ${sourceUrl}, but received HTML. Selectors might be outdated or page empty for query.`);
+        log.info(`Extracted ${gifs.length} image/GIF items on ${this.name} page with new selectors.`);
+        if (gifs.length === 0 && itemLinks.length > 0) {
+             log.warn(`Found ${itemLinks.length} gallery links but extracted 0 items. Sub-selector logic might need refinement or items are filtered out.`);
+        }
+        if (gifs.length === 0 && typeof rawHtmlOrJsonData === 'string' && rawHtmlOrJsonData.length > 100) {
+             if (!itemLinks.length) log.warn(`No gallery links found for ${this.name} on ${sourceUrl}, but received HTML. Main selector 'a[href*="/GI/"]' failed.`);
         }
         return gifs;
     }
@@ -134,7 +160,7 @@ class MotherlessScraper extends AbstractModule.with(VideoMixin, GifMixin) {
         try {
             const html = await this._fetchHtml(searchUrl);
             const $ = cheerio.load(html);
-            return this.gifParser($, html, searchUrl); // Pass searchUrl for logging
+            return this.gifParser($, html, searchUrl);
         } catch (error) {
             log.error(`${this.name}: Error in searchGifs: ${error.message}`);
             if (error.message && error.message.includes('404')) {

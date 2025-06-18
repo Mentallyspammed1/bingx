@@ -3,6 +3,7 @@ const AbstractModule = require('../../core/AbstractModule');
 const VideoMixin = require('../../core/VideoMixin');
 const GifMixin = require('../../core/GifMixin'); // Including tentatively
 const log = require('../../core/log');
+const cheerio = require('cheerio');
 
 class MotherlessScraper extends AbstractModule.with(VideoMixin, GifMixin) {
     constructor(options) {
@@ -155,6 +156,44 @@ class MotherlessScraper extends AbstractModule.with(VideoMixin, GifMixin) {
             log.warn(`No image/GIFs found for ${this.name} on ${$._originalUrl || 'N/A'}, but received HTML. Selectors might be outdated.`);
         }
         return gifs;
+    }
+
+    async searchVideos(query, page = 1) {
+        const url = this.videoUrl(query, page);
+        log.info(`Fetching HTML for ${this.name} videos: ${url}`);
+        try {
+            const html = await this._fetchHtml(url);
+            if (!html) {
+                log.warn(`No HTML content received for ${this.name} videos at ${url}`);
+                return [];
+            }
+            const $ = cheerio.load(html);
+            $._originalUrl = url; // Store the URL for context in parser
+            return this.videoParser($, html);
+        } catch (error) {
+            log.error(`Error fetching or parsing ${this.name} videos from ${url}: ${error.message}`);
+            log.debug(error.stack);
+            return [];
+        }
+    }
+
+    async searchGifs(query, page = 1) {
+        const url = this.gifUrl(query, page);
+        log.info(`Fetching HTML for ${this.name} GIFs: ${url}`);
+        try {
+            const html = await this._fetchHtml(url);
+            if (!html) {
+                log.warn(`No HTML content received for ${this.name} GIFs at ${url}`);
+                return [];
+            }
+            const $ = cheerio.load(html);
+            $._originalUrl = url; // Store the URL for context in parser
+            return this.gifParser($, html);
+        } catch (error) {
+            log.error(`Error fetching or parsing ${this.name} GIFs from ${url}: ${error.message}`);
+            log.debug(error.stack);
+            return [];
+        }
     }
 }
 

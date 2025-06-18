@@ -1,9 +1,9 @@
 // hybrid_search_app/modules/custom_scrapers/mockScraper.js
 'use strict';
 
-const AbstractModule = require('../../../core/AbstractModule'); // Adjusted path
-const VideoMixin = require('../../../core/VideoMixin'); // Adjusted path
-const GifMixin = require('../../../core/GifMixin'); // Adjusted path
+const AbstractModule = require('../../core/AbstractModule');
+const VideoMixin = require('../../core/VideoMixin');
+const GifMixin = require('../../core/GifMixin');
 
 const mockVideoData = [
     {

@@ -1,14 +1,15 @@
 // modules/custom_scrapers/youpornScraper.js
 const AbstractModule = require('../../core/AbstractModule');
 const VideoMixin = require('../../core/VideoMixin');
-// const GifMixin = require('../../core/GifMixin'); // Not including for now
+const GifMixin = require('../../core/GifMixin');
 const log = require('../../core/log');
+const cheerio = require('cheerio');
 
-class YouPornScraper extends AbstractModule.with(VideoMixin) { // No GifMixin initially
+class YouPornScraper extends AbstractModule.with(VideoMixin, GifMixin) {
     constructor(options) {
         super(options);
         this.baseUrl = 'https://www.youporn.com';
-        log.debug(`${this.name} scraper initialized`);
+        log.debug(`${this.name} scraper initialized for Video & GIF Implementation Attempt (new GIF URL)`);
     }
 
     get name() {
@@ -16,93 +17,221 @@ class YouPornScraper extends AbstractModule.with(VideoMixin) { // No GifMixin in
     }
 
     get firstpage() {
-        // Assuming 1-indexed pagination
         return 1;
     }
 
+    // --- Video Methods (from previous successful implementation) ---
     videoUrl(query, page) {
-        // Example: https://www.youporn.com/search/?query=test&page=2
         const url = `${this.baseUrl}/search/?query=${encodeURIComponent(query)}&page=${page}`;
         log.debug(`${this.name} video URL: ${url}`);
         return url;
     }
 
     async videoParser($, rawHtmlOrJsonData) {
-        log.info(`Parsing ${this.name} video page...`);
+        log.info(`Parsing ${this.name} video page ...`);
         const videos = [];
-        // Common selectors: 'div.video-box', 'li.video-thumb-block', '.video-card', '.video-item_item_XXXXX'
-        // YouPorn's structure might use elements like 'div[data-id]' or similar for video blocks
-        // Let's try a selector that's common for video list items.
-        // A specific class from YouPorn seems to be `video-card_video-card_XXXX` where XXXXX is a hash.
-        // We can try a partial match or a more generic one.
-        $('div[class*="video-card_video-card_"]').each((i, elem) => { // Speculative selector
+        const videoElements = $('div.video-box');
+        log.info(`Found ${videoElements.length} potential video elements using 'div.video-box'.`);
+        videoElements.each((i, elem) => {
             try {
                 const $elem = $(elem);
-
-                const titleLink = $elem.find('a[data-test-video-tile-title]');
-                const title = titleLink.attr('title') || titleLink.text().trim();
-                let url = titleLink.attr('href');
+                const itemLink = $elem.find('a').first();
+                let url = itemLink.attr('href');
                 url = this._makeAbsolute(url, this.baseUrl);
-
-                const thumbnailTag = $elem.find('img[data-test-video-tile-img]');
-                let thumbnail = thumbnailTag.attr('src') || thumbnailTag.attr('data-src');
+                let title = itemLink.attr('title');
+                const imgTag = itemLink.find('img').first();
+                if (!title && imgTag.length) {
+                    title = imgTag.attr('alt');
+                }
+                if (!title) {
+                    title = itemLink.text().trim();
+                }
+                title = title ? title.trim() : '';
+                let thumbnail = imgTag.attr('data-src') || imgTag.attr('src');
                 thumbnail = this._makeAbsolute(thumbnail, this.baseUrl);
-
-                const durationElement = $elem.find('span[data-test-video-tile-duration], .video-duration'); // data-test attribute is good if stable
-                const duration = durationElement.first().text().trim();
-
-                // Preview video can be in 'data-preview' or similar on the image or parent
-                let preview_video = thumbnailTag.attr('data-preview') || $elem.find('video.preview, source[type="video/mp4"]').attr('src');
-                if(!preview_video && thumbnailTag.attr('onmouseover')) { // Check inline scripts (less ideal)
-                    const mouseoverContent = thumbnailTag.attr('onmouseover');
-                    const urlMatch = mouseoverContent.match(/previewUrl['"]:\s*['"]([^'"]+)['"]/);
-                    if(urlMatch && urlMatch[1]) {
-                        preview_video = urlMatch[1];
+                let duration = $elem.find('span.video-duration, [class*="duration"], [class*="time"]').first().text().trim();
+                duration = duration ? duration.replace(/[()]/g, '').trim() : 'N/A';
+                let preview_video = imgTag.attr('data-previewvideo') ||
+                                    imgTag.attr('data-preview_url') ||
+                                    imgTag.attr('data-gif_preview') ||
+                                    imgTag.attr('data-gif-url') ||
+                                    imgTag.attr('data-thumb_video') ||
+                                    imgTag.attr('data-hover_video') ||
+                                    itemLink.attr('data-preview-url') ||
+                                    itemLink.attr('data-previewvideo') ||
+                                    itemLink.attr('data-hover-url');
+                if (!preview_video) {
+                    preview_video = $elem.attr('data-preview-url') ||
+                                    $elem.attr('data-previewvideo') ||
+                                    $elem.attr('data-video-preview');
+                }
+                if (!preview_video && imgTag.length) {
+                    const imgDataAttrs = imgTag.data();
+                    for (const key in imgDataAttrs) {
+                        const value = imgDataAttrs[key];
+                        if (typeof value === 'string' && (value.includes('.gif') || value.includes('.mp4') || value.includes('.webm'))) {
+                            if (value.startsWith('http') || value.startsWith('/')) {
+                                preview_video = value;
+                                log.debug(`Found potential video preview in img data-attr: data-${key}=${value}`);
+                                break;
+                            }
+                        }
                     }
+                }
+                if (!preview_video && itemLink.length) {
+                    const linkDataAttrs = itemLink.data();
+                    for (const key in linkDataAttrs) {
+                        const value = linkDataAttrs[key];
+                        if (typeof value === 'string' && (value.includes('.gif') || value.includes('.mp4') || value.includes('.webm'))) {
+                             if (value.startsWith('http') || value.startsWith('/')) {
+                                preview_video = value;
+                                log.debug(`Found potential video preview in link data-attr: data-${key}=${value}`);
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (!preview_video) {
+                    const videoTagSrc = $elem.find('video.preview, source[type="video/mp4"]').attr('src');
+                    if (videoTagSrc) preview_video = videoTagSrc;
+                }
+                if (!preview_video && thumbnail && thumbnail.toLowerCase().endsWith('.gif')) {
+                    preview_video = thumbnail;
                 }
                 preview_video = preview_video ? this._makeAbsolute(preview_video, this.baseUrl) : null;
-
-                if (title && url) {
-                    const videoData = {
-                        title,
-                        url,
-                        thumbnail,
-                        duration,
-                        source: this.name,
-                    };
-                    if (preview_video) {
-                        videoData.preview_video = preview_video;
-                    }
+                if (title && url && title.length > 2) {
+                    const videoData = { title, url, thumbnail: thumbnail || '', duration: duration, source: this.name };
+                    if (preview_video) videoData.preview_video = preview_video;
                     videos.push(videoData);
                 } else {
-                    // log.debug(`Skipping item on ${this.name} due to missing title or URL. HTML: ${$elem.html().substring(0,100)}`);
+                    log.debug(`Skipping video item on ${this.name} due to missing/invalid title or URL. Title: '${title}', URL: '${url}'.`);
                 }
             } catch (e) {
-                log.warn(`Error parsing video item on ${this.name}: ${e.message} - Item HTML: ${$(elem).html().substring(0,100)}`);
+                log.warn(`Error parsing video item on ${this.name}: ${e.message}`);
             }
         });
-        log.info(`Found ${videos.length} videos on ${this.name}`);
-        if (videos.length === 0 && rawHtmlOrJsonData && rawHtmlOrJsonData.length > 100) {
-            log.warn(`No videos found for ${this.name}, but received HTML. Selectors might be outdated.`);
-            // For YouPorn, content might be in <script id="initialState_feature-flags"> or similar JSON blobs
-            // This parser currently only handles direct HTML elements.
-            if (rawHtmlOrJsonData.includes("initialState")) {
-                log.info(`${this.name}: Page seems to contain JSON state, which might hold video data not parsed by current selectors.`);
-            }
-        }
+        log.info(`Extracted ${videos.length} videos on ${this.name}.`);
         return videos;
     }
 
-    gifUrl(query, page) {
-        log.warn(`${this.name} does not have a dedicated GIF search section. Returning empty URL.`);
-        // Returning a non-functional or empty URL as GIF search is not standard here
-        return "";
+    async searchVideos(query = this.query, page = this.page) {
+        const searchUrl = this.videoUrl(query, page);
+        if (!searchUrl) {
+            log.error(`${this.name}: Video URL could not be constructed for query "${query}", page ${page}.`);
+            return [];
+        }
+        log.info(`${this.name}: Fetching HTML for videos from: ${searchUrl}`);
+        try {
+            const html = await this._fetchHtml(searchUrl);
+            const $ = cheerio.load(html);
+            return this.videoParser($, html);
+        } catch (error) {
+            log.error(`${this.name}: Error in searchVideos for query "${query}" on page ${page}: ${error.message}`);
+            return [];
+        }
     }
 
-    async gifParser($, rawHtmlOrJsonData) {
-        log.warn(`${this.name} does not process GIFs as it lacks a dedicated GIF section.`);
-        // Return empty array as no GIFs are expected to be parsed
-        return [];
+    // --- GIF Methods Implementation Attempt ---
+    gifUrl(query, page = this.firstpage) {
+        const pageNumber = page || this.firstpage;
+        // New Attempt: Parameter-based on main search URL
+        const url = `${this.baseUrl}/search/?query=${encodeURIComponent(query)}&type=gif&page=${pageNumber}`;
+        log.info(`${this.name} GIF search: Constructed URL (attempt 2): ${url}`);
+        return url;
+    }
+
+    async gifParser($, rawHtml) {
+        log.info(`Parsing ${this.name} GIF page...`);
+        const gifs = [];
+        const gifElements = $('div.gif-box, div.gif-item, li.gif-card, div.video-box');
+        log.info(`Found ${gifElements.length} potential GIF elements using selectors.`);
+
+        gifElements.each((i, elem) => {
+            try {
+                const $elem = $(elem);
+                const itemLink = $elem.find('a').first();
+                let url = itemLink.attr('href');
+                url = this._makeAbsolute(url, this.baseUrl);
+
+                const imgTag = itemLink.find('img').first();
+                let title = imgTag.attr('alt') || itemLink.attr('title') || itemLink.text().trim();
+                title = title ? title.trim() : 'GIF';
+
+                let thumbnail = imgTag.attr('data-src') || imgTag.attr('src');
+                thumbnail = this._makeAbsolute(thumbnail, this.baseUrl);
+
+                let preview_video = imgTag.attr('data-gif-src') ||
+                                   imgTag.attr('data-original') ||
+                                   imgTag.attr('data-src') ||
+                                   imgTag.attr('src');
+
+                if (preview_video && !preview_video.toLowerCase().endsWith('.gif')) {
+                    if (thumbnail && thumbnail.toLowerCase().endsWith('.gif')) {
+                        preview_video = thumbnail;
+                    } else {
+                        const imgDataAttrs = imgTag.data();
+                        for (const key in imgDataAttrs) {
+                            const value = imgDataAttrs[key];
+                            if (typeof value === 'string' && value.toLowerCase().endsWith('.gif')) {
+                                if (value.startsWith('http') || value.startsWith('/')) {
+                                    preview_video = value;
+                                    log.debug(`Found .gif preview for GIF item in img data-attr: data-${key}=${value}`);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                 preview_video = this._makeAbsolute(preview_video, this.baseUrl);
+
+                if (preview_video && !preview_video.toLowerCase().endsWith('.gif') && thumbnail && thumbnail.toLowerCase().endsWith('.gif')) {
+                    preview_video = thumbnail;
+                }
+                if (!preview_video && thumbnail && thumbnail.toLowerCase().endsWith('.gif')) {
+                    preview_video = thumbnail;
+                }
+
+                if (title && url && preview_video && preview_video.toLowerCase().endsWith('.gif')) {
+                    gifs.push({
+                        title,
+                        url,
+                        thumbnail: thumbnail || preview_video,
+                        preview_video,
+                        source: this.name,
+                        type: 'gifs'
+                    });
+                } else {
+                    log.debug(`Skipping GIF item on ${this.name} due to missing title, URL, or non-GIF preview. Title: '${title}', URL: '${url}', Preview: '${preview_video}'`);
+                }
+            } catch (e) {
+                log.warn(`Error parsing GIF item on ${this.name}: ${e.message}`);
+            }
+        });
+        log.info(`Extracted ${gifs.length} GIFs on ${this.name}.`);
+        return gifs;
+    }
+
+    async searchGifs(query = this.query, page = this.page) {
+        log.info(`${this.name} GIF search: Starting searchGifs for query "${query}", page ${page}.`);
+        const searchUrl = this.gifUrl(query, page);
+
+        if (!searchUrl) {
+            log.warn(`${this.name} GIF search: No URL returned by gifUrl. Aborting GIF search.`);
+            return [];
+        }
+
+        log.info(`${this.name}: Fetching HTML for GIFs from: ${searchUrl}`);
+        try {
+            const html = await this._fetchHtml(searchUrl);
+            const $ = cheerio.load(html);
+            return this.gifParser($, html);
+        } catch (error) {
+            log.error(`${this.name}: Error in searchGifs for query "${query}" on page ${page}: ${error.message}`);
+            if (error.message && error.message.includes('404')) {
+                log.warn(`${this.name} GIF search: Received 404 for URL ${searchUrl}. The GIF search URL structure is likely incorrect.`);
+            }
+            return [];
+        }
     }
 }
 

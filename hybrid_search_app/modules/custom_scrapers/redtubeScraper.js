@@ -1,9 +1,10 @@
-// Placeholder for Redtube custom scraper
+// Redtube custom scraper
 const AbstractModule = require('../../core/AbstractModule');
 const VideoMixin = require('../../core/VideoMixin');
-// const GifMixin = require('../../core/GifMixin'); // Likely not needed for Redtube
+const GifMixin = require('../../core/GifMixin'); // Added GifMixin
+const cheerio = require('cheerio');
 
-class RedtubeScraper extends AbstractModule.with(VideoMixin) {
+class RedtubeScraper extends AbstractModule.with(VideoMixin, GifMixin) { // Added GifMixin
     constructor(options) {
         super(options);
         this.baseUrl = 'https://www.redtube.com';
@@ -13,51 +14,165 @@ class RedtubeScraper extends AbstractModule.with(VideoMixin) {
             warn: (message, ...args) => console.warn(`[RedtubeScraper WARN] ${new Date().toISOString()}: ${message}`, ...args),
             error: (message, ...args) => console.error(`[RedtubeScraper ERROR] ${new Date().toISOString()}: ${message}`, ...args),
         };
-        this.log.info('RedtubeScraper instantiated');
+        this.log.info('RedtubeScraper instantiated - GIF Implementation Attempt');
     }
-    get name() { return 'Redtube'; }
-    get firstpage() { return 1; } // Standard is 1-indexed, adjust if Redtube is different
 
+    get name() { return 'Redtube'; }
+    get firstpage() { return 1; }
+
+    // --- Video Methods ---
     videoUrl(query, page) {
-        this.log.warn('Redtube videoUrl using placeholder implementation.');
-        // Corrected template literal and ensuring page is used
         const searchPage = page || this.firstpage;
         return `${this.baseUrl}/?search=${encodeURIComponent(query)}&page=${searchPage}`;
     }
 
-    async videoParser($, rawData) {
-        this.log.warn('Redtube videoParser not implemented. Page content likely blocked by age disclaimer.');
-        // Return an empty array or a specific message indicating the issue
-        return [{
-            title: 'Redtube: Content likely blocked by age disclaimer or scraper not fully implemented.',
-            url: '',
-            thumbnail: '',
-            preview_video: '',
-            duration: '0:00',
-            source: this.name
-        }];
-    }
-
-    // Explicitly define searchVideos to ensure it exists, mimicking VideoMixin
     async searchVideos(query, page) {
-        const url = this.videoUrl(query, page);
-        if (!url) {
+        const searchUrl = this.videoUrl(query, page);
+        if (!searchUrl) {
             this.log.error('Video URL could not be constructed.');
             return [];
         }
-        this.log.info(`Fetching HTML for Redtube videos from: ${url}`);
+        this.log.info(`Fetching HTML for Redtube videos from: ${searchUrl}`);
         try {
-            const html = await this._fetchHtml(url); // _fetchHtml from AbstractModule
-            const cheerio = require('cheerio'); // Ensure cheerio is required if not globally available in this scope
+            const html = await this._fetchHtml(searchUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+            });
             const $ = cheerio.load(html);
-            return this.videoParser($, html);
+            const videoItems = [];
+            const videoElements = $('div.video_item');
+            if(videoElements.length === 0) {
+                this.log.warn(`No video items found on page using selector 'div.video_item'. HTML length: ${html.length}.`);
+                if (html.includes('age_gate_wrapper') || html.includes('age-verification')) {
+                     this.log.warn('Age verification page detected.');
+                     return [{ title: 'Redtube: Age verification required.', url: searchUrl, source: this.name }];
+                }
+                if (html.includes('No videos found') || html.includes('no results found')) {
+                    this.log.info('Page indicates no results found for query.');
+                }
+                return [];
+            }
+            this.log.info(`Found ${videoElements.length} potential video elements using 'div.video_item'.`);
+            videoElements.each((i, el) => {
+                const itemHtml = $(el);
+                let title = '', url = '', thumbnail = '', preview_video = '', duration = 'N/A';
+                const titleAnchor = itemHtml.find('a.video_title_link');
+                title = titleAnchor.attr('title') || titleAnchor.text().trim();
+                url = titleAnchor.attr('href');
+                if (url) url = this._makeAbsolute(url, this.baseUrl);
+                else {
+                    const anyLink = itemHtml.find('a').first();
+                    url = anyLink.attr('href');
+                    if(url) url = this._makeAbsolute(url, this.baseUrl);
+                    if(!title) title = anyLink.attr('title') || anyLink.text().trim();
+                }
+                const thumbImg = itemHtml.find('img.video_thumbnail_img');
+                thumbnail = thumbImg.attr('src') || thumbImg.attr('data-src');
+                if (thumbnail) thumbnail = this._makeAbsolute(thumbnail, this.baseUrl);
+                preview_video = thumbImg.attr('data-previewvideo_url') || itemHtml.attr('data-preview-url') || itemHtml.attr('data-previewvideo') || itemHtml.attr('data-mediabook') || thumbImg.attr('data-previewvideo') || thumbImg.attr('data-mediabook') || thumbImg.attr('data-gif_url');
+                if (!preview_video) {
+                    const videoTagSrc = itemHtml.find('video source[src], video[src]').attr('src');
+                    if (videoTagSrc) preview_video = videoTagSrc;
+                }
+                if (!preview_video && thumbnail && thumbnail.toLowerCase().endsWith('.gif')) preview_video = thumbnail;
+                if (preview_video) preview_video = this._makeAbsolute(preview_video, this.baseUrl);
+                duration = itemHtml.find('span.video_duration').first().text().trim();
+                if (duration) duration = duration.replace(/[()]/g, '').trim();
+                else duration = 'N/A';
+                if (title && url) videoItems.push({ title, url, thumbnail: thumbnail || '', preview_video: preview_video || '', duration, source: this.name });
+                else this.log.debug(`Skipped video item due to missing title or URL.`);
+            });
+            this.log.info(`Extracted ${videoItems.length} video items.`);
+            return videoItems;
         } catch (error) {
             this.log.error(`Error in searchVideos for query "${query}" on page ${page}: ${error.message}`);
             return [];
         }
     }
 
-    gifUrl(query, page) { this.log.warn('Redtube gifUrl not implemented - site is video focused'); return ''; }
-    async gifParser($, rawData) { this.log.warn('Redtube gifParser not implemented - site is video focused'); return []; }
+    // --- GIF Methods Implementation ---
+    gifUrl(query, page) {
+        const pageNumber = page || this.firstpage;
+        // Guessed URL: https://www.redtube.com/gifs?search=QUERY&page=PAGE
+        const url = `${this.baseUrl}/gifs?search=${encodeURIComponent(query)}&page=${pageNumber}`;
+        this.log.info(`${this.name} GIF search: Constructed URL: ${url}`);
+        return url;
+    }
+
+    async gifParser($, rawHtml) {
+        this.log.info(`Parsing ${this.name} GIF page...`);
+        const gifs = [];
+        // Common selectors for gif items: div.gif_item, li.gif_card, div.gif-masonry__item, div.gif_card_wrapper
+        const gifElements = $('div.gif_item, li.gif_card, div.gif-masonry__item, div.gif_card_wrapper');
+        this.log.info(`Found ${gifElements.length} potential GIF elements.`);
+
+        gifElements.each((i, el) => {
+            const itemHtml = $(el);
+            let title = '', url = '', thumbnail = '', preview_video = '';
+
+            const itemAnchor = itemHtml.find('a.gif_link, a.gif_thumb_link').first(); // Common link classes for gifs
+            url = itemAnchor.attr('href');
+            url = this._makeAbsolute(url, this.baseUrl);
+
+            const imgTag = itemAnchor.find('img.gif_image, img.gif_img').first(); // Common image classes for gifs
+            if (imgTag.length) {
+                title = imgTag.attr('alt') || itemAnchor.attr('title');
+                thumbnail = imgTag.attr('src') || imgTag.attr('data-src'); // Static thumbnail
+
+                // Preview GIF URL: often in data-src, data-mp4, data-gif, or the src itself if it's a .gif
+                preview_video = imgTag.attr('data-gif') ||
+                                imgTag.attr('data-mp4') || // some sites use mp4 for "gifs"
+                                imgTag.attr('data-src-gif') ||
+                                imgTag.attr('src'); // if src is already the .gif
+
+                // If preview_video is not a .gif, but thumbnail is, use thumbnail
+                if (preview_video && !preview_video.toLowerCase().endsWith('.gif') && thumbnail && thumbnail.toLowerCase().endsWith('.gif')) {
+                    preview_video = thumbnail;
+                }
+                 // If no preview_video and thumbnail is a .gif, it's the preview
+                if (!preview_video && thumbnail && thumbnail.toLowerCase().endsWith('.gif')) {
+                    preview_video = thumbnail;
+                }
+
+            } else { // Fallback if specific image tag not found
+                title = itemAnchor.attr('title') || itemAnchor.text().trim();
+                // Try to find any image if specific one fails for preview/thumb
+                const anyImg = itemAnchor.find('img').first();
+                thumbnail = anyImg.attr('src') || anyImg.attr('data-src');
+                preview_video = anyImg.attr('src'); // Simplistic fallback for preview
+            }
+
+            title = title ? title.trim() : 'GIF';
+            thumbnail = this._makeAbsolute(thumbnail, this.baseUrl);
+            preview_video = this._makeAbsolute(preview_video, this.baseUrl);
+
+            if (title && url && preview_video && preview_video.toLowerCase().endsWith('.gif')) {
+                gifs.push({ title, url, thumbnail: thumbnail || preview_video, preview_video, source: this.name, type: 'gifs' });
+            } else {
+                this.log.debug(`Skipped GIF item: title='${title}', url='${url}', potential_preview='${preview_video}'. Does not meet .gif criteria.`);
+            }
+        });
+        this.log.info(`Extracted ${gifs.length} GIFs from Redtube.`);
+        return gifs;
+    }
+
+    async searchGifs(query = this.query, page = this.page) {
+        const searchUrl = this.gifUrl(query, page);
+        this.log.info(`${this.name} searchGifs: Fetching HTML from ${searchUrl}`);
+        if (!searchUrl) {
+            this.log.warn(`${this.name} GIF search: No URL returned by gifUrl.`);
+            return [];
+        }
+        try {
+            const html = await this._fetchHtml(searchUrl);
+            const $ = cheerio.load(html);
+            return this.gifParser($, html);
+        } catch (error) {
+            this.log.error(`Error in ${this.name} searchGifs for query "${query}" on page ${page}: ${error.message}`);
+            if (error.message && error.message.includes('404')) {
+                this.log.warn(`${this.name} GIF search: Received 404 for URL ${searchUrl}.`);
+            }
+            return [];
+        }
+    }
 }
 module.exports = RedtubeScraper;

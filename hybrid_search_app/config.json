@@ -9,6 +9,7 @@
     "Xhamster": "./modules/custom_scrapers/xhamsterScraper.js",
     "Motherless": "./modules/custom_scrapers/motherlessScraper.js",
     "Redtube": "./modules/custom_scrapers/redtubeScraper.js",
-    "SpankBang": "./modules/custom_scrapers/spankbangScraper.js"
+    "SpankBang": "./modules/custom_scrapers/spankbangScraper.js",
+    "mock": "./modules/custom_scrapers/mockScraper.js"
   }
 }

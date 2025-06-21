@@ -57,9 +57,26 @@ class XhamsterScraper extends AbstractModule.with(VideoMixin, GifMixin) {
                     title = imgTag.attr('alt');
                     thumbnail = imgTag.attr('data-src') || imgTag.attr('src');
                     thumbnail = this._makeAbsolute(thumbnail, this.baseUrl);
-                    preview_video = imgTag.attr('data-previewvideo_url') ||
-                                    imgTag.attr('data-preview_url') ||
-                                    imgTag.attr('data-sprite');
+
+                    // Refined preview_video logic
+                    let temp_preview = imgTag.attr('data-previewvideo_url') || imgTag.attr('data-preview_url');
+                    if (temp_preview) {
+                        preview_video = temp_preview;
+                    } else {
+                        const dataSprite = imgTag.attr('data-sprite');
+                        if (dataSprite && (dataSprite.endsWith('.mp4') || dataSprite.endsWith('.webm') || dataSprite.endsWith('.gif') || dataSprite.startsWith('http') || dataSprite.startsWith('/'))) {
+                            // Basic check if it's a URL path or full URL, and common video/gif extensions
+                            // More robust validation might be needed if data-sprite contains non-URL strings often
+                            if (dataSprite.includes('http') || dataSprite.startsWith('/')) { // Ensure it's a link
+                                preview_video = dataSprite;
+                                this.log.debug(`Used data-sprite for preview: ${preview_video}`);
+                            } else {
+                                this.log.debug(`data-sprite content '${dataSprite}' skipped as it's not a valid URL path for preview.`);
+                            }
+                        } else if (dataSprite) {
+                             this.log.debug(`data-sprite content '${dataSprite}' skipped as it did not appear to be a media URL.`);
+                        }
+                    }
                 }
                 if (!title) {
                     title = itemHtml.find('.video-thumb-info__name, .video-thumb__name, .video-title').first().text().trim();
@@ -198,18 +215,6 @@ class XhamsterScraper extends AbstractModule.with(VideoMixin, GifMixin) {
                 this.log.warn(`${this.name} GIF search: Received 404 for URL ${searchUrl}. The GIF search URL structure is likely incorrect.`);
             }
             return [{ title: `${this.name} GIF Scraper Error`, source: this.name, error: error.message }];
-        }
-    }
-
-    async searchGifs(query = this.query, page = this.page) {
-        const searchUrl = this.gifUrl(query, page);
-        this.log.info(`Xhamster searchGifs: Using placeholder URL: ${searchUrl}`);
-        try {
-            this.log.warn(`Xhamster searchGifs: Full fetch and parse for GIFs is not implemented.`);
-            return [{title:'Xhamster GIF Scraper (searchGifs) Not Fully Implemented', source: this.name}];
-        } catch (error) {
-            this.log.error(`Error in Xhamster searchGifs: ${error.message}`);
-            return [{title:'Xhamster GIF Scraper Error', source: this.name, error: error.message }];
         }
     }
 }

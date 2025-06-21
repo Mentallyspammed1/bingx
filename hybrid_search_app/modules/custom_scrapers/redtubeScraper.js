@@ -40,9 +40,13 @@ class RedtubeScraper extends AbstractModule.with(VideoMixin, GifMixin) { // Adde
             });
             const $ = cheerio.load(html);
             const videoItems = [];
-            const videoElements = $('div.video_item');
+            const videoElements = $('li[id^="video_"], div[class*="video_item"], div.video-block, article.video-item, div.card, div.videoBox, div.videoCard');
             if(videoElements.length === 0) {
-                this.log.warn(`No video items found on page using selector 'div.video_item'. HTML length: ${html.length}.`);
+                this.log.warn(`No video items found on page using selector 'li[id^="video_"], div[class*="video_item"], div.video-block, article.video-item, div.card, div.videoBox, div.videoCard'. HTML length: ${html.length}.`);
+                this.log.warn('HTML (first 1000 chars): ' + html.substring(0, 1000)); // Added logging
+                if (html.toLowerCase().includes('cookie')) { // Added cookie check
+                    this.log.warn('Cookie consent banner likely present and may be obscuring content.');
+                }
                 if (html.includes('age_gate_wrapper') || html.includes('age-verification')) {
                      this.log.warn('Age verification page detected.');
                      return [{ title: 'Redtube: Age verification required.', url: searchUrl, source: this.name }];
@@ -52,33 +56,46 @@ class RedtubeScraper extends AbstractModule.with(VideoMixin, GifMixin) { // Adde
                 }
                 return [];
             }
-            this.log.info(`Found ${videoElements.length} potential video elements using 'div.video_item'.`);
+            this.log.info(`Found ${videoElements.length} potential video elements using new composite selector.`);
             videoElements.each((i, el) => {
                 const itemHtml = $(el);
                 let title = '', url = '', thumbnail = '', preview_video = '', duration = 'N/A';
-                const titleAnchor = itemHtml.find('a.video_title_link');
-                title = titleAnchor.attr('title') || titleAnchor.text().trim();
-                url = titleAnchor.attr('href');
-                if (url) url = this._makeAbsolute(url, this.baseUrl);
-                else {
+
+                // Title
+                const titleElement = itemHtml.find('a.video_title, a.title, .video_title_link, .video-card-title, .title a, a span').first();
+                title = (titleElement.attr('title') || titleElement.text() || '').trim();
+
+                // URL
+                url = titleElement.attr('href'); // Try from title element first
+                if (!url) { // Fallback to any first link if not found on title element
                     const anyLink = itemHtml.find('a').first();
                     url = anyLink.attr('href');
-                    if(url) url = this._makeAbsolute(url, this.baseUrl);
-                    if(!title) title = anyLink.attr('title') || anyLink.text().trim();
+                    if (!title) { // If title is still missing, try to get it from this link
+                        title = (anyLink.attr('title') || anyLink.text() || '').trim();
+                    }
                 }
-                const thumbImg = itemHtml.find('img.video_thumbnail_img');
+                if (url) url = this._makeAbsolute(url, this.baseUrl);
+
+                // Thumbnail
+                const thumbImg = itemHtml.find('img[class*="thumb"], img[class*="video_thumbnail"], img.video_thumbnail_img, img.thumb-image').first();
                 thumbnail = thumbImg.attr('src') || thumbImg.attr('data-src');
                 if (thumbnail) thumbnail = this._makeAbsolute(thumbnail, this.baseUrl);
-                preview_video = thumbImg.attr('data-previewvideo_url') || itemHtml.attr('data-preview-url') || itemHtml.attr('data-previewvideo') || itemHtml.attr('data-mediabook') || thumbImg.attr('data-previewvideo') || thumbImg.attr('data-mediabook') || thumbImg.attr('data-gif_url');
+
+                // Preview Video (existing logic seems fine, let's keep it for now, but ensure it uses the new thumbImg)
+                preview_video = thumbImg.attr('data-previewvideo_url') || itemHtml.attr('data-preview-url') || itemHtml.attr('data-previewvideo') || itemHtml.attr('data-mediabook') || thumbImg.attr('data-gif_url');
                 if (!preview_video) {
                     const videoTagSrc = itemHtml.find('video source[src], video[src]').attr('src');
                     if (videoTagSrc) preview_video = videoTagSrc;
                 }
                 if (!preview_video && thumbnail && thumbnail.toLowerCase().endsWith('.gif')) preview_video = thumbnail;
                 if (preview_video) preview_video = this._makeAbsolute(preview_video, this.baseUrl);
-                duration = itemHtml.find('span.video_duration').first().text().trim();
+
+                // Duration
+                const durationElement = itemHtml.find('span.duration, span.video_duration, .time, .video_length_display').first();
+                duration = (durationElement.text() || '').trim();
                 if (duration) duration = duration.replace(/[()]/g, '').trim();
                 else duration = 'N/A';
+
                 if (title && url) videoItems.push({ title, url, thumbnail: thumbnail || '', preview_video: preview_video || '', duration, source: this.name });
                 else this.log.debug(`Skipped video item due to missing title or URL.`);
             });

@@ -140,11 +140,21 @@ class YouPornScraper extends AbstractModule.with(VideoMixin, GifMixin) {
         return url;
     }
 
-    async gifParser($, rawHtml) {
-        log.info(`Parsing ${this.name} GIF page...`);
+    async gifParser($, rawHtml, sourceUrl = '') { // Added sourceUrl parameter
+        log.info(`Parsing ${this.name} GIF page... Source URL: ${sourceUrl || 'Not provided'}`);
+        if (sourceUrl && sourceUrl.includes('type=gif')) {
+            log.info(`${this.name} gifParser: Source URL confirms 'type=gif' parameter was used.`);
+        } else if (sourceUrl) {
+            log.warn(`${this.name} gifParser: Source URL does not confirm 'type=gif' parameter. URL: ${sourceUrl}`);
+        }
+
         const gifs = [];
-        const gifElements = $('div.gif-box, div.gif-item, li.gif-card, div.video-box');
-        log.info(`Found ${gifElements.length} potential GIF elements using selectors.`);
+        const gifElements = $('div.gif-box, div.gif-item, li.gif-card'); // Removed div.video-box
+        log.info(`Found ${gifElements.length} potential GIF elements using selectors: 'div.gif-box, div.gif-item, li.gif-card'.`);
+
+        if (gifElements.length === 0 && rawHtml && rawHtml.length > 0) {
+            log.warn(`${this.name} gifParser: No GIF elements found with current selectors. HTML (first 500 chars): ${rawHtml.substring(0, 500)}`);
+        }
 
         gifElements.each((i, elem) => {
             try {
@@ -223,8 +233,11 @@ class YouPornScraper extends AbstractModule.with(VideoMixin, GifMixin) {
         log.info(`${this.name}: Fetching HTML for GIFs from: ${searchUrl}`);
         try {
             const html = await this._fetchHtml(searchUrl);
+            if (process.env.DEBUG === 'true' && html) {
+                log.debug(`${this.name} searchGifs: Received HTML (first 500 chars): ${html.substring(0, 500)}`);
+            }
             const $ = cheerio.load(html);
-            return this.gifParser($, html);
+            return this.gifParser($, html, searchUrl); // Pass searchUrl
         } catch (error) {
             log.error(`${this.name}: Error in searchGifs for query "${query}" on page ${page}: ${error.message}`);
             if (error.message && error.message.includes('404')) {

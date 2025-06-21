@@ -1,94 +1,30 @@
-// hybrid_search_app/modules/custom_scrapers/mockScraper.js
-'use strict';
+// modules/custom_scrapers/mockScraper.cjs
+// Basic mock scraper for testing purposes
 
-const AbstractModule = require('../../../core/AbstractModule'); // Adjusted path
-const VideoMixin = require('../../../core/VideoMixin'); // Adjusted path
-const GifMixin = require('../../../core/GifMixin'); // Adjusted path
-
-const mockVideoData = [
-    {
-        title: 'Mock Video 1: Neon Dreams',
-        url: 'https://example.com/mockvideo1',
-        thumbnail: 'https://via.placeholder.com/320x180.png?text=Mock+Video+1+Thumb',
-        preview_video: 'https://www.w3schools.com/html/mov_bbb.mp4', // Sample MP4
-        duration: '0:10',
-        source: 'MockSource',
-        views: '1M',
-        tags: ['mock', 'test', 'neon'],
-        type: 'videos'
-    },
-    {
-        title: 'Mock Video 2: Cybernetic Future',
-        url: 'https://example.com/mockvideo2',
-        thumbnail: 'https://via.placeholder.com/320x180.png?text=Mock+Video+2+Thumb',
-        preview_video: 'https://www.w3schools.com/tags/movie.mp4', // Sample MP4
-        duration: '0:15',
-        source: 'MockSource',
-        views: '500K',
-        tags: ['cyber', 'future', 'mock'],
-        type: 'videos'
-    }
-];
-
-const mockGifData = [
-    {
-        title: 'Mock GIF 1: Blinking Light',
-        url: 'https://example.com/mockgif1',
-        thumbnail: 'https://via.placeholder.com/300.gif?text=Mock+GIF+1+Static', // Placeholder static
-        preview_video: 'https://media.giphy.com/media/Vh8pbGX3SGRwFDh3V0/giphy.gif', // Sample GIF
-        source: 'MockSource',
-        tags: ['mock', 'gif', 'blinking'],
-        type: 'gifs'
-    },
-    {
-        title: 'Mock GIF 2: Neon Loop',
-        url: 'https://example.com/mockgif2',
-        thumbnail: 'https://via.placeholder.com/300.gif?text=Mock+GIF+2+Static', // Placeholder static
-        preview_video: 'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif', // Sample GIF
-        source: 'MockSource',
-        tags: ['mock', 'gif', 'loop', 'neon'],
-        type: 'gifs'
-    }
-];
-
-class MockScraper extends AbstractModule {
-    get name() {
-        return 'mock';
+class MockScraper {
+    constructor(options) {
+        this.options = options || {};
+        this.query = this.options.query;
+        this.page = this.options.page || 1;
     }
 
-    get firstpage() {
-        return 1; // Mock can be simple, only one page of results
+    get name() { return 'Mock'; } // Used as key in loadedCustomScrapers
+    get sourceName() { return 'MockSource'; } // Used in item.source
+
+    async searchGifs(query, page) {
+        // console.log(`[MockScraper] searchGifs called with query: ${query}, page: ${page}`);
+        return [
+            { title: 'Mock GIF 1 from Scraper', url: `https://mock.com/gif/1?q=${query}&p=${page}`, thumbnail: 'https://via.placeholder.com/150/0000FF/808080?Text=MockThumb1.jpg', preview_video: 'https://example.com/mock_preview1.gif', source: this.sourceName, query: query, type: 'gifs' },
+            { title: 'Mock GIF 2 from Scraper', url: `https://mock.com/gif/2?q=${query}&p=${page}`, thumbnail: 'https://via.placeholder.com/150/FF0000/FFFFFF?Text=MockThumb2.jpg', preview_video: 'https://example.com/mock_preview2.gif', source: this.sourceName, query: query, type: 'gifs' },
+        ];
     }
 
-    async searchVideos(query = this.query, page = this.page) {
-        console.log(`[MockScraper] searchVideos called with Query: ${query}, Page: ${page}`);
-        if (page > this.firstpage) {
-            return []; // No more mock results beyond the first page
-        }
-        // Simulate a delay
-        await new Promise(resolve => setTimeout(resolve, 200));
-        // Return a copy of the mock data
-        return mockVideoData.map(item => ({ ...item, query }));
-    }
-
-    async searchGifs(query = this.query, page = this.page) {
-        console.log(`[MockScraper] searchGifs called with Query: ${query}, Page: ${page}`);
-        if (page > this.firstpage) {
-            return []; // No more mock results
-        }
-        // Simulate a delay
-        await new Promise(resolve => setTimeout(resolve, 200));
-        // Return a copy of the mock data
-        return mockGifData.map(item => ({ ...item, query }));
+    async searchVideos(query, page) {
+        // console.log(`[MockScraper] searchVideos called with query: ${query}, page: ${page}`);
+        return [
+            { title: 'Mock Video 1 from Scraper', url: `https://mock.com/video/1?q=${query}&p=${page}`, thumbnail: 'https://via.placeholder.com/150/00FF00/000000?Text=MockVidThumb1.jpg', preview_video: 'https://example.com/mock_vid_preview1.mp4', duration: '01:23', source: this.sourceName, query: query, type: 'videos' },
+        ];
     }
 }
-
-// Apply Mixins if needed, though for mock, it might not be strictly necessary
-// unless the core functionality of mixins is to be tested.
-// For simplicity, we'll make it a basic class first.
-// If VideoMixin and GifMixin are essential for structure AbstractModule expects,
-// they can be added like:
-// module.exports = AbstractModule.with(VideoMixin, GifMixin)(MockScraper);
-// For now, let's export directly if mixins aren't strictly needed for mock data.
 
 module.exports = MockScraper;

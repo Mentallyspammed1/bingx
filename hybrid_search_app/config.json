@@ -1,6 +1,8 @@
 {
   "defaultStrategy": "custom",
-  "siteOverrides": {},
+  "siteOverrides": {
+    "Redtube": "pornsearch"
+  },
   "customScrapersMap": {
     "Pornhub": "./modules/custom_scrapers/pornhubScraper.js",
     "Xvideos": "./modules/custom_scrapers/xvideosScraper.js",
@@ -9,7 +11,6 @@
     "Xhamster": "./modules/custom_scrapers/xhamsterScraper.js",
     "Motherless": "./modules/custom_scrapers/motherlessScraper.js",
     "Redtube": "./modules/custom_scrapers/redtubeScraper.js",
-    "SpankBang": "./modules/custom_scrapers/spankbangScraper.js",
-    "mock": "./modules/custom_scrapers/mockScraper.cjs"
+    "Mock": "./modules/custom_scrapers/mockScraper.cjs"
   }
 }

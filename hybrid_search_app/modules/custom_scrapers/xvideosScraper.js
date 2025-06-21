@@ -3,7 +3,7 @@
 
 const AbstractModule = require('../../core/AbstractModule');
 const VideoMixin = require('../../core/VideoMixin');
-// GifMixin has been removed as Xvideos does not have a reliable separate GIF API
+const GifMixin = require('../../core/GifMixin');
 const cheerio = require('cheerio');
 
 const log = {
@@ -12,7 +12,7 @@ const log = {
     warn: (message, ...args) => console.warn(`[XvideosScraper WARN] ${new Date().toISOString()}: ${message}`, ...args),
 };
 
-class XvideosScraper extends AbstractModule.with(VideoMixin) {
+class XvideosScraper extends AbstractModule.with(VideoMixin, GifMixin) {
     constructor(options) {
         super(options);
         this.baseUrl = 'https://www.xvideos.com';
@@ -47,7 +47,6 @@ class XvideosScraper extends AbstractModule.with(VideoMixin) {
         const videos = [];
         $('div.thumb-block').each((i, elem) => {
             const $elem = $(elem);
-
             const $titleLink = $elem.find('p.title a');
             const title = $titleLink.attr('title')?.trim();
             const videoPageUrl = $titleLink.attr('href');
@@ -72,8 +71,61 @@ class XvideosScraper extends AbstractModule.with(VideoMixin) {
         return videos;
     }
 
-    // Removed gifUrl, searchGifs, and gifParser methods as Xvideos does not have a distinct GIF search.
-    // GIFs appear as short videos and are handled by the video search and parsing logic.
+    gifUrl(query, page) {
+        const xvideosPage = Math.max(0, (parseInt(page, 10) || 1) - 1 + this.firstpage);
+        const url = `${this.baseUrl}/gifs/${encodeURIComponent(query)}/${xvideosPage}`; // Example structure
+        log.debug(`Constructed Xvideos GIF URL: ${url}`);
+        return url;
+    }
+
+    async searchGifs(query, page) {
+        const url = this.gifUrl(query, page);
+        log.info(`Fetching HTML for Xvideos GIFs from: ${url}`);
+        try {
+            const html = await this._fetchHtml(url);
+            const $ = cheerio.load(html);
+            return this.gifParser($, html);
+        } catch (error) {
+            log.error(`Error in Xvideos searchGifs for query "${query}" on page ${page}: ${error.message}`);
+            return [];
+        }
+    }
+
+    gifParser($, rawData) {
+        log.info(`Parsing Xvideos GIF data...`);
+        const gifs = [];
+        // Note: Xvideos GIF selectors are highly speculative and may need significant adjustment.
+        $('div.gif-thumb-block, div.thumb-block').each((i, elem) => {
+            const $elem = $(elem);
+            const $titleLink = $elem.find('p.title a, a.thumb-name');
+            const title = $titleLink.attr('title')?.trim() || $titleLink.text()?.trim();
+            const gifPageUrl = $titleLink.attr('href');
+            const imgElement = $elem.find('div.thumb img, div.thumb-inside img');
+            let thumbnail = imgElement.attr('src'); // Static thumbnail
+            let previewVideo = imgElement.attr('data-src'); // Often the animated GIF itself for Xvideos
+
+            if (!previewVideo && thumbnail && thumbnail.endsWith('.gif')) { // If data-src is missing but src is a gif
+                previewVideo = thumbnail;
+            }
+            if (previewVideo && !thumbnail) { // If only preview is available, use it as thumbnail too
+                thumbnail = previewVideo;
+            }
+
+            if (title && gifPageUrl && previewVideo) {
+                gifs.push({
+                    title,
+                    url: this._makeAbsolute(gifPageUrl, this.baseUrl),
+                    thumbnail: this._makeAbsolute(thumbnail, this.baseUrl),
+                    preview_video: this._makeAbsolute(previewVideo, this.baseUrl),
+                    source: this.name,
+                });
+            } else {
+                log.warn('Skipped an Xvideos GIF item due to missing critical data.');
+            }
+        });
+        log.info(`Parsed ${gifs.length} GIF items from Xvideos.`);
+        return gifs;
+    }
 }
 
 module.exports = XvideosScraper;

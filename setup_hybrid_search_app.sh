@@ -116,7 +116,8 @@ cat << 'EOF' > config.json
     "Youporn": "./modules/custom_scrapers/youpornScraper.js",
     "Xhamster": "./modules/custom_scrapers/xhamsterScraper.js",
     "Motherless": "./modules/custom_scrapers/motherlessScraper.js",
-    "Redtube": "./modules/custom_scrapers/redtubeScraper.js"
+    "Redtube": "./modules/custom_scrapers/redtubeScraper.js",
+    "Mock": "./modules/custom_scrapers/mockScraper.cjs"
   }
 }
 EOF
@@ -332,6 +333,26 @@ const gifAbstractMethods = [
 
 module.exports = (BaseClass) => enforceAbstractMethods(BaseClass, gifAbstractMethods);
 EOF
+
+info "Creating core/log.js..."
+cat << 'EOF' > core/log.js
+// Basic console logger utility
+const log = {
+    debug: (message, ...args) => { if (process.env.NODE_ENV === 'development') console.log(`[DEBUG] ${new Date().toISOString()}: `, message, ...args); },
+    info: (message, ...args) => console.log(`[INFO] ${new Date().toISOString()}: `, message, ...args),
+    warn: (message, ...args) => console.warn(`[WARN] ${new Date().toISOString()}: `, message, ...args),
+    error: (message, ...args) => console.error(`[ERROR] ${new Date().toISOString()}: `, message, ...args),
+    child: function(bindings) { // Added basic child-like behavior
+        return {
+            debug: (message, ...args) => this.debug(`[${bindings.module || 'child'}] `, message, ...args),
+            info: (message, ...args) => this.info(`[${bindings.module || 'child'}] `, message, ...args),
+            warn: (message, ...args) => this.warn(`[${bindings.module || 'child'}] `, message, ...args),
+            error: (message, ...args) => this.error(`[${bindings.module || 'child'}] `, message, ...args),
+        };
+    }
+};
+module.exports = log;
+EOF
 success "Core modules created."
 
 # --- Generate Custom Scraper Modules ---
@@ -391,8 +412,15 @@ class PornhubScraper extends AbstractModule.with(VideoMixin, GifMixin) {
             const title = $elem.find('span.title a').attr('title')?.trim();
             const videoPageUrl = $elem.find('span.title a').attr('href');
             const duration = $elem.find('var.duration').text()?.trim();
-            let thumbnail = $elem.find('img').attr('data-mediumthumb') || $elem.find('img').attr('data-src') || $elem.find('img').attr('src');
-            let previewVideo = $elem.find('a.linkVideoThumb').attr('data-mediabook') || $elem.find('img').attr('data-previewvideo');
+            // Corrected thumbnail logic
+            let thumbnail = $elem.find('img').attr('data-mediumthumb');
+            if (!thumbnail) thumbnail = $elem.find('img').attr('data-src');
+            if (!thumbnail) thumbnail = $elem.find('img').attr('src');
+
+            // Corrected preview video logic
+            let previewVideo = $elem.find('a.linkVideoThumb').attr('data-mediabook');
+            if (!previewVideo) previewVideo = $elem.find('img').attr('data-mediabook');
+            if (!previewVideo) previewVideo = $elem.find('img').attr('data-previewvideo');
 
             if (title && videoPageUrl) {
                 videos.push({
@@ -438,8 +466,14 @@ class PornhubScraper extends AbstractModule.with(VideoMixin, GifMixin) {
             const $elem = $(elem);
             const title = $elem.find('a').attr('title')?.trim() || $elem.find('.title').text()?.trim();
             const gifPageUrl = $elem.find('a').attr('href');
-            let previewVideo = $elem.find('video[data-webm]').attr('data-webm') || $elem.find('video source[type="video/webm"]').attr('src');
-            let thumbnail = $elem.find('img.thumb').attr('data-src') || $elem.find('img.thumb').attr('src');
+            // Corrected GIF thumbnail logic
+            let thumbnail = $elem.find('video').attr('data-poster');
+            if (!thumbnail) thumbnail = $elem.find('img.thumb').attr('data-src');
+            if (!thumbnail) thumbnail = $elem.find('img.thumb').attr('src');
+
+            // Corrected GIF preview video logic
+            let previewVideo = $elem.find('video').attr('data-webm');
+            if (!previewVideo) previewVideo = $elem.find('video source[type="video/webm"]').attr('src');
 
             if (title && gifPageUrl) {
                 gifs.push({
@@ -671,6 +705,40 @@ class RedtubeScraper extends AbstractModule.with(VideoMixin) {
 module.exports = RedtubeScraper;
 EOF
 
+info "Creating modules/custom_scrapers/mockScraper.cjs..."
+cat << 'EOF' > modules/custom_scrapers/mockScraper.cjs
+// modules/custom_scrapers/mockScraper.cjs
+// Basic mock scraper for testing purposes
+
+class MockScraper {
+    constructor(options) {
+        this.options = options || {};
+        this.query = this.options.query;
+        this.page = this.options.page || 1;
+    }
+
+    get name() { return 'Mock'; } // Used as key in loadedCustomScrapers
+    get sourceName() { return 'MockSource'; } // Used in item.source
+
+    async searchGifs(query, page) {
+        // console.log(`[MockScraper] searchGifs called with query: ${query}, page: ${page}`);
+        return [
+            { title: 'Mock GIF 1 from Scraper', url: `https://mock.com/gif/1?q=${query}&p=${page}`, thumbnail: 'https://via.placeholder.com/150/0000FF/808080?Text=MockThumb1.jpg', preview_video: 'https://example.com/mock_preview1.gif', source: this.sourceName, query: query, type: 'gifs' },
+            { title: 'Mock GIF 2 from Scraper', url: `https://mock.com/gif/2?q=${query}&p=${page}`, thumbnail: 'https://via.placeholder.com/150/FF0000/FFFFFF?Text=MockThumb2.jpg', preview_video: 'https://example.com/mock_preview2.gif', source: this.sourceName, query: query, type: 'gifs' },
+        ];
+    }
+
+    async searchVideos(query, page) {
+        // console.log(`[MockScraper] searchVideos called with query: ${query}, page: ${page}`);
+        return [
+            { title: 'Mock Video 1 from Scraper', url: `https://mock.com/video/1?q=${query}&p=${page}`, thumbnail: 'https://via.placeholder.com/150/00FF00/000000?Text=MockVidThumb1.jpg', preview_video: 'https://example.com/mock_vid_preview1.mp4', duration: '01:23', source: this.sourceName, query: query, type: 'videos' },
+        ];
+    }
+}
+
+module.exports = MockScraper;
+EOF
+
 success "Custom scraper modules created."
 
 # --- Generate server.js ---
@@ -897,6 +965,18 @@ process.on('SIGTERM', () => {
     log.info('Termination signal received, closing server gracefully.');
     process.exit(0);
 });
+
+// Export the app for testing or programmatic use,
+// and only start listening if the script is run directly.
+if (require.main === module) {
+    app.listen(PORT, '0.0.0.0', () => {
+        log.info(`Hybrid backend server started on http://0.0.0.0:${PORT}`);
+        log.info(`Current Global Backend Strategy: ${globalStrategy}`);
+        log.info(`Access frontend at http://localhost:${PORT}`);
+    });
+}
+
+module.exports = app;
 EOF
 success "server.js created."
 

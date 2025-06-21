@@ -320,13 +320,12 @@
                 <label for="driverSelect" class="sr-only">Search Provider</label>
                 <select id="driverSelect" aria-label="Select Search Provider" class="select-neon w-full sm:w-auto">
                     <option value="Pornhub">Pornhub</option>
-                    <option value="Xvideos">Xvideos</option>
+                    <option value="Xvideos">XVideos</option>
                     <option value="Redtube" selected>Redtube</option>
-                    <option value="SexCom">SexCom</option>
-                    <option value="Youporn">Youporn</option>
-                    <option value="Xhamster">Xhamster</option>
-                    <option value="Motherless">Motherless</option>
-                    <option value="SpankBang">SpankBang</option>
+                    <!-- Add other drivers from your config.json/customScrapersMap here -->
+                    <!-- <option value="SexCom">SexCom</option> -->
+                    <!-- <option value="YouPorn">YouPorn</option> -->
+                    <!-- <option value="Xhamster">Xhamster</option> -->
                     <option value="mock">Mock (Test)</option>
                 </select>
             </div>
@@ -454,43 +453,25 @@
             mediaContainer.appendChild(staticThumbImg);
 
             if (animatedPreviewUrl) {
-                const isActualGifFile = animatedPreviewUrl.toLowerCase().endsWith('.gif');
-                if (itemActualType === 'gifs') {
-                    if (isActualGifFile) {
-                        // Create <img> for .gif URL
-                        const gifPreviewImg = document.createElement('img');
-                        gifPreviewImg.src = animatedPreviewUrl;
-                        gifPreviewImg.alt = ''; // Alt is empty for decorative previews
-                        gifPreviewImg.loading = 'lazy';
-                        gifPreviewImg.className = 'preview-gif-image'; // Ensure this class applies for CSS hover effects
-                        gifPreviewImg.onerror = () => { log.warn(`Animated GIF preview load failed: ${animatedPreviewUrl}`); gifPreviewImg.remove(); };
-                        mediaContainer.appendChild(gifPreviewImg);
-                    } else {
-                        // Create <video> for non-.gif preview URLs (e.g., .webm, .mp4) for a GIF item
-                        const videoPreviewEl = document.createElement('video');
-                        videoPreviewEl.src = animatedPreviewUrl;
-                        videoPreviewEl.poster = staticThumbnailUrl; // Use existing static thumb as poster
-                        videoPreviewEl.muted = true; videoPreviewEl.loop = true; videoPreviewEl.playsInline = true; videoPreviewEl.preload = 'metadata';
-                        videoPreviewEl.className = 'preview-video'; // Ensure this class applies for CSS hover effects
-                        videoPreviewEl.onerror = (e) => { log.warn(`GIF item's video preview load failed: ${animatedPreviewUrl}`, e); videoPreviewEl.remove(); };
-                        mediaContainer.appendChild(videoPreviewEl);
-                    }
-                } else if (itemActualType === 'videos') { // This is the existing logic for video items
-                    // Create <video> for video item
-                     if (!isActualGifFile) { // Defensive: videos should not have .gif previews typically
-                        const videoPreviewEl = document.createElement('video');
-                        videoPreviewEl.src = animatedPreviewUrl;
-                        videoPreviewEl.poster = staticThumbnailUrl;
-                        videoPreviewEl.muted = true; videoPreviewEl.loop = true; videoPreviewEl.playsInline = true; videoPreviewEl.preload = 'metadata';
-                        videoPreviewEl.className = 'preview-video';
-                        videoPreviewEl.onerror = (e) => { log.warn(`Preview video load failed: ${animatedPreviewUrl}`, e); videoPreviewEl.remove(); };
-                        mediaContainer.appendChild(videoPreviewEl);
-                    } else {
-                         log.warn(`Video item has a .gif preview URL, which is unusual: ${animatedPreviewUrl}`);
-                         // Optionally, render it as an image if this case is valid
-                    }
+                const isDirectGifPreview = animatedPreviewUrl.toLowerCase().endsWith('.gif');
+                if (isDirectGifPreview && itemActualType === 'gifs') {
+                    const gifPreviewImg = document.createElement('img');
+                    gifPreviewImg.src = animatedPreviewUrl;
+                    gifPreviewImg.alt = '';
+                    gifPreviewImg.loading = 'lazy';
+                    gifPreviewImg.className = 'preview-gif-image';
+                    gifPreviewImg.onerror = () => { log.warn(`Animated GIF preview load failed: ${animatedPreviewUrl}`); gifPreviewImg.remove(); };
+                    mediaContainer.appendChild(gifPreviewImg);
+                } else if (!isDirectGifPreview && itemActualType === 'videos') {
+                    const videoPreviewEl = document.createElement('video');
+                    videoPreviewEl.src = animatedPreviewUrl;
+                    videoPreviewEl.poster = staticThumbnailUrl;
+                    videoPreviewEl.muted = true; videoPreviewEl.loop = true; videoPreviewEl.playsInline = true; videoPreviewEl.preload = 'metadata';
+                    videoPreviewEl.className = 'preview-video';
+                    videoPreviewEl.onerror = (e) => { log.warn(`Preview video load failed: ${animatedPreviewUrl}`, e); videoPreviewEl.remove(); };
+                    mediaContainer.appendChild(videoPreviewEl);
                 } else {
-                    log.warn(`Unhandled itemActualType '${itemActualType}' for preview URL: ${animatedPreviewUrl}`);
+                     log.warn(`Preview URL ${animatedPreviewUrl} type does not match item type ${itemActualType} or is not a recognized video format. Static thumb will be shown.`);
                 }
             }
 
@@ -536,29 +517,18 @@
                 renderMediaErrorPlaceholder(modalContent, 'Media not available for modal display.');
             } else {
                 let mediaElement;
-                const isSourceDirectGif = mediaSourceUrl.toLowerCase().endsWith('.gif');
-                if (displayType === 'gifs') {
-                    if (isSourceDirectGif) {
-                        mediaElement = document.createElement('img');
-                        mediaElement.src = mediaSourceUrl;
-                        mediaElement.alt = titleText;
-                    } else { // It's a GIF item, but preview is a video format (e.g., webm from Pornhub)
-                        mediaElement = document.createElement('video');
-                        mediaElement.src = mediaSourceUrl;
-                        mediaElement.controls = true; mediaElement.autoplay = true; mediaElement.loop = true; // Loop for GIF-like video previews
-                    }
-                } else { // displayType === 'videos'
+                if (isVideoForModal) {
                     mediaElement = document.createElement('video');
                     mediaElement.src = mediaSourceUrl;
-                    mediaElement.controls = true; mediaElement.autoplay = true; mediaElement.loop = false; // Videos typically don't loop by default in modal
+                    mediaElement.controls = true; mediaElement.autoplay = true; mediaElement.loop = false;
+                } else {
+                    mediaElement = document.createElement('img');
+                    mediaElement.src = mediaSourceUrl; mediaElement.alt = titleText;
                 }
-
-                if (mediaElement) { // Ensure mediaElement was created before setting styles/onerror
-                    mediaElement.style.maxHeight = 'calc(95vh - 100px)'; // Existing style
-                    mediaElement.style.maxWidth = '100%'; // Existing style
-                    mediaElement.onerror = () => renderMediaErrorPlaceholder(modalContent, 'Error loading media in modal.');
-                    modalContent.appendChild(mediaElement);
-                }
+                mediaElement.style.maxHeight = 'calc(95vh - 100px)';
+                mediaElement.style.maxWidth = '100%';
+                mediaElement.onerror = () => renderMediaErrorPlaceholder(modalContent, 'Error loading media in modal.');
+                modalContent.appendChild(mediaElement);
             }
 
             const sourceLink = document.createElement('a');
@@ -837,59 +807,6 @@
                     card.addEventListener('focusin', (e) => { if(card.contains(e.target)) {clearTimeout(appState.hoverPauseTimeout); appState.hoverPlayTimeout = setTimeout(playVideo, HOVER_PLAY_DELAY_MS);}});
                     card.addEventListener('mouseleave', () => { clearTimeout(appState.hoverPlayTimeout); appState.hoverPauseTimeout = setTimeout(pauseVideo, HOVER_PAUSE_DELAY_MS); });
                     card.addEventListener('focusout', (e) => { if (!card.contains(e.relatedTarget)) { clearTimeout(appState.hoverPlayTimeout); appState.hoverPauseTimeout = setTimeout(pauseVideo, HOVER_PAUSE_DELAY_MS); }});
-                }
-            }
-            // Add new logic for GIF hover-play (restart)
-            if (itemActualType === 'gifs') {
-                const gifPreviewImage = mediaContainer.querySelector('img.preview-gif-image');
-                // Ensure it exists and has a src to avoid errors if the element or its src is missing
-                if (gifPreviewImage && gifPreviewImage.src && gifPreviewImage.src !== PLACEHOLDER_GIF_DATA_URI) {
-                    const originalSrc = gifPreviewImage.src;
-
-                    const restartGifAnimation = () => {
-                        // Only restart if the element is still in the DOM and has the same src
-                        if (document.body.contains(gifPreviewImage) && gifPreviewImage.src === originalSrc) {
-                            const currentSrc = gifPreviewImage.src;
-                            gifPreviewImage.src = ''; // Temporarily clear src
-                            // Forcing a reflow can sometimes help ensure the browser reloads the GIF
-                            // However, simply resetting src is usually enough.
-                            // void gifPreviewImage.offsetWidth;
-                            gifPreviewImage.src = currentSrc; // Re-assign src to restart animation
-                            log.info('Restarting GIF animation for card:', itemData.title);
-                        }
-                    };
-
-                    const clearGifAnimation = () => {
-                        // This function is called on mouseleave/focusout.
-                        // The CSS already handles hiding the GIF by reducing opacity.
-                        // No specific action needed here to "stop" an img GIF usually,
-                        // unless we wanted to revert to static thumb explicitly to save resources.
-                        log.info('GIF hover/focus ended for card:', itemData.title);
-                    };
-
-                    // Use existing appState timeouts if they are meant to be shared, or create new ones for GIFs
-                    // For this implementation, we'll reuse them as the delays are generic.
-                    card.addEventListener('mouseenter', () => {
-                        clearTimeout(appState.hoverPauseTimeout);
-                        appState.hoverPlayTimeout = setTimeout(restartGifAnimation, HOVER_PLAY_DELAY_MS);
-                    });
-                    card.addEventListener('focusin', (e) => {
-                        if (card.contains(e.target)) {
-                            clearTimeout(appState.hoverPauseTimeout);
-                            appState.hoverPlayTimeout = setTimeout(restartGifAnimation, HOVER_PLAY_DELAY_MS);
-                        }
-                    });
-                    card.addEventListener('mouseleave', () => {
-                        clearTimeout(appState.hoverPlayTimeout);
-                        // Call clearGifAnimation, though it mostly just logs for now.
-                        appState.hoverPauseTimeout = setTimeout(clearGifAnimation, HOVER_PAUSE_DELAY_MS);
-                    });
-                    card.addEventListener('focusout', (e) => {
-                        if (!card.contains(e.relatedTarget)) {
-                            clearTimeout(appState.hoverPlayTimeout);
-                            appState.hoverPauseTimeout = setTimeout(clearGifAnimation, HOVER_PAUSE_DELAY_MS);
-                        }
-                    });
                 }
             }
             return card;

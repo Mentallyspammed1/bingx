@@ -11,7 +11,7 @@ const Pornsearch = require('pornsearch');
 
 // --- Constants ---
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 // --- Global Configuration & Strategy ---
 let globalStrategy = 'custom'; // Default if config loading fails
@@ -203,33 +203,31 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- Start Server & Export ---
-let serverInstance = null;
+// --- Start Server ---
+app.listen(PORT, '0.0.0.0', () => {
+    log.info(`Hybrid backend server started on http://0.0.0.0:${PORT}`);
+    log.info(`Current Global Backend Strategy: ${globalStrategy}`);
+    log.info(`Access frontend at http://localhost:${PORT}`);
+});
 
+// --- Graceful Shutdown ---
+process.on('SIGINT', () => {
+    log.info('Shutdown signal received, closing server gracefully.');
+    process.exit(0);
+});
+process.on('SIGTERM', () => {
+    log.info('Termination signal received, closing server gracefully.');
+    process.exit(0);
+});
+
+// Export the app for testing or programmatic use,
+// and only start listening if the script is run directly.
 if (require.main === module) {
-    // If this script is run directly, start the server.
-    serverInstance = app.listen(PORT, '0.0.0.0', () => {
+    app.listen(PORT, '0.0.0.0', () => {
         log.info(`Hybrid backend server started on http://0.0.0.0:${PORT}`);
         log.info(`Current Global Backend Strategy: ${globalStrategy}`);
         log.info(`Access frontend at http://localhost:${PORT}`);
     });
-
-    // Graceful shutdown for direct execution
-    const gracefulShutdown = (signal) => {
-        log.info(`${signal} signal received, closing server gracefully.`);
-        if (serverInstance) {
-            serverInstance.close(() => {
-                log.info('Server closed.');
-                process.exit(0);
-            });
-        } else {
-            process.exit(0);
-        }
-    };
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 }
 
-// Export the Express app instance for testing or programmatic use.
-// Test files will be responsible for starting their own server with this app.
 module.exports = app;

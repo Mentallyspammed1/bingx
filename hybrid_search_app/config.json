@@ -4,10 +4,13 @@
     "Redtube": "pornsearch"
   },
   "customScrapersMap": {
+    "Pornhub": "./modules/custom_scrapers/pornhubScraper.js",
+    "Xvideos": "./modules/custom_scrapers/xvideosScraper.js",
     "SexCom": "./modules/custom_scrapers/sexComScraper.js",
     "Youporn": "./modules/custom_scrapers/youpornScraper.js",
+    "Xhamster": "./modules/custom_scrapers/xhamsterScraper.js",
     "Motherless": "./modules/custom_scrapers/motherlessScraper.js",
-    "Spankbang": "./modules/custom_scrapers/spankbangScraper.js",
+    "Redtube": "./modules/custom_scrapers/redtubeScraper.js",
     "Mock": "./modules/custom_scrapers/mockScraper.cjs"
   }
 }

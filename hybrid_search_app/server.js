@@ -203,29 +203,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- Start Server Function ---
-function startServer(port) {
-    const server = app.listen(port, '0.0.0.0', () => {
-        log.info(`Hybrid backend server started on http://0.0.0.0:${port}`);
-        log.info(`Current Global Backend Strategy: ${globalStrategy}`);
-        log.info(`Access frontend at http://localhost:${port}`);
-    });
-
-    server.on('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-            log.warn(`Port ${port} is in use, trying port ${port + 1}`);
-            setTimeout(() => { // Add a small delay before retrying
-                server.close(); // Ensure the previous attempt is closed before retrying
-                startServer(port + 1);
-            }, 100); // 100ms delay
-        } else {
-            log.error('Failed to start server:', err);
-            process.exit(1); // Exit if it's a different error
-        }
-    });
-    return server; // Return the server instance
-}
-
 // --- Graceful Shutdown ---
 process.on('SIGINT', () => {
     log.info('Shutdown signal received, closing server gracefully.');
@@ -238,8 +215,35 @@ process.on('SIGTERM', () => {
 
 // Export the app for testing or programmatic use,
 // and only start listening if the script is run directly.
-if (require.main === module) {
-    startServer(PORT); // Use the new function
+
+function startServer(port, retriesLeft = 10) {
+    if (retriesLeft === 0) {
+        log.error(`Failed to start server after multiple port retries. Last port tried: ${port -1}. Please check your available ports.`);
+        process.exit(1);
+    }
+
+    const serverInstance = app.listen(port, '0.0.0.0', () => {
+        log.info(`Hybrid backend server started on http://0.0.0.0:${port}`);
+        log.info(`Current Global Backend Strategy: ${globalStrategy}`);
+        log.info(`Access frontend at http://localhost:${port}`);
+    });
+
+    serverInstance.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            log.warn(`Port ${port} is in use. Trying port ${port + 1}...`);
+            // Ensure the previous listener is closed before retrying, though node usually handles this on error.
+            serverInstance.close(() => { // Adding explicit close though might not be strictly necessary for EADDRINUSE before next tick
+                startServer(port + 1, retriesLeft - 1);
+            });
+        } else {
+            log.error('Failed to start server:', err);
+            process.exit(1); // Exit for other types of errors
+        }
+    });
 }
 
-module.exports = app; // Export app for testing purposes
+if (require.main === module) {
+    startServer(PORT);
+}
+
+module.exports = app;

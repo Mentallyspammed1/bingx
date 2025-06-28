@@ -7,7 +7,7 @@
     "SexCom": "./modules/custom_scrapers/sexComScraper.js",
     "Youporn": "./modules/custom_scrapers/youpornScraper.js",
     "Motherless": "./modules/custom_scrapers/motherlessScraper.js",
-    "Spankbang": "./modules/custom_scrapers/spankbangScraper.js",
+    "Redtube": "./modules/custom_scrapers/redtubeScraper.js",
     "Mock": "./modules/custom_scrapers/mockScraper.cjs"
   }
 }

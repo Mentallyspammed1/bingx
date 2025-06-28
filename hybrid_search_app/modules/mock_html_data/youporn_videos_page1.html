@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock YouPorn Video Search Results</title>
+</head>
+<body>
+    <div id="results-container" class="video-list-container">
+        <!-- Item 1: Uses div.video-box, data-src for thumb, data-preview_url for preview -->
+        <div class="video-box" data-id="yp1001">
+            <a class="video-box-link" href="/watch/10012345/mock-youporn-video-title-one" title="Mock YouPorn Video Title One">
+                <img class="video-thumbnail" src="/thumbs/placeholder.jpg" data-src="/thumbs/yp_thumb_1.jpg" alt="Mock Video 1 Alt Text">
+                <video data-preview_url="/previews/yp_preview_1.mp4" muted loop></video>
+            </a>
+            <div class="video-info-container">
+                <span class="video-title video-title-truncate">Mock YouPorn Video Title One</span>
+                <span class="video-duration">05:30</span>
+                <span class="views">1.2M views</span>
+            </div>
+        </div>
+
+        <!-- Item 2: Uses li.video-item, src for thumb, img data-preview for preview -->
+        <li class="video-item" data-id="yp1002">
+            <a class="video-link" href="/watch/10023456/another-style-video-two" title="Another Style Video Two">
+                <img class="thumb" src="/thumbs/yp_thumb_2.jpg" alt="Another Video Alt" data-preview="/previews/yp_alt_preview_2.gif">
+            </a>
+            <div class="li-video-info">
+                <p class="title-text">Another Style Video Two</p>
+                <span class="duration-text">12:15</span>
+                 <span class="views_count">980K views</span>
+            </div>
+        </li>
+
+        <!-- Item 3: Uses div.video-box, data-id on item, different preview attribute -->
+        <div class="video-box" data-id="yp1003">
+            <a class="video-box-link" href="/watch/10034567/third-video-example-youporn" title="Third Video Example YouPorn">
+                <img class="video-thumbnail" src="/thumbs/yp_thumb_3.jpg" data-previewvideo="/previews/yp_preview_3.webm">
+                <span class="duration">08:42</span>
+            </a>
+            <div class="videoDetails">
+                <p class="video-title">Third Video Example YouPorn</p>
+                <div class="views">750k Views</div>
+            </div>
+        </div>
+
+        <!-- Item 4: Minimal data, only essential link and title -->
+        <div class="video-box" data-id="yp1004">
+            <a class="video-link" href="/watch/10045678/minimal-data-video-four" title="Minimal Data Video Four">
+                <img class="thumb" src="/thumbs/yp_thumb_4.jpg">
+            </a>
+            <span class="video-title">Minimal Data Video Four</span>
+            <!-- No duration, no explicit preview attribute -->
+        </div>
+
+        <!-- Item 5: Different class for thumbnail, video tag for preview -->
+         <div class="thumbnail-video-container video-item" data-id="yp1005">
+            <a class="video-thumb-link" href="/watch/10056789/video-with-direct-preview-tag" title="Video With Direct Preview Tag">
+                <img class="video-thumb-img" src="/thumbs/yp_thumb_5.jpg" alt="Direct Preview Video">
+                <video class="video-preview" src="/previews/yp_direct_preview_5.mp4" muted loop></video>
+                <span class="time">10:05</span>
+            </a>
+            <div class="title-wrapper">
+                 <p class="title">Video With Direct Preview Tag</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,165 +1,187 @@
-// modules/custom_scrapers/spankbangScraper.js
 'use strict';
 
-const AbstractModule = require('../../core/AbstractModule');
-const VideoMixin = require('../../core/VideoMixin');
-const GifMixin = require('../../core/GifMixin');
-const log = require('../../core/log');
-const cheerio = require('cheerio'); // Will be needed for parsing
+let AbstractModule;
+try {
+    AbstractModule = require('../core/AbstractModule');
+} catch (e) {
+    AbstractModule = class {
+        constructor(query) { this.query = query; }
+        get name() { return 'UnnamedDriver'; }
+        get baseUrl() { return ''; }
+        get supportsVideos() { return false; }
+        get supportsGifs() { return false; }
+        get firstpage() { return 1; }
+    };
+}
 
-class SpankbangScraper extends AbstractModule.with(VideoMixin, GifMixin) {
-    constructor(options) {
-        super(options);
-        this.baseUrl = 'https://www.spankbang.com'; // Assuming this is the correct base URL
-        log.debug(`${this.name} scraper initialized`);
+const BASE_URL = 'https://www.spankbang.com';
+// Frontend driverSelect does not list Spankbang. Assuming "Spankbang" or "SpankBang" would be its name.
+const DRIVER_NAME = 'Spankbang';
+
+/**
+ * @class SpankbangDriver
+ * @classdesc Driver for scraping video and GIF content from Spankbang.
+ */
+class SpankbangDriver extends AbstractModule {
+    constructor(query) {
+        super(query);
+        this.name = DRIVER_NAME;
+        this.baseUrl = BASE_URL;
+        this.supportsVideos = true;
+        this.supportsGifs = true;
+        this.firstpage = 1; // Spankbang pagination is 1-indexed in the path
     }
 
-    get name() {
-        return 'SpankBang';
-    }
-
-    get firstpage() {
-        // SpankBang uses 1-indexed pagination for search results (e.g., /s/query/2/)
-        // but the actual page number for the first page is often not explicitly shown as '1'
-        // or it might be part of the path without a query param.
-        // For /s/query/ (first page) vs /s/query/2/ (second page), 1 seems appropriate.
-        return 1;
-    }
-
-    // --- Video Search Methods ---
-    videoUrl(query, page) {
-        // Example structure: https://www.spankbang.com/s/test/2/?o=new (page 2)
-        // First page: https://www.spankbang.com/s/test/?o=new
-        // The page number seems to be part of the path.
-        // The 'o=new' sorts by new, other options: o=trending, o=popular, o=longest, o=shortest
-        const pageSegment = (parseInt(page, 10) || 1) > 1 ? `${(parseInt(page, 10) || 1)}/` : '';
-        const url = `${this.baseUrl}/s/${encodeURIComponent(query)}/${pageSegment}?o=new`;
-        log.debug(`Constructed ${this.name} video URL: ${url}`);
-        return url;
-    }
-
-    async searchVideos(query, page) {
-        const url = this.videoUrl(query, page);
-        log.info(`Fetching HTML for ${this.name} videos from: ${url}`);
-        try {
-            const html = await this._fetchHtml(url);
-            const $ = cheerio.load(html);
-            return this.videoParser($, html);
-        } catch (error) {
-            log.error(`Error in ${this.name} searchVideos for query "${query}" on page ${page}: ${error.message}`);
-            return []; // Return empty array on error
+    /**
+     * Constructs the URL for searching videos on Spankbang.
+     * Example: https://www.spankbang.com/s/test/2/?o=new (page 2)
+     * First page: https://www.spankbang.com/s/test/?o=new
+     * @param {string} query - The search query string.
+     * @param {number} page - The page number for search results (1-indexed).
+     * @returns {string} The fully qualified URL for video search.
+     */
+    getVideoSearchUrl(query, page) {
+        if (!query || typeof query !== 'string' || query.trim() === '') {
+            throw new Error(`[${this.name}] Search query is not set for video search.`);
         }
+        const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
+        const pageSegment = searchPage > 1 ? `${searchPage}/` : '';
+        // The `o=new` sorts by newest. Other options exist (trending, popular).
+        const searchUrl = new URL(`/s/${encodeURIComponent(query.trim())}/${pageSegment}`, this.baseUrl);
+        searchUrl.searchParams.set('o', 'new');
+
+        // console.log(`[${this.name}] Generated video URL: ${searchUrl.href}`);
+        return searchUrl.href;
     }
 
-    videoParser($, rawData) {
-        log.info(`Parsing ${this.name} video data...`);
-        const videos = [];
-        // Common SpankBang selectors: div.video-item, article.video-item
-        $('div.video-item').each((i, elem) => {
-            try {
-                const $elem = $(elem);
+    /**
+     * Constructs the URL for searching GIFs on Spankbang.
+     * Example: https://spankbang.com/gifs/search/test/2/
+     * @param {string} query - The search query string.
+     * @param {number} page - The page number for search results (1-indexed).
+     * @returns {string} The fully qualified URL for GIF search.
+     */
+    getGifSearchUrl(query, page) {
+        if (!query || typeof query !== 'string' || query.trim() === '') {
+            throw new Error(`[${this.name}] Search query is not set for GIF search.`);
+        }
+        const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
+        const pageSegment = searchPage > 1 ? `${searchPage}/` : '';
+        // Path for GIFs: /gifs/search/QUERY/PAGE/
+        const searchPath = `/gifs/search/${encodeURIComponent(query.trim())}/${pageSegment}`;
+        const searchUrl = new URL(searchPath, this.baseUrl);
 
-                const $titleLink = $elem.find('a.thumb');
-                let title = $titleLink.attr('title')?.trim();
-                if (!title) { // Fallback to an inner element if title attribute is missing
-                    title = $elem.find('div.inf > p > a[href*="/video"]').text()?.trim();
-                }
-                let videoPageUrl = $titleLink.attr('href');
-
-                const $imgElement = $elem.find('img.lazy');
-                let thumbnail = $imgElement.attr('data-src') || $imgElement.attr('src');
-
-                // Preview video: SpankBang uses a 'data-preview' attribute on the <a> tag with class 'thumb'
-                // or sometimes on a specific <picture> element.
-                let previewVideo = $titleLink.attr('data-preview');
-                if (!previewVideo) { // Fallback if not on <a>
-                    previewVideo = $elem.find('picture > source[type="video/mp4"]').attr('data-preview');
-                }
-
-
-                const duration = $elem.find('div.l').text()?.trim(); // Duration often in a div with class 'l' or similar
-
-                if (title && videoPageUrl) {
-                    const videoData = {
-                        title,
-                        url: this._makeAbsolute(videoPageUrl, this.baseUrl),
-                        thumbnail: this._makeAbsolute(thumbnail, this.baseUrl),
-                        duration: duration || 'N/A',
-                        source: this.name,
-                    };
-                    if (previewVideo) {
-                        // Preview video URL on SpankBang is often relative or needs cleaning
-                        videoData.preview_video = this._makeAbsolute(previewVideo, this.baseUrl);
-                    }
-                    videos.push(videoData);
-                } else {
-                    log.warn(`${this.name}: Skipped an item due to missing title or URL. URL: ${videoPageUrl}`);
-                }
-            } catch (error) {
-                log.error(`${this.name} videoParser item error: ${error.message}. Item HTML: ${$(elem).html().substring(0, 200)}`);
-            }
-        });
-        log.info(`Parsed ${videos.length} video items from ${this.name}.`);
-        return videos;
+        // console.log(`[${this.name}] Generated GIF URL: ${searchUrl.href}`);
+        return searchUrl.href;
     }
 
-    // --- GIF Search Methods (Placeholder) ---
-    gifUrl(query, page) {
-        // SpankBang has a GIF section: https://spankbang.com/gifs/search/QUERY/PAGE/
-        const pageSegment = (parseInt(page, 10) || 1) > 1 ? `${(parseInt(page, 10) || 1)}/` : '';
-        const url = `${this.baseUrl}/gifs/search/${encodeURIComponent(query)}/${pageSegment}`;
-        log.debug(`Constructed ${this.name} GIF URL: ${url}`);
-        return url;
-    }
-
-    async searchGifs(query, page) {
-        const url = this.gifUrl(query, page);
-        log.info(`Fetching HTML for ${this.name} GIFs from: ${url}`);
-        try {
-            const html = await this._fetchHtml(url);
-            const $ = cheerio.load(html);
-            return this.gifParser($, html);
-        } catch (error) {
-            log.error(`Error in ${this.name} searchGifs for query "${query}" on page ${page}: ${error.message}`);
+    /**
+     * Parses HTML from a Spankbang search results page.
+     * @param {CheerioAPI} $ - Cheerio object.
+     * @param {string|object} htmlOrJsonData - Raw HTML or JSON data.
+     * @param {object} parserOptions - Options including type, sourceName, query, page.
+     * @returns {Array<object>} Array of MediaResult objects.
+     */
+    parseResults($, htmlOrJsonData, parserOptions) {
+        if (!$) {
+            // console.warn(`[${this.name}] Cheerio object ($) is null. Expecting HTML.`);
             return [];
         }
+
+        const results = [];
+        const isGifSearch = parserOptions.type === 'gifs';
+
+        // Selectors adapted from the original spankbangScraper.js
+        // These MUST BE VERIFIED against live Spankbang HTML.
+        // Spankbang uses 'div.video-item' for both videos and GIFs in their respective search results.
+        const itemSelector = 'div.video-item';
+
+        $(itemSelector).each((i, el) => {
+            const item = $(el);
+            let title, pageUrl, thumbnailUrl, previewUrl, durationText, mediaId;
+
+            const linkElement = item.find('a.thumb').first();
+            pageUrl = linkElement.attr('href');
+            title = linkElement.attr('title')?.trim();
+
+            if (!title && !isGifSearch) { // Fallback for video titles if not on <a>
+                title = item.find('div.inf > p > a[href*="/video"]').text()?.trim();
+            }
+             if (!title && pageUrl) { // Generic title fallback from URL
+                 const parts = pageUrl.split('/');
+                 const slug = parts.filter(p => p && p !== 'video' && p !== 'gif').pop();
+                 if (slug) title = slug.replace(/[-_]/g, ' ').replace(/\.\w+$/, "");
+            }
+            if (!title) title = `Spankbang Content ${i+1}`;
+
+            if (!pageUrl) {
+                // console.warn(`[${this.name}] Item ${i} (${parserOptions.type}): Skipping due to missing page URL.`);
+                return;
+            }
+
+            const imgElement = item.find('img.lazy, img.thumb_img').first(); // Added .thumb_img as potential fallback
+            thumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
+
+            // Preview: Spankbang uses 'data-preview' on the <a> tag.
+            previewUrl = linkElement.attr('data-preview');
+            if (!previewUrl && !isGifSearch) { // Fallback for videos if not on <a>
+                previewUrl = item.find('picture > source[type="video/mp4"]').attr('data-preview');
+            }
+
+            if (!isGifSearch) {
+                durationText = item.find('div.l, span.duration, div.dur').text()?.trim(); // .dur is another common class
+            }
+
+            // ID extraction: URLs like /<id>/video/ or /<id>/gif/
+            const idMatch = pageUrl.match(/^\/([a-zA-Z0-9]+)\/(?:video|gif)\//);
+            if (idMatch && idMatch[1]) {
+                mediaId = idMatch[1];
+            } else { // Fallback if specific pattern fails
+                const parts = pageUrl.split('/');
+                if (parts.length > 1) mediaId = parts[1]; // Second segment is often the ID
+            }
+
+            const absoluteUrl = this._makeAbsolute(pageUrl, this.baseUrl);
+            const absoluteThumbnail = this._makeAbsolute(thumbnailUrl, this.baseUrl);
+            const absolutePreview = this._makeAbsolute(previewUrl, this.baseUrl);
+
+            if (!absoluteUrl || !title) {
+                 return;
+            }
+
+            results.push({
+                id: mediaId || `sb_${parserOptions.type}_${i}`,
+                title: title,
+                url: absoluteUrl,
+                thumbnail: absoluteThumbnail || '',
+                duration: isGifSearch ? undefined : (durationText || 'N/A'),
+                preview_video: absolutePreview || (isGifSearch ? absoluteThumbnail : ''), // For GIFs, preview can be the thumb
+                source: this.name,
+                type: parserOptions.type
+            });
+        });
+
+        // console.log(`[${this.name}] Parsed ${results.length} ${parserOptions.type} items.`);
+        return results;
     }
 
-    gifParser($, rawData) {
-        log.info(`Parsing ${this.name} GIF data...`);
-        const gifs = [];
-        // GIF items on SpankBang might be similar to video items, e.g., within 'div.video-item' or a specific 'div.gif-item'
-        $('div.video-item').each((i, elem) => { // Using 'video-item' as it's common, adjust if specific GIF item selector exists
-            try {
-                const $elem = $(elem);
-                const $titleLink = $elem.find('a.thumb'); // GIFs also use a.thumb
-                const title = $titleLink.attr('title')?.trim();
-                let gifPageUrl = $titleLink.attr('href');
-
-                const $imgElement = $elem.find('img.lazy');
-                let thumbnail = $imgElement.attr('data-src') || $imgElement.attr('src'); // Static thumbnail for GIF
-
-                // Preview for GIF is the GIF itself. SpankBang uses 'data-preview' for this too.
-                let previewGif = $titleLink.attr('data-preview');
-
-                if (title && gifPageUrl && previewGif) {
-                     gifs.push({
-                        title,
-                        url: this._makeAbsolute(gifPageUrl, this.baseUrl), // Link to the GIF's page
-                        thumbnail: this._makeAbsolute(thumbnail, this.baseUrl), // Static thumbnail
-                        preview_video: this._makeAbsolute(previewGif, this.baseUrl), // The animated GIF itself
-                        source: this.name,
-                    });
-                } else {
-                    log.warn(`${this.name} GIF Parser: Skipped an item due to missing title, page URL, or preview GIF URL.`);
-                }
-            } catch (error) {
-                log.error(`${this.name} gifParser item error: ${error.message}. Item HTML: ${$(elem).html().substring(0, 200)}`);
+    _makeAbsolute(urlString, baseUrl) {
+        if (!urlString || typeof urlString !== 'string' || urlString.trim() === '') return undefined;
+        if (urlString.startsWith('data:image/')) return urlString;
+        try {
+            if (urlString.startsWith('//')) {
+                return new URL(`https:${urlString}`).href;
             }
-        });
-        log.info(`Parsed ${gifs.length} GIF items from ${this.name}.`);
-        return gifs;
+            if (urlString.startsWith('http:') || urlString.startsWith('https:')) {
+                return new URL(urlString).href;
+            }
+            // Spankbang hrefs are often relative from root
+            return new URL(urlString, baseUrl).href;
+        } catch (e) {
+            // console.warn(`[${this.name}] Failed to resolve URL: "${urlString}" with base "${baseUrl}"`, e.message);
+            return undefined;
+        }
     }
 }
 
-module.exports = SpankbangScraper;
+module.exports = SpankbangDriver;

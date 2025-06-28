@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock Spankbang GIF Search Results</title>
+</head>
+<body>
+    <div class="results_list gif_list">
+        <!-- Item 1 -->
+        <div class="video-item gif_item" data-id="sbg1001"> <!-- Common class 'video-item' often used for gifs too -->
+            <a href="/sbg1001id/gif/mock-spankbang-gif-one" class="thumb" title="Mock Spankbang GIF One" data-preview="/animated/sb_gif1.gif">
+                <img class="lazy" src="/static/sb_thumb_gif1.jpg" data-src="/dynamic/sb_thumb_gif1.jpg" alt="Mock GIF 1 Alt">
+            </a>
+            <div class="inf">
+                <p><a href="/sbg1001id/gif/mock-spankbang-gif-one">Mock Spankbang GIF One (p link)</a></p>
+            </div>
+        </div>
+
+        <!-- Item 2: Different title structure -->
+        <div class="video-item" data-id="sbg1002"> <!-- No specific gif_item class -->
+            <a href="/sbg1002id/gif/another-sb-gif-example" class="thumb" title="Another SB GIF Example" data-preview="/animated/sb_gif2.gif">
+                <img class="lazy" src="/static/sb_thumb_gif2.jpg" alt="Another SB GIF">
+            </a>
+            <div class="inf">
+                <p class="title_gif"><a href="/sbg1002id/gif/another-sb-gif-example">Another SB GIF Example</a></p>
+            </div>
+        </div>
+
+        <!-- Item 3: Minimal data -->
+        <div class="video-item gif_item" data-id="sbg1003">
+            <a href="/sbg1003id/gif/minimal-spankbang-gif" class="thumb" title="Minimal Spankbang GIF" data-preview="/animated/sb_gif3.gif">
+                <img class="lazy" src="/dynamic/sb_thumb_gif3.jpg" alt="Minimal GIF">
+            </a>
+            <div class="inf">
+                <p>Minimal Spankbang GIF</p> <!-- Title directly in p -->
+            </div>
+        </div>
+
+        <!-- Item 4: article.video-item as container -->
+        <article class="video-item" data-id="sbg1004"> <!-- article tag for item -->
+             <a href="/sbg1004id/gif/article-item-gif-sb" class="thumb main_link" title="Article Item GIF SB" data-preview="/animated/sb_gif4.gif">
+                <img class="thumb_gif_screen" src="/dynamic/sb_thumb_gif4.jpg" alt="Article Item GIF SB">
+            </a>
+            <div class="inf">
+                <p><a href="/sbg1004id/gif/article-item-gif-sb" class="name">Article Item GIF SB</a></p>
+            </div>
+        </article>
+    </div>
+</body>
+</html>

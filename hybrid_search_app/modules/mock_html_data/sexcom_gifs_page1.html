@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock Sex.com GIF Search Results</title>
+</head>
+<body>
+    <div id="gif_content_container" class="results_content">
+        <!-- Item 1: Standard GIF item -->
+        <div class="masonry_box gif" data-id="scg1001">
+            <a href="https://www.sex.com/gifs/100123-mock-sexcom-gif-one" class="image_wrapper" title="Mock SexCom GIF One">
+                <img class="responsive_image" src="/thumbs/sc_thumb_gif1.jpg" data-src="/animated/sc_gif1.gif" alt="Mock GIF 1 Alt">
+                <!-- Sex.com GIFs might have a data-gif_url or the data-src is the animated one -->
+            </a>
+            <p class="title">
+                <a href="https://www.sex.com/gifs/100123-mock-sexcom-gif-one" title="Mock SexCom GIF One">Mock SexCom GIF One</a>
+            </p>
+        </div>
+
+        <!-- Item 2: Different class, gif_preview_box -->
+        <div class="gif_preview_box" data-id="scg1002">
+            <a href="https://www.sex.com/pin/100234/" class="box_link" title="Another SexCom GIF Title (Pin Link)"> <!-- Pins are often single images/gifs -->
+                <img class="main_image" src="/animated/sc_gif2.gif" alt="Another GIF Alt">
+            </a>
+            <h2 class="title">
+                 <a href="https://www.sex.com/pin/100234/">Another SexCom GIF Title (Pin Link)</a>
+            </h2>
+        </div>
+
+        <!-- Item 3: Minimal, ID in URL only -->
+        <div class="masonry_box gif">
+            <a href="https://www.sex.com/gifs/100345-minimal-gif-three" class="image_wrapper" title="Minimal SexCom GIF Three">
+                <img class="responsive_image" src="/thumbs/sc_thumb_gif3.jpg" data-gif_url="/animated/sc_gif3.gif">
+            </a>
+            <div class="video_title">Minimal SexCom GIF Three (using video_title class)</div>
+        </div>
+
+        <!-- Item 4: img has data-gif_url -->
+        <div class="masonry_box gif" data-id="scg1004">
+             <a href="https://www.sex.com/gifs/100456-gif-four-data-attr" class="image_wrapper" title="GIF Four Data Attr">
+                <img class="main_image" src="/thumbs/sc_thumb_gif4.jpg" data-gif_url="/animated/sc_gif4.gif" alt="GIF Four Data Attr">
+             </a>
+            <p class="title">GIF Four Data Attr</p>
+        </div>
+    </div>
+</body>
+</html>

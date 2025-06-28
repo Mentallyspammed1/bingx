@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock Xhamster GIF/Photo Search Results</title>
+</head>
+<body>
+    <div id="results-container" class="main-gallery-container">
+        <!-- Item 1: Uses div.photo-thumb[data-is-gif="true"], data-src for animated gif -->
+        <div class="photo-thumb thumb-list__item--gif" data-is-gif="true" data-id="xhg1001">
+            <a class="photo-thumb__image" href="/photos/gallery/user1/mock-xhamster-gif-one/123456" title="Mock Xhamster GIF One">
+                <img class="photo-thumb__img" src="/static/xh_gif_static_1.jpg" data-src="/animated/xh_gif_1.gif" alt="Mock GIF 1" data-poster="/static/xh_gif_static_1.jpg">
+            </a>
+            <div class="photo-thumb__title-container">
+                <a class="photo-thumb__title" href="/photos/gallery/user1/mock-xhamster-gif-one/123456">Mock Xhamster GIF One</a>
+            </div>
+        </div>
+
+        <!-- Item 2: Uses div.gif-thumb, different title structure -->
+        <div class="gif-thumb thumb-list__item--gif" data-id="xhg1002">
+            <a class="thumb-image__image" href="/photos/view/234567-another-gif-style" title="Another Xhamster GIF Two">
+                <img src="/animated/xh_gif_2.gif" alt="Another GIF Two">
+            </a>
+            <div class="gif-thumb__name">Another Xhamster GIF Two</div>
+        </div>
+
+        <!-- Item 3: More complex link, different image attributes -->
+        <div class="photo-thumb thumb-list__item--gif" data-is-gif="true" data-id="xhg1003">
+            <a class="thumb-image__image" href="/gifs/345678/third-gif-example" title="Third GIF Example Xhamster">
+                <img class="thumb-image__image" src="/static/xh_gif_static_3.jpg" data-original="/animated/xh_gif_3.gif" alt="Third GIF Example">
+            </a>
+            <div class="photo-thumb__title">Third GIF Example Xhamster</div>
+        </div>
+
+        <!-- Item 4: Minimal data, direct src for animated gif, ID from URL pattern /gifs/ID/... -->
+        <div class="gif-thumb" data-id="xhg1004">
+             <a class="thumb-image__image" href="/gifs/456789/minimal-gif-four" title="Minimal Xhamster GIF Four">
+                <img src="/animated/xh_gif_4.gif" alt="Minimal GIF Four">
+            </a>
+            <!-- No explicit title element, rely on link title or alt text -->
+        </div>
+
+        <!-- Item 5: Different class for container -->
+        <div class="gallery-thumb thumb-list__item--gif" data-id="xhg1005">
+            <a class="gallery-thumb__image-container" href="/photos/gallery/user2/fifth-sample-gif/567890" title="Fifth Sample GIF">
+                <img class="gallery-thumb__image" src="/static/xh_gif_static_5.jpg" data-src="/animated/xh_gif_5.gif" alt="Fifth Sample GIF">
+            </a>
+            <div class="gallery-thumb__name">
+                <a href="/photos/gallery/user2/fifth-sample-gif/567890">Fifth Sample GIF</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

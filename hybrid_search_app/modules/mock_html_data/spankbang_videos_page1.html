@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock Spankbang Video Search Results</title>
+</head>
+<body>
+    <div class="results_list video_list">
+        <!-- Item 1 -->
+        <div class="video-item" data-id="sbv1001">
+            <a href="/sbv1001id/video/mock-spankbang-video-one" class="thumb" title="Mock Spankbang Video One" data-preview="/previews/sb_preview_vid1.mp4">
+                <img class="lazy" src="/static/sb_thumb_vid1.jpg" data-src="/dynamic/sb_thumb_vid1.jpg" alt="Mock Video 1 Alt">
+                <div class="l">10:30</div> <!-- Duration -->
+            </a>
+            <div class="inf">
+                <p><a href="/sbv1001id/video/mock-spankbang-video-one">Mock Spankbang Video One (p link)</a></p>
+                <div class="stats"><span>99%</span><span>1.2M views</span></div>
+            </div>
+        </div>
+
+        <!-- Item 2: picture element for preview -->
+        <div class="video-item" data-id="sbv1002">
+            <a href="/sbv1002id/video/another-sb-video-example" class="thumb" title="Another SB Video Example">
+                <picture>
+                    <source srcset="/dynamic/sb_thumb_vid2_webp.webp" type="image/webp">
+                    <source srcset="/dynamic/sb_thumb_vid2.jpg" type="image/jpeg">
+                    <img class="lazy" src="/static/sb_thumb_vid2.jpg" alt="Another SB Video">
+                </picture>
+                <div class="dur">08:15</div> <!-- Duration with different class -->
+                <picture> <!-- Preview in picture tag -->
+                    <source data-preview="/previews/sb_preview_vid2.webm" type="video/webm">
+                    <source data-preview="/previews/sb_preview_vid2.mp4" type="video/mp4">
+                </picture>
+            </a>
+            <div class="inf">
+                <p class="title_video"><a href="/sbv1002id/video/another-sb-video-example">Another SB Video Example</a></p>
+            </div>
+        </div>
+
+        <!-- Item 3: Minimal data, no explicit preview data attribute -->
+        <div class="video-item" data-id="sbv1003">
+            <a href="/sbv1003id/video/minimal-spankbang-video" class="thumb" title="Minimal Spankbang Video">
+                <img class="lazy" src="/dynamic/sb_thumb_vid3.jpg" alt="Minimal Video">
+                <span class="duration">05:00</span>
+            </a>
+            <div class="inf">
+                <p>Minimal Spankbang Video</p> <!-- Title directly in p -->
+            </div>
+        </div>
+
+        <!-- Item 4: article.video-item as container -->
+        <article class="video-item" data-id="sbv1004">
+             <a href="/sbv1004id/video/article-item-video-sb" class="thumb main_link" title="Article Item Video SB" data-preview="/previews/sb_preview_vid4.mp4">
+                <img class="thumb_video_screen" src="/dynamic/sb_thumb_vid4.jpg" alt="Article Item Video SB">
+                <div class="l">12:00</div>
+            </a>
+            <div class="inf">
+                <p><a href="/sbv1004id/video/article-item-video-sb" class="name">Article Item Video SB</a></p>
+            </div>
+        </article>
+    </div>
+</body>
+</html>

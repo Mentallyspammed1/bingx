@@ -203,28 +203,12 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- Start Server Function ---
-function startServer(port) {
-    const server = app.listen(port, '0.0.0.0', () => {
-        log.info(`Hybrid backend server started on http://0.0.0.0:${port}`);
-        log.info(`Current Global Backend Strategy: ${globalStrategy}`);
-        log.info(`Access frontend at http://localhost:${port}`);
-    });
-
-    server.on('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-            log.warn(`Port ${port} is in use, trying port ${port + 1}`);
-            setTimeout(() => { // Add a small delay before retrying
-                server.close(); // Ensure the previous attempt is closed before retrying
-                startServer(port + 1);
-            }, 100); // 100ms delay
-        } else {
-            log.error('Failed to start server:', err);
-            process.exit(1); // Exit if it's a different error
-        }
-    });
-    return server; // Return the server instance
-}
+// --- Start Server ---
+app.listen(PORT, '0.0.0.0', () => {
+    log.info(`Hybrid backend server started on http://0.0.0.0:${PORT}`);
+    log.info(`Current Global Backend Strategy: ${globalStrategy}`);
+    log.info(`Access frontend at http://localhost:${PORT}`);
+});
 
 // --- Graceful Shutdown ---
 process.on('SIGINT', () => {
@@ -239,7 +223,11 @@ process.on('SIGTERM', () => {
 // Export the app for testing or programmatic use,
 // and only start listening if the script is run directly.
 if (require.main === module) {
-    startServer(PORT); // Use the new function
+    app.listen(PORT, '0.0.0.0', () => {
+        log.info(`Hybrid backend server started on http://0.0.0.0:${PORT}`);
+        log.info(`Current Global Backend Strategy: ${globalStrategy}`);
+        log.info(`Access frontend at http://localhost:${PORT}`);
+    });
 }
 
-module.exports = app; // Export app for testing purposes
+module.exports = app;

@@ -4,9 +4,9 @@
   "description": "Backend for Neon Search - an adult video/GIF search aggregator.",
   "main": "server.cjs",
   "scripts": {
-    "start": "node server.cjs",
+    "start": "node server.js",
     "dev": "nodemon server.cjs",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "keywords": [
     "search",
@@ -21,18 +21,22 @@
   "license": "MIT",
   "dependencies": {
     "abort-controller": "^3.0.0",
-    "axios": "^1.7.2",
+    "axios": "^1.10.0",
     "babel-runtime": "^6.26.0",
     "chalk": "^4.1.2",
-    "cheerio": "^1.0.0-rc.12",
+    "cheerio": "^1.1.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
     "node-fetch": "^2.7.0",
     "nodemon": "^3.1.4",
     "pornsearch": "^2.4.3"
   },
   "engines": {
     "node": ">=16.0.0"
-  }
+  },
+  "devDependencies": {
+    "jest": "^30.0.3"
+  },
+  "type": "commonjs"
 }

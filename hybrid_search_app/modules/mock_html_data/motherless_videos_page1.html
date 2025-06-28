@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock Motherless Video Search Results</title>
+</head>
+<body>
+    <div id="content" class="content-page">
+        <div class="content-inner">
+            <!-- Item 1: Standard video thumb -->
+            <div class="thumb video" data-id="MLV1001">
+                <a href="/MLV1001/mock-motherless-video-one" title="Mock Motherless Video One">
+                    <img src="https://cdn-thumbs.motherless.com/mock_video_thumb1.jpg" alt="Mock Video 1">
+                </a>
+                <div class="caption">Mock Motherless Video One (caption)</div>
+                <div class="video_length">05:30</div>
+            </div>
+
+            <!-- Item 2: Different image source, no explicit duration -->
+            <div class="thumb video" data-id="MLV1002">
+                <a href="/MLV1002/another-ml-video-example" title="Another ML Video">
+                    <img data-src="https://cdn-thumbs.motherless.com/mock_video_thumb2.jpg" alt="Another ML Video">
+                </a>
+                <div class="thumb-title">Another ML Video (thumb-title)</div>
+                <!-- No .video_length -->
+            </div>
+
+            <!-- Item 3: gallery-tile structure, ID in URL -->
+            <div class="gallery-tile thumb video"> <!-- Video treated as a gallery item -->
+                <a href="/G/MLV1003/third_video_gallery_item" title="Third Video Gallery Item">
+                    <img src="https://cdn-thumbs.motherless.com/mock_video_thumb3.jpg" alt="Third Video">
+                    <div class="video_length">12:15</div>
+                </a>
+                <div class="title">Third Video Gallery Item (div.title)</div>
+            </div>
+
+            <!-- Item 4: Minimal, ID needs to be parsed from URL -->
+            <div class="thumb video">
+                <a href="/MLV1004" title="Fourth Minimal Video">
+                    <img src="https://cdn-thumbs.motherless.com/mock_video_thumb4.jpg">
+                </a>
+                <!-- Title only from link attribute -->
+            </div>
+
+             <!-- Item 5: thumb_wrapper, background image style for thumb -->
+            <div class="thumb_wrapper video" data-id="MLV1005">
+                <a href="/MLV1005/video-with-bg-thumb" title="Video with BG Thumb">
+                    <div class="preview" style="background-image:url('https://cdn-thumbs.motherless.com/mock_video_bg_thumb5.jpg');">
+                         <img src="/path/to/transparent_pixel.png" alt="Video with BG Thumb"> <!-- Often a placeholder img -->
+                    </div>
+                    <span class="video_length">08:00</span>
+                </a>
+                <div class="title">Video with BG Thumb</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

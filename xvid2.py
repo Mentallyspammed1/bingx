@@ -1,15 +1,14 @@
 import datetime
 import html
 import logging
-import os
 import sys
-import webbrowser # Re-added for auto-opening HTML files
+import webbrowser  # Re-added for auto-opening HTML files
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional # Explicitly import Optional
+from typing import Any, Optional  # Explicitly import Optional
 
-import pornLib # Assuming this library exists and is installed
-from ratelimit import limits, sleep_and_retry # type: ignore
+import pornLib  # Assuming this library exists and is installed
+from ratelimit import limits, sleep_and_retry  # type: ignore
 
 # ==============================================================================
 # Configuration
@@ -180,7 +179,7 @@ class PornClient:
         except TypeError as te:
             # Some pornLib engines might not support 'limit' in list()
             if 'limit' in str(te).lower():
-                logger.warning(f"Engine '{self.engine}' list method may not support 'limit'. Trying without limit.");
+                logger.warning(f"Engine '{self.engine}' list method may not support 'limit'. Trying without limit.")
                 try:
                     videos_raw = self.client.list() # Retry without limit
                     videos = self._parse_video_results(videos_raw)

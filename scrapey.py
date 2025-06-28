@@ -10,14 +10,14 @@ saves the metadata to a JSON file in the base output directory,
 and generates a master manifest JSON file for web viewing.
 """
 
+import glob  # Channeling the glob spirits for manifest generation
 import json
 import logging
 import os
 import sys
-from concurrent.futures import ThreadPoolExecutor, Future
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
-from typing import Any, Dict, List, Optional # Tuple removed
-import glob # Channeling the glob spirits for manifest generation
+from typing import Any, Dict, List, Optional  # Tuple removed
 
 # Third-party Libraries
 # requests is used implicitly by bing_image_downloader
@@ -27,7 +27,7 @@ from tqdm import tqdm
 
 # Attempt to import Pillow for image metadata; provide guidance if missing
 try:
-    from PIL import Image, UnidentifiedImageError, ImageSequence
+    from PIL import Image, ImageSequence, UnidentifiedImageError
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
@@ -534,7 +534,7 @@ def generate_master_manifest(output_dir_base: str) -> None:
 
     for meta_file_path_str in tqdm(metadata_files_found, desc=Fore.BLUE + "Merging Metadata Scrolls", unit="file", ncols=100, leave=False): # Renamed meta_file_path
         try:
-            with open(meta_file_path_str, "r", encoding='utf-8') as f:
+            with open(meta_file_path_str, encoding='utf-8') as f:
                 # Load the JSON data, which should be a list of metadata dictionaries
                 data_from_scroll: List[Dict[str, Any]] = json.load(f)
                 if isinstance(data_from_scroll, list):

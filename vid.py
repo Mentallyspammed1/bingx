@@ -1,14 +1,13 @@
-import os
-import sys
+import importlib  # For dynamic module importing
 import logging
-import time
-from datetime import datetime
-from colorama import init, Fore, Style
+import os
+import re  # Added for sanitizing filenames
+import sys
 import webbrowser
-import importlib # For dynamic module importing
-import requests # Added for downloading thumbnails
-import shutil # Added for file operations (potentially, though os.makedirs is often enough)
-import re # Added for sanitizing filenames
+from datetime import datetime
+
+import requests  # Added for downloading thumbnails
+from colorama import Fore, Style, init
 
 # Initialize Colorama for cross-platform colored output
 init(autoreset=True)
@@ -146,7 +145,7 @@ def download_file(url: str, local_filepath: str, timeout: int = 10) -> bool:
     except requests.exceptions.RequestException as e:
         logger.error(f"{NEON_RED}Error downloading {url}: {e}{RESET_ALL}")
         return False
-    except IOError as e:
+    except OSError as e:
         logger.error(f"{NEON_RED}Error saving file to {local_filepath}: {e}{RESET_ALL}")
         return False
 
@@ -468,7 +467,7 @@ def generate_html_output(results, query, engine, search_limit, output_dir=".", p
             f.write(html_content)
         logger.info(f"{NEON_GREEN}HTML output saved to: {NEON_WHITE}{output_filename}{RESET_ALL}")
         return output_filename
-    except IOError as e:
+    except OSError as e:
         logger.error(f"{NEON_RED}Error saving HTML file: {e}{RESET_ALL}")
         return None
 
@@ -552,7 +551,7 @@ def main():
     client = None
     try:
         client = PornClient(engine_name=engine, soup_sleep=soup_sleep)
-    except RuntimeError as e:
+    except RuntimeError:
         logger.critical(f"{NEON_RED}Exiting due to critical client initialization failure.{RESET_ALL}")
         sys.exit(1)
     except Exception as e:

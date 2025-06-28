@@ -11,7 +11,7 @@ const Pornsearch = require('pornsearch');
 
 // --- Constants ---
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3003
 
 // --- Global Configuration & Strategy ---
 let globalStrategy = 'custom'; // Default if config loading fails

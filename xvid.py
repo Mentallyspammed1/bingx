@@ -1,7 +1,8 @@
 import datetime
 import html
+import importlib  # For dynamic module importing
+import inspect  # For checking function signatures
 import logging
-import os
 import sys
 import webbrowser
 from dataclasses import dataclass
@@ -11,8 +12,6 @@ from typing import Any, Optional
 # Assuming ratelimit is installed
 from ratelimit import limits, sleep_and_retry  # type: ignore
 
-import importlib # For dynamic module importing
-import inspect # For checking function signatures
 # Static imports for pornLib clients will be removed and handled dynamically.
 
 # Engine mapping for dynamic import
@@ -733,7 +732,7 @@ def main():
         if auto_open:
             webbrowser.open(f'file://{output_html_filename.resolve()}')
             logger.info(f"Opened {output_html_filename} in browser.")
-    except IOError as e:
+    except OSError as e:
         logger.error(f"Failed to write or open HTML file '{output_html_filename}': {e}", exc_info=True)
     except Exception as e:
         logger.error(f"An unexpected error occurred during file operation: {e}", exc_info=True)

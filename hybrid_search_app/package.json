@@ -38,5 +38,10 @@
   "devDependencies": {
     "jest": "^30.0.3"
   },
-  "type": "commonjs"
+  "type": "commonjs",
+  "overrides": {
+    "pornsearch": {
+      "axios": "^1.10.0"
+    }
+  }
 }

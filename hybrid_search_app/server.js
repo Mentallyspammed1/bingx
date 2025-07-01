@@ -203,13 +203,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- Start Server ---
-app.listen(PORT, '0.0.0.0', () => {
-    log.info(`Hybrid backend server started on http://0.0.0.0:${PORT}`);
-    log.info(`Current Global Backend Strategy: ${globalStrategy}`);
-    log.info(`Access frontend at http://localhost:${PORT}`);
-});
-
 // --- Graceful Shutdown ---
 process.on('SIGINT', () => {
     log.info('Shutdown signal received, closing server gracefully.');

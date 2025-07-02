@@ -1,0 +1,65 @@
+name: Gemini Code Review
+description: "Automatically reviews and suggests fixes using the Gemini API."
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+notifications:
+  email:
+    on_failure: always
+    on_success: never
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Cache dependencies
+        id: cache-dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: npm-cache-${{ runner.os }}-${{ matrix.node-version }} # Use runner.os for broader compatibility
+          restore-keys: |
+            npm-cache-${{ runner.os }}-${{ matrix.node-version }}
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security audit
+        run: npm audit
+
+      - name: Run Gemini API for code review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          # Replace with your actual command to run Gemini API
+          if npx gemini-cli review --api-key $GEMINI_API_KEY; then
+            echo "Review completed successfully."
+          else
+            echo "Review failed. Skipping commit."
+            exit 1
+          fi
+
+      - name: Commit and push fixes
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add .
+          git commit -m "Auto-fixes suggested by Gemini API"
+          git push origin main

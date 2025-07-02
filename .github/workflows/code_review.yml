@@ -23,6 +23,7 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+        working-directory: ./hybrid_search_app
 
       - name: Run Gemini API for code review
         env:

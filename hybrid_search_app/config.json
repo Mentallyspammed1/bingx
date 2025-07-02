@@ -8,6 +8,10 @@
     "Youporn": "./modules/custom_scrapers/youpornScraper.js",
     "Motherless": "./modules/custom_scrapers/motherlessScraper.js",
     "Redtube": "./modules/custom_scrapers/redtubeScraper.js",
-    "Mock": "./modules/custom_scrapers/mockScraper.cjs"
+    "Mock": "./modules/custom_scrapers/mockScraper.cjs",
+    "Pornhub": "./modules/custom_scrapers/pornhubScraper.js",
+    "Spankbang": "./modules/custom_scrapers/spankbangScraper.js",
+    "Xhamster": "./modules/custom_scrapers/xhamsterScraper.js",
+    "Xvideos": "./modules/custom_scrapers/xvideosScraper.js"
   }
 }

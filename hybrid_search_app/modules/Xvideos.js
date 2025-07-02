@@ -5,7 +5,7 @@ try {
     AbstractModule = require('../core/AbstractModule.js');
 } catch (e) {
     console.error("Failed to load AbstractModule from ../core/, ensure path is correct.", e);
-    AbstractModule = class { /* Minimal fallback */
+    AbstractModule = class {
         constructor(options = {}) { this.query = options.query; }
         get name() { return 'UnnamedDriver'; }
         get baseUrl() { return ''; }
@@ -17,19 +17,20 @@ try {
 
 const { logger, makeAbsolute, extractPreview, validatePreview, sanitizeText } = require('./driver-utils.js');
 
-const BASE_URL = 'https://www.xvideos.com';
-const DRIVER_NAME = 'Xvideos';
+const BASE_URL_CONST = 'https://www.xvideos.com';
+const DRIVER_NAME_CONST = 'Xvideos';
 
 class XvideosDriver extends AbstractModule {
     constructor(options = {}) {
         super(options);
-        this.name = DRIVER_NAME;
-        this.baseUrl = BASE_URL;
-        this.supportsVideos = true;
-        this.supportsGifs = true;
-        this.firstpage = 0;
         logger.debug(`[${this.name}] Initialized.`);
     }
+
+    get name() { return DRIVER_NAME_CONST; }
+    get baseUrl() { return BASE_URL_CONST; }
+    get supportsVideos() { return true; }
+    get supportsGifs() { return true; }
+    get firstpage() { return 0; } // XVideos uses 0-indexed pagination
 
     getVideoSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
@@ -65,66 +66,52 @@ class XvideosDriver extends AbstractModule {
         const { type, sourceName } = parserOptions;
         const isGifSearch = type === 'gifs';
 
-        // Adjusted selectors based on mock HTML for XVideos
-        const itemSelector = 'div.thumb-block'; // Common wrapper for both videos and gifs in mock
+        const itemSelector = 'div.thumb-block';
 
         $(itemSelector).each((i, el) => {
             const item = $(el);
             let title, pageUrl, thumbnailUrl, previewVideoUrl, durationText, videoId;
 
             videoId = item.attr('data-id');
-            if(!videoId) { // Fallback for ID from item's own id attribute
+            if(!videoId) {
                  const idAttr = item.attr('id');
                  if(idAttr) videoId = idAttr.replace('video_', '').replace('gif_', '');
             }
 
-
             if (isGifSearch) {
-                // Ensure this item is actually a GIF item if selectors are broad
                 if (!item.hasClass('thumb-block-gif') && !item.hasClass('gif-thumb-block') && !item.attr('id')?.startsWith('gif_')) {
-                    // If a general '.thumb-block' was matched but isn't specifically a GIF block, skip it in GIF search
                     if ($(el).find('img.gif_pic').length === 0 && !item.find('a[href*="/gifs/"]').length > 0) {
-                         // logger.debug(`[${this.name} Parser] Skipping non-GIF item in GIF search: ${item.attr('id')}`);
-                         return; // continue
+                         return;
                     }
                 }
-
                 const titleLink = item.find('p.title a, a.thumb-name, div.profile-name a').first();
                 title = sanitizeText(titleLink.attr('title')?.trim() || titleLink.text()?.trim());
                 pageUrl = titleLink.attr('href');
-
                 const imgElement = item.find('div.thumb img, div.thumb-inside img.gif_pic, img.thumb').first();
                 thumbnailUrl = imgElement.attr('src');
-                previewVideoUrl = imgElement.attr('data-src'); // data-src is often the animated gif for xvideos
-
+                previewVideoUrl = imgElement.attr('data-src');
                 if (!previewVideoUrl && thumbnailUrl && thumbnailUrl.toLowerCase().endsWith('.gif')) {
                     previewVideoUrl = thumbnailUrl;
                 }
                 if (previewVideoUrl && (!thumbnailUrl || thumbnailUrl.toLowerCase().endsWith('.gif'))) {
-                    // If static thumb is missing or is also the gif, try to create a more static-looking thumb name (won't exist but good for consistency)
                     thumbnailUrl = previewVideoUrl.replace(/\.gif$/i, '.jpg');
                 }
-                 if (!videoId && pageUrl) { // ID from URL for GIFs: /gifs/12345/...
+                 if (!videoId && pageUrl) {
                     const idMatch = pageUrl.match(/\/gifs\/(\d+)/);
                     if (idMatch && idMatch[1]) videoId = idMatch[1];
                 }
-
-            } else { // Video Parsing
+            } else {
                  if (item.attr('id') && !item.attr('id').startsWith('video_')) {
-                    // If a general '.thumb-block' was matched but isn't specifically a video block, skip
-                    // logger.debug(`[${this.name} Parser] Skipping non-video item in video search: ${item.attr('id')}`);
-                    return; // continue
+                    return;
                  }
                 const titleLink = item.find('p.title a').first();
                 title = sanitizeText(titleLink.attr('title')?.trim() || titleLink.text()?.trim());
                 pageUrl = titleLink.attr('href');
                 durationText = sanitizeText(item.find('p.metadata span.duration').text()?.trim());
-
                 const imgElement = item.find('div.thumb-inside img').first();
-                thumbnailUrl = imgElement.attr('data-src'); // data-src for main thumb
-                previewVideoUrl = imgElement.attr('data-videopreview'); // Specific attribute for video preview poster/sprite
-
-                if (!videoId && pageUrl) { // ID from URL for videos: /video1234567/...
+                thumbnailUrl = imgElement.attr('data-src');
+                previewVideoUrl = imgElement.attr('data-videopreview');
+                if (!videoId && pageUrl) {
                     const idMatch = pageUrl.match(/\/video(\d+)\//);
                     if (idMatch && idMatch[1]) videoId = idMatch[1];
                 }
@@ -137,16 +124,13 @@ class XvideosDriver extends AbstractModule {
 
             const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl);
             const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl);
-
-            // For XVideos, data-videopreview is often a sprite/static image, not an actual video.
-            // extractPreview might be more suitable if actual video previews are available via other attributes.
             let finalPreview = makeAbsolute(previewVideoUrl, this.baseUrl);
-            if (!validatePreview(finalPreview) && !isGifSearch) { // If specific video preview is bad, try generic
+
+            if (!validatePreview(finalPreview) && !isGifSearch) {
                  finalPreview = extractPreview(item,this.baseUrl, false);
             } else if (!validatePreview(finalPreview) && isGifSearch && absoluteThumbnail?.toLowerCase().endsWith('.gif')) {
-                 finalPreview = absoluteThumbnail; // For GIFs, if data-src was bad, use the src (which might be the .gif)
+                 finalPreview = absoluteThumbnail;
             }
-
 
             results.push({
                 id: videoId,

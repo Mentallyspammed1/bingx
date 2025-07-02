@@ -5,8 +5,9 @@ try {
     AbstractModule = require('../core/AbstractModule.js');
 } catch (e) {
     console.error("Failed to load AbstractModule from ../core/, ensure path is correct.", e);
-    AbstractModule = class { /* Minimal fallback */
+    AbstractModule = class {
         constructor(options = {}) { this.query = options.query; }
+        // Stubs for AbstractModule getters that drivers will override
         get name() { return 'UnnamedDriver'; }
         get baseUrl() { return ''; }
         get supportsVideos() { return false; }
@@ -17,25 +18,28 @@ try {
 
 const { logger, makeAbsolute, extractPreview, validatePreview, sanitizeText } = require('./driver-utils.js');
 
-const BASE_URL = 'https://www.pornhub.com';
-const DRIVER_NAME = 'Pornhub';
+const BASE_URL_CONST = 'https://www.pornhub.com'; // Renamed to avoid conflict with getter
+const DRIVER_NAME_CONST = 'Pornhub'; // Renamed to avoid conflict with getter
 
 class PornhubDriver extends AbstractModule {
     constructor(options = {}) {
         super(options);
-        this.name = DRIVER_NAME;
-        this.baseUrl = BASE_URL;
-        this.supportsVideos = true;
-        this.supportsGifs = true;
-        this.firstpage = 1;
-        logger.debug(`[${this.name}] Initialized.`);
+        // Properties are now defined by getters below
+        logger.debug(`[${this.name}] Initialized.`); // Now 'this.name' will call the getter
     }
+
+    get name() { return DRIVER_NAME_CONST; }
+    get baseUrl() { return BASE_URL_CONST; }
+    get supportsVideos() { return true; }
+    get supportsGifs() { return true; }
+    get firstpage() { return 1; }
 
     getVideoSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
             throw new Error(`[${this.name}] Search query is not set for video search.`);
         }
         const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
+        // Use this.baseUrl which calls the getter
         const searchUrl = new URL('/video/search', this.baseUrl);
         searchUrl.searchParams.set('search', sanitizeText(query));
         searchUrl.searchParams.set('page', String(searchPage));
@@ -73,12 +77,11 @@ class PornhubDriver extends AbstractModule {
             const item = $(el);
             let title, pageUrl, thumbnailUrl, previewVideoUrl, durationText, videoId;
 
-            videoId = item.attr('data-id'); // Mock HTML has data-id on li
+            videoId = item.attr('data-id');
 
             if (isGifSearch) {
                 const linkA = item.find('a').first();
                 pageUrl = linkA.attr('href');
-                // Title from link's title attr, or span.title, or div.title inside link
                 title = sanitizeText(linkA.attr('title')?.trim() || item.find('span.title, div.title').first().text()?.trim());
 
                 const videoElement = item.find('video').first();
@@ -88,7 +91,7 @@ class PornhubDriver extends AbstractModule {
                     thumbnailUrl = imgThumb.attr('data-src') || imgThumb.attr('src');
                 }
                 previewVideoUrl = videoElement.attr('data-webm') || videoElement.find('source[type="video/webm"]').first().attr('src');
-                 if (!previewVideoUrl) { // Fallback for img based animated gif
+                 if (!previewVideoUrl) {
                     const imgThumb = item.find('img.thumb').first();
                     if(imgThumb.attr('src')?.toLowerCase().endsWith('.gif')) previewVideoUrl = imgThumb.attr('src');
                     else if(imgThumb.attr('data-src')?.toLowerCase().endsWith('.gif')) previewVideoUrl = imgThumb.attr('data-src');
@@ -98,13 +101,13 @@ class PornhubDriver extends AbstractModule {
                     const idMatch = pageUrl.match(/\/gif\/(\w+)/);
                     if (idMatch && idMatch[1]) videoId = idMatch[1];
                 }
-            } else { // Video Parsing
+            } else {
                 const titleLink = item.find('span.title a').first();
                 title = sanitizeText(titleLink.attr('title')?.trim());
                 pageUrl = titleLink.attr('href');
                 durationText = sanitizeText(item.find('var.duration').text()?.trim());
 
-                const imgTag = item.find('div.phimage img').first(); // More specific to avoid nested images
+                const imgTag = item.find('div.phimage img').first();
                 thumbnailUrl = imgTag.attr('data-mediumthumb') || imgTag.attr('data-src') || imgTag.attr('src');
 
                 previewVideoUrl = item.find('a.linkVideoThumb').attr('data-mediabook') ||
@@ -122,18 +125,16 @@ class PornhubDriver extends AbstractModule {
                 return;
             }
 
-            const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl);
-            const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl);
+            const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl); // Use getter this.baseUrl
+            const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl); // Use getter this.baseUrl
 
-            // Use extractPreview as a final fallback if specific attributes didn't yield a preview
-            let finalPreview = makeAbsolute(previewVideoUrl, this.baseUrl);
+            let finalPreview = makeAbsolute(previewVideoUrl, this.baseUrl); // Use getter this.baseUrl
             if (!validatePreview(finalPreview)) {
-                finalPreview = extractPreview(item, this.baseUrl, isGifSearch);
+                finalPreview = extractPreview(item, this.baseUrl, isGifSearch); // Use getter this.baseUrl
             }
             if (!validatePreview(finalPreview) && isGifSearch && absoluteThumbnail?.toLowerCase().endsWith('.gif')) {
-                 finalPreview = absoluteThumbnail; // For GIFs, if preview is bad, and thumb is a gif, use thumb.
+                 finalPreview = absoluteThumbnail;
             }
-
 
             results.push({
                 id: videoId,

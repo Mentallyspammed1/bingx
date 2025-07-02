@@ -6,45 +6,31 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const Pornsearch = require('pornsearch');
-// axios and cheerio are primarily dependencies of the custom scraper modules / AbstractModule
+
+// Import the custom Pornsearch orchestrator
+const PornsearchOrchestrator = require('./Pornsearch.js');
+// Comment out or remove the npm package if not used to prevent MODULE_NOT_FOUND
+// const PornsearchNpm = require('pornsearch');
 
 // --- Constants ---
 const app = express();
 const PORT = process.env.PORT || 3003
 
 // --- Global Configuration & Strategy ---
-let globalStrategy = 'custom'; // Default if config loading fails
+let globalStrategy = 'custom';
 let siteStrategies = {};
-let loadedCustomScrapers = {};
 
-// Load configuration from config.json
+let appConfig = { defaultStrategy: 'custom', siteOverrides: {}, customScrapersMap: {} };
 try {
     const configPath = path.resolve(__dirname, 'config.json');
     if (fs.existsSync(configPath)) {
         const rawConfig = fs.readFileSync(configPath);
-        const config = JSON.parse(rawConfig);
-
-        globalStrategy = process.env.BACKEND_STRATEGY || config.defaultStrategy || 'custom';
-        siteStrategies = config.siteOverrides || {};
-
-        const customScrapersMap = config.customScrapersMap || {};
-        for (const key in customScrapersMap) {
-            try {
-                const scraperPath = path.resolve(__dirname, customScrapersMap[key]);
-                if (fs.existsSync(scraperPath)) {
-                    loadedCustomScrapers[key.toLowerCase()] = require(scraperPath); // Ensure keys are lowercase for lookup
-                    console.log(`[CONFIG] Successfully loaded custom scraper for ${key} from ${scraperPath}`);
-                } else {
-                    console.error(`[CONFIG_ERROR] Custom scraper module file not found for ${key}: ${scraperPath}`);
-                }
-            } catch (err) {
-                console.error(`[CONFIG_ERROR] Failed to load custom scraper module for ${key} from ${customScrapersMap[key]}:`, err.message);
-            }
-        }
+        appConfig = JSON.parse(rawConfig);
+        globalStrategy = process.env.BACKEND_STRATEGY || appConfig.defaultStrategy || 'custom';
+        siteStrategies = appConfig.siteOverrides || {};
         console.log('[CONFIG] Configuration loaded successfully from config.json');
     } else {
-        console.warn('[CONFIG_WARN] config.json not found. Using default global strategy and no site overrides or custom scrapers.');
+        console.warn('[CONFIG_WARN] config.json not found. Using default global strategy.');
         globalStrategy = process.env.BACKEND_STRATEGY || 'custom';
     }
 } catch (err) {
@@ -58,7 +44,7 @@ const log = {
     error: (message, ...args) => console.error(`[ERROR] ${new Date().toISOString()}: ${message}`, ...args),
     warn: (message, ...args) => console.warn(`[WARN] ${new Date().toISOString()}: ${message}`, ...args),
     debug: (message, ...args) => {
-        if (process.env.DEBUG === 'true') {
+        if (process.env.DEBUG === 'true' || (appConfig.global && appConfig.global.logLevel === 'debug')) {
             console.log(`[DEBUG] ${new Date().toISOString()}: ${message}`, ...args);
         }
     }
@@ -66,82 +52,52 @@ const log = {
 
 log.info(`Initial Global Backend Strategy set to: ${globalStrategy}`);
 log.info('Site-specific strategies:', siteStrategies);
-log.info(`Loaded ${Object.keys(loadedCustomScrapers).length} custom scrapers: ${Object.keys(loadedCustomScrapers).join(', ')}`);
 
 // --- Middleware ---
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public'))); // Serve static files from public/
+
+// Serve static files from public directory (assuming index.html is there)
+app.use(express.static(path.join(__dirname, 'public')));
+
+
+// --- Instantiate Pornsearch Orchestrator ---
+const pornsearchOrchestrator = new PornsearchOrchestrator({ /* options if any */ });
+
 
 // --- Handler Functions ---
-async function handlePornsearchRequest(params) {
-    log.info(`[Pornsearch Handler] Processing request for driver '${params.driver}' with query '${params.query}', type '${params.type}', page ${params.page}.`);
-    try {
-        const search = new Pornsearch(params.query, params.driver); // pornsearch library expects driver name directly
-        let results;
-        if (params.type === 'gifs') {
-            if (typeof search.gifs !== 'function') {
-                 throw { status: 501, message: `GIF search not supported by 'pornsearch' library for driver '${params.driver}'.` };
-            }
-            results = await search.gifs(params.page);
-        } else {
-            if (typeof search.videos !== 'function') {
-                 throw { status: 501, message: `Video search not supported by 'pornsearch' library for driver '${params.driver}'.` };
-            }
-            results = await search.videos(params.page);
-        }
-        log.info(`[Pornsearch Handler] Found ${results ? results.length : 0} results for ${params.driver}.`);
-        return {
-            message: `'pornsearch' library results for ${params.query} on ${params.driver}`,
-            data: results || []
-        };
-    } catch (error) {
-        log.error(`[Pornsearch Handler] Error searching with pornsearch for driver '${params.driver}':`, error.message);
-        throw { status: 502, message: `Error from pornsearch driver '${params.driver}': ${error.message}` };
-    }
+// Commenting out handlePornsearchNpmRequest as the npm package is not being used for "custom"
+/*
+async function handlePornsearchNpmRequest(params) {
+    log.info(`[PornsearchNPM Handler] Processing for driver '${params.driver}' query '${params.query}', type '${params.type}', page ${params.page}.`);
+    // ... implementation ...
 }
+*/
 
-async function handleCustomScraperRequest(driver, params) {
-    const driverKey = driver.toLowerCase();
-    log.info(`[Custom Scraper Handler] Processing request for driver '${driverKey}' with query '${params.query}', type '${params.type}', page ${params.page}.`);
-    const ScraperClass = loadedCustomScrapers[driverKey];
-
-    if (!ScraperClass) {
-        log.error(`[Custom Scraper Handler] Custom scraper for driver '${driverKey}' not found.`);
-        throw { status: 404, message: `Custom scraper for driver '${driverKey}' not found or not loaded.` };
-    }
-
+async function handleCustomOrchestratorRequest(driverKey, params) {
+    log.info(`[Orchestrator Handler] Processing for driver '${driverKey}' query '${params.query}', type '${params.type}', page ${params.page}.`);
     try {
-        const scraperInstance = new ScraperClass({
+        // Ensure useMockData is true for current testing phase
+        const useMockData = true;
+        log.info(`[Orchestrator Handler] Using mock data: ${useMockData}`);
+
+        const resultsData = await pornsearchOrchestrator.search({
             query: params.query,
-            driverName: driverKey,
-            page: params.page
+            platform: driverKey,
+            type: params.type,
+            page: params.page,
+            useMockData: useMockData
         });
 
-        let resultsData;
-        if (params.type === 'gifs') {
-            if (typeof scraperInstance.searchGifs !== 'function') {
-                throw { status: 501, message: `GIF search (searchGifs method) not implemented by custom scraper for '${driverKey}'.` };
-            }
-            log.debug(`[Custom Scraper Handler] Calling searchGifs for ${driverKey}...`);
-            resultsData = await scraperInstance.searchGifs(params.query, params.page);
-        } else {
-            if (typeof scraperInstance.searchVideos !== 'function') {
-                throw { status: 501, message: `Video search (searchVideos method) not implemented by custom scraper for '${driverKey}'.` };
-            }
-            log.debug(`[Custom Scraper Handler] Calling searchVideos for ${driverKey}...`);
-            resultsData = await scraperInstance.searchVideos(params.query, params.page);
-        }
-
-        log.info(`[Custom Scraper Handler] Custom scraper for ${driverKey} (type: ${params.type}) returned ${resultsData ? resultsData.length : 0} results.`);
+        log.info(`[Orchestrator Handler] Orchestrator for ${driverKey} (type: ${params.type}) returned ${resultsData ? resultsData.length : 0} results.`);
         return {
-            message: `Results from custom scraper '${driverKey}' for query '${params.query}' (type: ${params.type})`,
+            message: `Results from orchestrator for '${driverKey}' query '${params.query}' (type: ${params.type}, mock: ${useMockData})`,
             data: resultsData || []
         };
     } catch (error) {
-        log.error(`[Custom Scraper Handler] Error with custom scraper for driver '${driverKey}' (type: ${params.type}):`, error.message, error.stack);
+        log.error(`[Orchestrator Handler] Error with orchestrator for driver '${driverKey}' (type: ${params.type}):`, error.message, error.stack);
         if (error.status) throw error;
-        throw { status: 500, message: `Error processing custom scraper for '${driverKey}': ${error.message}` };
+        throw { status: 500, message: `Error processing custom search for '${driverKey}': ${error.message}` };
     }
 }
 
@@ -162,15 +118,14 @@ app.get('/api/search', async (req, res) => {
     let pageNumber;
     try {
         pageNumber = parseInt(page, 10);
-        if (isNaN(pageNumber) || pageNumber < 0) { // Allow page 0 if scrapers handle it (e.g. xvideos)
-             log.warn(`[/api/search] Bad Request: Invalid page number '${page}'. Using default page of scraper.`);
-             pageNumber = undefined; // Let scraper use its default firstpage
+        if (isNaN(pageNumber) || pageNumber <= 0) {
+             log.warn(`[/api/search] Bad Request: Invalid page number '${page}'. Defaulting to 1.`);
+             pageNumber = 1;
         }
     } catch(e){
-        log.warn(`[/api/search] Bad Request: Could not parse page number '${page}'. Using default page of scraper.`);
-        pageNumber = undefined;
+        log.warn(`[/api/search] Bad Request: Could not parse page number '${page}'. Defaulting to 1.`);
+        pageNumber = 1;
     }
-
 
     const searchParams = { query, driver: driver.toLowerCase(), type: type.toLowerCase(), page: pageNumber };
     const driverKey = searchParams.driver;
@@ -179,13 +134,16 @@ app.get('/api/search', async (req, res) => {
 
     try {
         let responsePayload;
+        // If 'pornsearch' (npm) strategy is ever re-enabled, ensure PornsearchNpm is required and handlePornsearchNpmRequest is uncommented.
         if (effectiveStrategy === 'pornsearch') {
-            responsePayload = await handlePornsearchRequest(searchParams);
+            // responsePayload = await handlePornsearchNpmRequest(searchParams);
+            log.warn('[/api/search] "pornsearch" (npm package) strategy selected but currently commented out.');
+            throw { status: 501, message: "'pornsearch' (npm package) strategy is currently disabled." };
         } else if (effectiveStrategy === 'custom') {
-            responsePayload = await handleCustomScraperRequest(driverKey, searchParams);
+            responsePayload = await handleCustomOrchestratorRequest(driverKey, searchParams);
         } else {
-            log.error(`[/api/search] Unknown or unsupported strategy '${effectiveStrategy}' for driver '${driverKey}'.`);
-            return res.status(501).json({ error: `Strategy '${effectiveStrategy}' not implemented for driver '${driverKey}'.` });
+            log.error(`[/api/search] Unknown strategy '${effectiveStrategy}' for driver '${driverKey}'.`);
+            return res.status(501).json({ error: `Strategy '${effectiveStrategy}' not implemented for '${driverKey}'.` });
         }
         res.status(200).json(responsePayload);
 
@@ -200,27 +158,33 @@ app.get('/api/search', async (req, res) => {
 // --- Root Route ---
 app.get('/', (req, res) => {
     // Serve index.html from public directory
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+     const indexPath = path.join(__dirname, 'public', 'index.html');
+     if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+     } else {
+        log.error('[/] index.html not found in public directory.');
+        res.status(404).send('Frontend not found. Ensure index.html is in the public directory.');
+     }
 });
 
-// --- Graceful Shutdown ---
-process.on('SIGINT', () => {
-    log.info('Shutdown signal received, closing server gracefully.');
-    process.exit(0);
-});
-process.on('SIGTERM', () => {
-    log.info('Termination signal received, closing server gracefully.');
-    process.exit(0);
-});
 
-// Export the app for testing or programmatic use,
-// and only start listening if the script is run directly.
+// --- Start Server ---
+// Check if the module is being run directly
 if (require.main === module) {
-    app.listen(PORT, '0.0.0.0', () => {
-        log.info(`Hybrid backend server started on http://0.0.0.0:${PORT}`);
+    app.listen(PORT, '0.0.0.0', () => { // Listen on 0.0.0.0 to be accessible externally if needed
+        log.info(`Hybrid backend server started on http://localhost:${PORT} (accessible also via http://<your-ip>:${PORT} if firewall allows)`);
         log.info(`Current Global Backend Strategy: ${globalStrategy}`);
-        log.info(`Access frontend at http://localhost:${PORT}`);
+        log.info(`Serving frontend from: ${path.join(__dirname, 'public')}`);
     });
 }
+
+
+// --- Graceful Shutdown ---
+function gracefulShutdown() {
+    log.info('Shutdown signal received, closing server gracefully.');
+    process.exit(0);
+}
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
 
 module.exports = app;

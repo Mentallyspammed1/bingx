@@ -5,24 +5,32 @@ try {
     AbstractModule = require('../core/AbstractModule.js');
 } catch (e) {
     console.error("Failed to load AbstractModule from ../core/, ensure path is correct.", e);
-    AbstractModule = class { /* ... fallback ... */ };
+    AbstractModule = class {
+        constructor(options = {}) { this.query = options.query; }
+        get name() { return 'UnnamedDriver'; }
+        get baseUrl() { return ''; }
+        get supportsVideos() { return false; }
+        get supportsGifs() { return false; }
+        get firstpage() { return 1; }
+    };
 }
 
 const { logger, makeAbsolute, extractPreview, validatePreview, sanitizeText } = require('./driver-utils.js');
 
-const BASE_URL = 'https://www.redtube.com';
-const DRIVER_NAME = 'Redtube';
+const BASE_URL_CONST = 'https://www.redtube.com';
+const DRIVER_NAME_CONST = 'Redtube';
 
 class RedtubeDriver extends AbstractModule {
     constructor(options = {}) {
         super(options);
-        this.name = DRIVER_NAME;
-        this.baseUrl = BASE_URL;
-        this.supportsVideos = true;
-        this.supportsGifs = false;
-        this.firstpage = 1;
         logger.debug(`[${this.name}] Initialized.`);
     }
+
+    get name() { return DRIVER_NAME_CONST; }
+    get baseUrl() { return BASE_URL_CONST; }
+    get supportsVideos() { return true; }
+    get supportsGifs() { return false; }
+    get firstpage() { return 1; }
 
     getVideoSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
@@ -50,7 +58,6 @@ class RedtubeDriver extends AbstractModule {
         const results = [];
         const { type, sourceName } = parserOptions;
 
-        // VERIFY THESE SELECTORS against live Redtube HTML
         const videoItems = $('div.video_bloc, li.video_item, div.video-tile, div.videoBlock');
 
         if (!videoItems || videoItems.length === 0) {
@@ -63,7 +70,7 @@ class RedtubeDriver extends AbstractModule {
 
             const linkElement = item.find('a.video_link, a.video-tile_thumbnail_link, a.video_title_link, a.videoLink').first();
             let relativeUrlToPage = linkElement.attr('href');
-            let titleText = sanitizeText(item.find('span.video_title_text, strong.video_title_strong, p.video-tile_title, .videoTitle').text()?.trim() || linkElement.attr('title')?.trim());
+            let titleText = sanitizeText(item.find('span.video_title_text, strong.video_title_strong, p.video-tile_title, .videoTitle').first().text()?.trim() || linkElement.attr('title')?.trim());
 
             if (!titleText && relativeUrlToPage) {
                 const parts = relativeUrlToPage.split('/');
@@ -77,17 +84,16 @@ class RedtubeDriver extends AbstractModule {
                 if (idMatch && idMatch[1]) videoId = idMatch[1];
             }
 
-
             if (!titleText || !relativeUrlToPage || !videoId) {
                 logger.warn(`[${this.name}] Item ${i}: Skipping due to missing title, URL or ID.`);
                 return;
             }
 
-            const durationText = item.find('span.duration, span.video_duration, span.video-tile_duration, var.duration').text()?.trim();
+            const durationText = sanitizeText(item.find('span.duration, span.video_duration, span.video-tile_duration, var.duration').first().text()?.trim());
 
             const imageElement = item.find('img.video_thumbnail_img, img.video-tile_thumbnail_img, img.thumb').first();
             let staticThumbnailUrl = imageElement.attr('data-src') || imageElement.attr('src');
-            if (staticThumbnailUrl && staticThumbnailUrl.startsWith('data:image/')) { // Handle lazy loaded base64
+            if (staticThumbnailUrl && staticThumbnailUrl.startsWith('data:image/')) {
                  staticThumbnailUrl = imageElement.attr('data-thumb_url') || imageElement.attr('data-mediumthumb');
             }
 
@@ -105,7 +111,7 @@ class RedtubeDriver extends AbstractModule {
                 duration: durationText || 'N/A',
                 preview_video: finalPreview,
                 source: sourceName,
-                type: type // Should be 'videos'
+                type: type
             });
         });
 

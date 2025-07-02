@@ -1,127 +1,189 @@
-// modules/custom_scrapers/motherlessScraper.js
 'use strict';
 
-const AbstractModule = require('../../core/AbstractModule');
-const VideoMixin = require('../../core/VideoMixin');
-const GifMixin = require('../../core/GifMixin');
-const cheerio = require('cheerio');
+let AbstractModule;
+try {
+    AbstractModule = require('../core/AbstractModule');
+} catch (e) {
+    AbstractModule = class {
+        constructor(query) { this.query = query; }
+        get name() { return 'UnnamedDriver'; }
+        get baseUrl() { return ''; }
+        get supportsVideos() { return false; }
+        get supportsGifs() { return false; }
+        get firstpage() { return 1; }
+    };
+}
 
-const log = {
-    debug: (message, ...args) => { if (process.env.DEBUG === 'true') console.log(`[MotherlessScraper DEBUG] ${new Date().toISOString()}: ${message}`, ...args);},
-    info: (message, ...args) => console.log(`[MotherlessScraper INFO] ${new Date().toISOString()}: ${message}`, ...args),
-    warn: (message, ...args) => console.warn(`[MotherlessScraper WARN] ${new Date().toISOString()}: ${message}`, ...args),
-    error: (message, ...args) => console.error(`[MotherlessScraper ERROR] ${new Date().toISOString()}: ${message}`, ...args),
-};
+const BASE_URL = 'https://motherless.com';
+const DRIVER_NAME = 'Motherless'; // Match frontend dropdown
 
-class MotherlessScraper extends AbstractModule.with(VideoMixin, GifMixin) {
-    constructor(options) {
-        super(options);
-        this.baseUrl = 'https://motherless.com';
-        log.debug(`MotherlessScraper instantiated. Query: "${this.query}", Page: ${this.page}`);
+/**
+ * @class MotherlessDriver
+ * @classdesc Driver for scraping video and image/GIF content from Motherless.
+ */
+class MotherlessDriver extends AbstractModule {
+    constructor(query) {
+        super(query);
+        this.name = DRIVER_NAME;
+        this.baseUrl = BASE_URL;
+        this.supportsVideos = true;
+        this.supportsGifs = true; // Motherless has distinct sections for images/GIFs
+        this.firstpage = 1;
     }
 
-    get name() { return 'Motherless'; }
-    get firstpage() { return 1; }
+    /**
+     * Constructs the URL for searching videos on Motherless.
+     * Example: https://motherless.com/term/videos/test?page=1
+     * @param {string} query - The search query string.
+     * @param {number} page - The page number for search results (1-indexed).
+     * @returns {string} The fully qualified URL for video search.
+     */
+    getVideoSearchUrl(query, page) {
+        if (!query || typeof query !== 'string' || query.trim() === '') {
+            throw new Error(`[${this.name}] Search query is not set for video search.`);
+        }
+        const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
+        // Motherless uses path-based search for terms, and a 'page' query parameter.
+        const searchPath = `/term/videos/${encodeURIComponent(query.trim())}`;
+        const searchUrl = new URL(searchPath, this.baseUrl);
+        searchUrl.searchParams.set('page', String(searchPage));
 
-    // --- Video Search Methods ---
-    videoUrl(query, page) {
-        const searchPage = page || this.firstpage;
-        // Motherless uses /term/ for general searches, and then filters by type
-        const url = `${this.baseUrl}/term/${encodeURIComponent(query)}?page=${searchPage}`;
-        log.debug(`Constructed video URL: ${url}`);
-        return url;
+        // console.log(`[${this.name}] Generated video URL: ${searchUrl.href}`);
+        return searchUrl.href;
     }
 
-    async searchVideos(query, page) {
-        const url = this.videoUrl(query, page);
-        log.info(`Fetching HTML for Motherless videos from: ${url}`);
-        try {
-            const html = await this._fetchHtml(url);
-            const $ = cheerio.load(html);
-            return this.videoParser($, html);
-        } catch (error) {
-            log.error(`Error in searchVideos for query "${query}" on page ${page}: ${error.message}`);
+    /**
+     * Constructs the URL for searching images/GIFs on Motherless.
+     * Example: https://motherless.com/term/images/test?page=1
+     * @param {string} query - The search query string.
+     * @param {number} page - The page number for search results (1-indexed).
+     * @returns {string} The fully qualified URL for GIF search.
+     */
+    getGifSearchUrl(query, page) {
+        if (!query || typeof query !== 'string' || query.trim() === '') {
+            throw new Error(`[${this.name}] Search query is not set for GIF search.`);
+        }
+        const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
+        const searchPath = `/term/images/${encodeURIComponent(query.trim())}`; // Note: '/images/' for GIFs
+        const searchUrl = new URL(searchPath, this.baseUrl);
+        searchUrl.searchParams.set('page', String(searchPage));
+
+        // console.log(`[${this.name}] Generated GIF URL: ${searchUrl.href}`);
+        return searchUrl.href;
+    }
+
+    /**
+     * Parses HTML from a Motherless search results page.
+     * @param {CheerioAPI} $ - Cheerio object.
+     * @param {string|object} htmlOrJsonData - Raw HTML or JSON data.
+     * @param {object} parserOptions - Options including type, sourceName, query, page.
+     * @returns {Array<object>} Array of MediaResult objects.
+     */
+    parseResults($, htmlOrJsonData, parserOptions) {
+        if (!$) {
+            // console.warn(`[${this.name}] Cheerio object ($) is null. Expecting HTML.`);
             return [];
         }
-    }
 
-    videoParser($, rawData) {
-        log.info(`Parsing Motherless video data...`);
-        const videos = [];
-        // These selectors are placeholders and likely need adjustment based on actual Motherless HTML
-        $('div.content-item.video').each((i, elem) => {
-            const $elem = $(elem);
-            const title = $elem.find('a.title').attr('title')?.trim();
-            const videoPageUrl = $elem.find('a.title').attr('href');
-            const duration = $elem.find('.duration').text()?.trim();
-            const thumbnail = $elem.find('img.img-responsive').attr('src');
-            const previewVideo = $elem.find('video.preview-video').attr('src'); // Assuming a video tag for preview
+        const results = [];
+        const isGifSearch = parserOptions.type === 'gifs';
 
-            if (title && videoPageUrl) {
-                videos.push({
-                    title,
-                    url: this._makeAbsolute(videoPageUrl, this.baseUrl),
-                    thumbnail: this._makeAbsolute(thumbnail, this.baseUrl),
-                    duration: duration || 'N/A',
-                    preview_video: this._makeAbsolute(previewVideo, this.baseUrl),
-                    source: this.name,
-                });
-            } else {
-                log.warn('Skipped a Motherless video item due to missing title or URL.');
+        // General item selector for Motherless (Galleries or direct items)
+        // This is highly speculative and NEEDS VERIFICATION.
+        // Motherless structure is often complex with nested thumbs.
+        const itemSelector = 'div.content-inner div.thumb';
+
+        $(itemSelector).each((i, el) => {
+            const item = $(el);
+
+            const linkElement = item.find('a[href*="/"]').first(); // Find first link, could be to gallery or media
+            let pageUrl = linkElement.attr('href');
+
+            // Title might be in various places: alt text of image, a caption, or derived from URL
+            let title = item.find('img').attr('alt')?.trim() ||
+                        linkElement.attr('title')?.trim() ||
+                        item.find('div.caption, .thumb-title').text()?.trim();
+
+            if (!pageUrl) { // If no link, this item might not be what we want
+                // console.warn(`[${this.name}] Item ${i} (${parserOptions.type}): Skipping due to missing page URL.`);
+                return;
             }
+            if (!title && pageUrl) { // Fallback title from URL
+                 const parts = pageUrl.split('/');
+                 const slug = parts.pop() || parts.pop();
+                 if (slug) title = slug.replace(/[-_]/g, ' ').replace(/\.[^/.]+$/, ""); // Remove extension
+            }
+            if (!title) title = `Motherless Content ${i+1}`;
+
+
+            const imgElement = item.find('img').first();
+            let thumbnailUrl = imgElement.attr('src') || imgElement.attr('data-src');
+
+            // Motherless previews for videos might be complex (e.g. sprite sheets or JS controlled)
+            // For GIFs, the thumbnail is often the GIF itself or a static version.
+            let previewUrl = thumbnailUrl; // Default preview to thumbnail for GIFs
+            if (!isGifSearch) {
+                // Video preview logic would be very specific to Motherless's player/preview mechanism
+                // This might involve looking for data attributes or specific video tags if they exist.
+                // For now, we'll assume no separate animated preview for videos via simple scraping.
+                previewUrl = undefined;
+            } else { // For GIFs, the main image is usually the preview
+                 previewUrl = thumbnailUrl;
+            }
+
+            // Duration is typically not available for Motherless galleries in search listings.
+            const durationText = undefined;
+
+            // ID extraction: Motherless URLs often have unique codes like /GALLERY/A1B2C3D or /M/A1B2C3D
+            let mediaId = null;
+            const idMatch = pageUrl.match(/\/([A-Z0-9]{6,})/); // Matches 6+ alphanumeric uppercase chars
+            if (idMatch && idMatch[1]) {
+                mediaId = idMatch[1];
+            } else {
+                const parts = pageUrl.split('/');
+                mediaId = parts.pop() || parts.pop(); // last part of URL as fallback
+            }
+
+            const absoluteUrl = this._makeAbsolute(pageUrl, this.baseUrl);
+            const absoluteThumbnail = this._makeAbsolute(thumbnailUrl, this.baseUrl);
+            const absolutePreview = this._makeAbsolute(previewUrl, this.baseUrl);
+
+            if (!absoluteUrl || !title) {
+                 return;
+            }
+
+            results.push({
+                id: mediaId || `ml_${parserOptions.type}_${i}`,
+                title: title,
+                url: absoluteUrl,
+                thumbnail: absoluteThumbnail || '',
+                duration: isGifSearch ? undefined : (durationText || 'N/A'),
+                preview_video: absolutePreview || (isGifSearch ? absoluteThumbnail : ''), // For GIFs, preview can be the thumb
+                source: this.name,
+                type: parserOptions.type
+            });
         });
-        log.info(`Parsed ${videos.length} video items from Motherless.`);
-        return videos;
+
+        // console.log(`[${this.name}] Parsed ${results.length} ${parserOptions.type} items.`);
+        return results;
     }
 
-    // --- GIF Search Methods ---
-    gifUrl(query, page) {
-        const searchPage = page || this.firstpage;
-        // Motherless uses /term/ for general searches, and then filters by type
-        const url = `${this.baseUrl}/term/${encodeURIComponent(query)}?page=${searchPage}`;
-        log.debug(`Constructed GIF URL: ${url}`);
-        return url;
-    }
-
-    async searchGifs(query, page) {
-        const url = this.gifUrl(query, page);
-        log.info(`Fetching HTML for Motherless GIFs from: ${url}`);
+    _makeAbsolute(urlString, baseUrl) {
+        if (!urlString || typeof urlString !== 'string' || urlString.trim() === '') return undefined;
+        if (urlString.startsWith('data:image/')) return urlString;
         try {
-            const html = await this._fetchHtml(url);
-            const $ = cheerio.load(html);
-            return this.gifParser($, html);
-        } catch (error) {
-            log.error(`Error in searchGifs for query "${query}" on page ${page}: ${error.message}`);
-            return [];
-        }
-    }
-
-    gifParser($, rawData) {
-        log.info(`Parsing Motherless GIF data...`);
-        const gifs = [];
-        // These selectors are placeholders and likely need adjustment based on actual Motherless HTML
-        $('div.content-item.image').each((i, elem) => {
-            const $elem = $(elem);
-            const title = $elem.find('a.title').attr('title')?.trim();
-            const gifPageUrl = $elem.find('a.title').attr('href');
-            const thumbnail = $elem.find('img.img-responsive').attr('src');
-            const previewVideo = $elem.find('video.preview-video').attr('src'); // Assuming a video tag for preview
-
-            if (title && gifPageUrl) {
-                gifs.push({
-                    title,
-                    url: this._makeAbsolute(gifPageUrl, this.baseUrl),
-                    thumbnail: this._makeAbsolute(thumbnail, this.baseUrl),
-                    preview_video: this._makeAbsolute(previewVideo, this.baseUrl),
-                    source: this.name,
-                });
-            } else {
-                log.warn('Skipped a Motherless GIF item due to missing title or URL.');
+            if (urlString.startsWith('//')) {
+                return new URL(`https:${urlString}`).href;
             }
-        });
-        log.info(`Parsed ${gifs.length} GIF items from Motherless.`);
-        return gifs;
+            if (urlString.startsWith('http:') || urlString.startsWith('https:')) {
+                return new URL(urlString).href; // Validate and normalize
+            }
+            return new URL(urlString, baseUrl).href;
+        } catch (e) {
+            // console.warn(`[${this.name}] Failed to resolve URL: "${urlString}" with base "${baseUrl}"`, e.message);
+            return undefined;
+        }
     }
 }
 
-module.exports = MotherlessScraper;
+module.exports = MotherlessDriver;

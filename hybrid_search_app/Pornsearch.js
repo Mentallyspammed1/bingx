@@ -10,16 +10,15 @@ var _createClass2 = _interopRequireDefault(_createClass);
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 // Import core Node.js modules for file system and path manipulation
-const fs = require('fs').promises; // Use promises version of fs for async operations
+const fs = require('fs').promises;
 const path = require('path');
 
 // Import HTTP client and HTML parser
-const axios = require('axios'); // Keeping axios for live requests if not in mock mode
+const axios = require('axios');
 const cheerio = require('cheerio');
 
 // Import all your content drivers/modules
-// Paths are relative to Pornsearch.js (which is in the root of hybrid_search_app)
-var _Pornhub = require('./modules/Pornhub.js'); // Assuming .js extension
+var _Pornhub = require('./modules/Pornhub.js');
 var _Pornhub2 = _interopRequireDefault(_Pornhub);
 var _Redtube = require('./modules/Redtube.js');
 var _Redtube2 = _interopRequireDefault(_Redtube);
@@ -38,38 +37,18 @@ var _SexCom2 = _interopRequireDefault(_SexCom);
 var _MockScraper = require('./modules/mockScraper.cjs');
 var _MockScraper2 = _interopRequireDefault(_MockScraper);
 
+// Corrected Mixin Loading for Prototype Check (if still needed)
+// The core issue was `MixinModule.default()` when MixinModule itself is the function.
+const VideoMixin = require('./core/VideoMixin.js');
+const GifMixin = require('./core/GifMixin.js');
+const DummyBaseClassForMixinCheck = class {}; // Dummy class to apply mixin for prototype checking
+const VideoMixinPrototype = VideoMixin(DummyBaseClassForMixinCheck).prototype;
+const GifMixinPrototype = GifMixin(DummyBaseClassForMixinCheck).prototype;
 
-// Assuming these mixins exist for type checking in the search method
-// Paths are relative to Pornsearch.js (which is in the root of hybrid_search_app)
-const VideoMixinPrototype = (function() {
-  try {
-    const VideoMixinModule = require('./core/VideoMixin.js'); // Assuming .js
-    return VideoMixinModule.default().prototype; // If VideoMixin is a function that returns a class
-  } catch (e) {
-    console.error("[Pornsearch.js] Failed to load VideoMixin for prototype check:", e.message);
-    return { getVideoSearchUrl: () => {}, parseResults: () => {} }; // Adjusted to parseResults
-  }
-})();
-
-const GifMixinPrototype = (function() {
-  try {
-    const GifMixinModule = require('./core/GifMixin.js'); // Assuming .js
-    return GifMixinModule.default().prototype; // If GifMixin is a function that returns a class
-  } catch (e) {
-    console.error("[Pornsearch.js] Failed to load GifMixin for prototype check:", e.message);
-    return { getGifSearchUrl: () => {}, parseResults: () => {} }; // Adjusted to parseResults
-  }
-})();
 
 // Constants for mock data path
 const MOCK_DATA_DIR = path.join(__dirname, 'modules', 'mock_html_data');
 
-
-/**
- * @class Pornsearch
- * @classdesc Central orchestrator for searching across various adult content platforms.
- * It manages a collection of driver modules and provides a unified search interface.
- */
 var Pornsearch = function () {
   function Pornsearch() {
     var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
@@ -79,7 +58,6 @@ var Pornsearch = function () {
     this.page = options.page || 1;
     this.pageSize = options.pageSize || 20;
 
-    // Ensure config is loaded correctly
     let config;
     try {
         config = require('./config.js');
@@ -88,7 +66,6 @@ var Pornsearch = function () {
         config = { global: { defaultUserAgent: 'Mozilla/5.0', requestTimeout: 15000 }};
     }
     this.config = config;
-
 
     this.allDrivers = {
       'pornhub': new _Pornhub2.default(options),
@@ -130,7 +107,7 @@ var Pornsearch = function () {
       this.activeDrivers.forEach(driver => {
         if (typeof driver.setQuery === 'function') {
           driver.setQuery(this.query);
-        } else if (driver.hasOwnProperty('query')) { // Fallback for simple property assignment
+        } else if (driver.hasOwnProperty('query')) {
             driver.query = this.query;
         }
       });
@@ -144,7 +121,7 @@ var Pornsearch = function () {
       if (!query) {
         throw new Error("Search query cannot be empty.");
       }
-      let searchType = type; // Allow reassignment for default
+      let searchType = type;
       if (!['videos', 'gifs'].includes(searchType)) {
         console.warn(`[Pornsearch] Invalid search type '${searchType}'. Defaulting to 'videos'.`);
         searchType = 'videos';
@@ -176,7 +153,9 @@ var Pornsearch = function () {
           }
 
           if (useMockData) {
-            const mockFileName = `${driver.name.toLowerCase().replace(/[\s.]+/g, '')}_${searchType}_page${page}.html`;
+            // Normalize driver name for filename: lowercase, remove spaces and dots.
+            const normalizedDriverNameForFile = driver.name.toLowerCase().replace(/[\s.]+/g, '');
+            const mockFileName = `${normalizedDriverNameForFile}_${searchType}_page${page}.html`;
             const mockFilePath = path.join(MOCK_DATA_DIR, mockFileName);
             try {
               rawContent = await fs.readFile(mockFilePath, 'utf8');
@@ -212,12 +191,16 @@ var Pornsearch = function () {
               return [];
           }
 
-          // Pass cheerioInstance (if HTML) or jsonData (if JSON) to parseResults
           const results = await driver.parseResults(cheerioInstance, jsonData || rawContent, parserOptions);
 
           if (Array.isArray(results)) {
             console.log(`  [${driver.name}] Parsed ${results.length} ${searchType} results.`);
-            return results.map(r => ({ ...r, source: driver.name, type: searchType }));
+            // Ensure source and type are consistently added if driver didn't do it
+            return results.map(r => ({
+                ...r,
+                source: r.source || driver.name, // Prioritize driver's source, then orchestrator's
+                type: r.type || searchType      // Prioritize driver's type, then orchestrator's
+            }));
           } else {
             console.warn(`  [${driver.name}] parseResults did not return an array. Skipping.`);
             return [];

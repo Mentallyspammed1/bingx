@@ -1,47 +1,55 @@
 // core/abstractMethodFactory.js
 'use strict';
-const OverwriteError = require('./OverwriteError'); // Correct path
+const OverwriteError = require('./OverwriteError');
 
 module.exports = (BaseClass, abstractMethods) => {
-  if (typeof BaseClass !== 'function') {
-    throw new Error('BaseClass must be a constructor function.');
+  if (typeof BaseClass !== 'function' || !BaseClass.prototype) { // Added prototype check
+    throw new Error('BaseClass must be a constructor function (a class).');
   }
 
-  if (!Array.isArray(abstractMethods) || abstractMethods.length === 0) {
-    throw new Error('The second argument "abstractMethods" must be a non-empty array of strings.');
+  if (!Array.isArray(abstractMethods)) { // Removed length check, empty array is valid
+    throw new Error('The second argument "abstractMethods" must be an array of strings.');
   }
 
   const validAbstractMethods = abstractMethods.filter(methodName =>
     typeof methodName === 'string' && methodName.trim().length > 0
   );
 
-  if (validAbstractMethods.length === 0) {
-    throw new Error('After filtering invalid entries, the "abstractMethods" array is empty or contains only invalid method names.');
-  }
+  // It's okay if validAbstractMethods is empty, means the mixin is just a marker or adds concrete methods.
 
   const AbstractMethodEnforcer = class extends BaseClass {
     constructor(...args) {
-      super(...args);
+      super(...args); // This calls the constructor of BaseClass (e.g., AbstractModule or a class already mixed)
+
+      // Optional: Runtime check for method implementation on the instance.
+      // This is more for ensuring the final driver implements them.
+      // The prototype stubs below handle the "abstract" nature.
+      validAbstractMethods.forEach(methodName => {
+        if (typeof this[methodName] !== 'function') {
+            // This check is tricky because methods are on prototype.
+            // The main enforcement is calling the stub if not overridden.
+        }
+      });
     }
   };
 
   validAbstractMethods.forEach(methodName => {
-    Object.defineProperty(AbstractMethodEnforcer.prototype, methodName, {
-      get() {
-        // This getter is invoked when the 'abstract' method is accessed.
-        // It returns the function that will actually be called.
-        return (...args) => { // eslint-disable-line no-unused-vars
-          // 'this' here refers to the instance of the concrete subclass.
+    // Define methods on the prototype that throw if not overridden by a concrete subclass
+    // This ensures that if a driver uses a mixin, it must implement these methods.
+    if (typeof AbstractMethodEnforcer.prototype[methodName] === 'undefined') {
+      Object.defineProperty(AbstractMethodEnforcer.prototype, methodName, {
+        value: function() {
           const callingClassName = this.constructor.name || 'Subclass';
           throw new OverwriteError(
-            `Abstract method "${methodName}" must be implemented by concrete class "${callingClassName}".`
+            `Abstract method "${methodName}" from mixin must be implemented by concrete class "${callingClassName}".`
           );
-        };
-      },
-      configurable: true, // Allows subclasses to override.
-      enumerable: false,   // Keeps it off for...in loops on the prototype.
-    });
+        },
+        writable: true, // Allows subclasses to override
+        configurable: true,
+        enumerable: false,
+      });
+    }
   });
 
-  return AbstractMethodEnforcer;
+  return AbstractMethodEnforcer; // Return the new class that extends BaseClass
 };

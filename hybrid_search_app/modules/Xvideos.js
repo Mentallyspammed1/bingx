@@ -1,0 +1,152 @@
+'use strict';
+
+let AbstractModule;
+try {
+    AbstractModule = require('../core/AbstractModule.js');
+} catch (e) {
+    console.error("Failed to load AbstractModule from ../core/, ensure path is correct.", e);
+    AbstractModule = class {
+        constructor(options = {}) { this.query = options.query; }
+        get name() { return 'UnnamedDriver'; }
+        get baseUrl() { return ''; }
+        get supportsVideos() { return false; }
+        get supportsGifs() { return false; }
+        get firstpage() { return 1; }
+    };
+}
+
+const { logger, makeAbsolute, extractPreview, validatePreview, sanitizeText } = require('./driver-utils.js');
+
+const BASE_URL_CONST = 'https://www.xvideos.com';
+const DRIVER_NAME_CONST = 'Xvideos';
+
+class XvideosDriver extends AbstractModule {
+    constructor(options = {}) {
+        super(options);
+        logger.debug(`[${this.name}] Initialized.`);
+    }
+
+    get name() { return DRIVER_NAME_CONST; }
+    get baseUrl() { return BASE_URL_CONST; }
+    get supportsVideos() { return true; }
+    get supportsGifs() { return true; }
+    get firstpage() { return 0; } // XVideos uses 0-indexed pagination
+
+    getVideoSearchUrl(query, page) {
+        if (!query || typeof query !== 'string' || query.trim() === '') {
+            throw new Error(`[${this.name}] Search query is not set for video search.`);
+        }
+        const xvideosPage = Math.max(0, (parseInt(page, 10) || (this.firstpage + 1)) - 1);
+        const searchUrl = new URL(this.baseUrl);
+        searchUrl.pathname = '/';
+        searchUrl.searchParams.set('k', sanitizeText(query));
+        searchUrl.searchParams.set('p', String(xvideosPage));
+        logger.debug(`[${this.name}] Generated video URL: ${searchUrl.href}`);
+        return searchUrl.href;
+    }
+
+    getGifSearchUrl(query, page) {
+        if (!query || typeof query !== 'string' || query.trim() === '') {
+            throw new Error(`[${this.name}] Search query is not set for GIF search.`);
+        }
+        const xvideosPage = Math.max(0, (parseInt(page, 10) || (this.firstpage + 1)) - 1);
+        const searchPath = `/gifs/${encodeURIComponent(sanitizeText(query))}/${xvideosPage}`;
+        const searchUrl = new URL(searchPath, this.baseUrl);
+        logger.debug(`[${this.name}] Generated GIF URL: ${searchUrl.href}`);
+        return searchUrl.href;
+    }
+
+    parseResults($, htmlOrJsonData, parserOptions) {
+        if (!$) {
+            logger.error(`[${this.name}] Cheerio object ($) is null. Expecting HTML.`);
+            return [];
+        }
+
+        const results = [];
+        const { type, sourceName } = parserOptions;
+        const isGifSearch = type === 'gifs';
+
+        const itemSelector = 'div.thumb-block';
+
+        $(itemSelector).each((i, el) => {
+            const item = $(el);
+            let title, pageUrl, thumbnailUrl, previewVideoUrl, durationText, videoId;
+
+            videoId = item.attr('data-id');
+            if(!videoId) {
+                 const idAttr = item.attr('id');
+                 if(idAttr) videoId = idAttr.replace('video_', '').replace('gif_', '');
+            }
+
+            if (isGifSearch) {
+                if (!item.hasClass('thumb-block-gif') && !item.hasClass('gif-thumb-block') && !item.attr('id')?.startsWith('gif_')) {
+                    if ($(el).find('img.gif_pic').length === 0 && !item.find('a[href*="/gifs/"]').length > 0) {
+                         return;
+                    }
+                }
+                const titleLink = item.find('p.title a, a.thumb-name, div.profile-name a').first();
+                title = sanitizeText(titleLink.attr('title')?.trim() || titleLink.text()?.trim());
+                pageUrl = titleLink.attr('href');
+                const imgElement = item.find('div.thumb img, div.thumb-inside img.gif_pic, img.thumb').first();
+                thumbnailUrl = imgElement.attr('src');
+                previewVideoUrl = imgElement.attr('data-src');
+                if (!previewVideoUrl && thumbnailUrl && thumbnailUrl.toLowerCase().endsWith('.gif')) {
+                    previewVideoUrl = thumbnailUrl;
+                }
+                if (previewVideoUrl && (!thumbnailUrl || thumbnailUrl.toLowerCase().endsWith('.gif'))) {
+                    thumbnailUrl = previewVideoUrl.replace(/\.gif$/i, '.jpg');
+                }
+                 if (!videoId && pageUrl) {
+                    const idMatch = pageUrl.match(/\/gifs\/(\d+)/);
+                    if (idMatch && idMatch[1]) videoId = idMatch[1];
+                }
+            } else {
+                 if (item.attr('id') && !item.attr('id').startsWith('video_')) {
+                    return;
+                 }
+                const titleLink = item.find('p.title a').first();
+                title = sanitizeText(titleLink.attr('title')?.trim() || titleLink.text()?.trim());
+                pageUrl = titleLink.attr('href');
+                durationText = sanitizeText(item.find('p.metadata span.duration').text()?.trim());
+                const imgElement = item.find('div.thumb-inside img').first();
+                thumbnailUrl = imgElement.attr('data-src');
+                previewVideoUrl = imgElement.attr('data-videopreview');
+                if (!videoId && pageUrl) {
+                    const idMatch = pageUrl.match(/\/video(\d+)\//);
+                    if (idMatch && idMatch[1]) videoId = idMatch[1];
+                }
+            }
+
+            if (!pageUrl || !title || !videoId) {
+                logger.warn(`[${this.name}] Item ${i} (${type}): Skipping. Missing: ${!pageUrl?'URL ':''}${!title?'Title ':''}${!videoId?'ID ':''}`);
+                return;
+            }
+
+            const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl);
+            const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl);
+            let finalPreview = makeAbsolute(previewVideoUrl, this.baseUrl);
+
+            if (!validatePreview(finalPreview) && !isGifSearch) {
+                 finalPreview = extractPreview(item,this.baseUrl, false);
+            } else if (!validatePreview(finalPreview) && isGifSearch && absoluteThumbnail?.toLowerCase().endsWith('.gif')) {
+                 finalPreview = absoluteThumbnail;
+            }
+
+            results.push({
+                id: videoId,
+                title: title,
+                url: absoluteUrl,
+                thumbnail: absoluteThumbnail || '',
+                duration: isGifSearch ? undefined : (durationText || 'N/A'),
+                preview_video: validatePreview(finalPreview) ? finalPreview : '',
+                source: sourceName,
+                type: type
+            });
+        });
+
+        logger.debug(`[${this.name}] Parsed ${results.length} ${type} items from mock.`);
+        return results;
+    }
+}
+
+module.exports = XvideosDriver;

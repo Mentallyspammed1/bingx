@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock Sex.com Video Search Results</title>
+</head>
+<body>
+    <div id="content_container" class="results_content">
+        <!-- Item 1: Standard video item -->
+        <div class="masonry_box video" data-id="scv1001">
+            <a href="https://www.sex.com/video/1001234-mock-sexcom-video-one" class="image_wrapper" title="Mock SexCom Video One">
+                <img class="responsive_image" src="/thumbs/sc_thumb_vid1.jpg" data-src="/lazyload/sc_thumb_vid1.jpg" alt="Mock Video 1 Alt">
+                <span class="video_duration">15:20</span>
+                <!-- Sex.com might use data attributes for preview on image or link -->
+                <img data-preview_url="/previews/sc_preview_vid1.mp4" style="display:none;">
+            </a>
+            <p class="title">
+                <a href="https://www.sex.com/video/1001234-mock-sexcom-video-one" title="Mock SexCom Video One">Mock SexCom Video One</a>
+            </p>
+        </div>
+
+        <!-- Item 2: Different class, video_preview_box -->
+        <div class="video_preview_box" data-id="scv1002">
+            <a href="https://www.sex.com/video/1002345-another-sexcom-video-title" class="box_link" title="Another SexCom Video Title">
+                <img class="main_image" src="/thumbs/sc_thumb_vid2.jpg" alt="Another Video Alt">
+                <span class="duration">10:05</span>
+                <video class="preview_video" src="/previews/sc_preview_vid2.webm" muted loop style="display:none;"></video>
+            </a>
+            <h2 class="title">
+                 <a href="https://www.sex.com/video/1002345-another-sexcom-video-title">Another SexCom Video Title</a>
+            </h2>
+        </div>
+
+        <!-- Item 3: Minimal, ID in URL only -->
+        <div class="masonry_box video">
+            <a href="https://www.sex.com/video/1003456-minimal-video-three" class="image_wrapper" title="Minimal SexCom Video Three">
+                <img class="responsive_image" src="/thumbs/sc_thumb_vid3.jpg">
+                <!-- No duration, no explicit preview -->
+            </a>
+            <div class="video_title">Minimal SexCom Video Three</div>
+        </div>
+
+        <!-- Item 4: video_shortlink_container for link -->
+        <div class="masonry_box video" data-id="scv1004">
+            <div class="video_shortlink_container">
+                 <a href="https://www.sex.com/video/1004567-video-four-linkstyle" title="Video Four LinkStyle">
+                    <img class="main_image" src="/thumbs/sc_thumb_vid4.jpg" alt="Video Four LinkStyle">
+                    <span class="duration">06:30</span>
+                 </a>
+            </div>
+            <p class="title">Video Four LinkStyle</p>
+        </div>
+    </div>
+</body>
+</html>

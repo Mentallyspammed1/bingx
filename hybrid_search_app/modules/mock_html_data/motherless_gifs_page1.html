@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock Motherless Image/GIF Search Results</title>
+</head>
+<body>
+    <div id="content" class="content-page">
+        <div class="content-inner">
+            <!-- Item 1: Standard image/gif thumb (gallery link) -->
+            <div class="thumb image" data-id="MLG1001"> <!-- data-id might be on the thumb -->
+                <a href="/G/MLG1001/mock-motherless-gallery-one" title="Mock Motherless Gallery One">
+                    <img src="https://cdn-thumbs.motherless.com/mock_image_thumb1.jpg" alt="Mock Image 1">
+                </a>
+                <div class="caption">Mock Motherless Gallery One (caption)</div>
+                <!-- No duration for images/galleries -->
+            </div>
+
+            <!-- Item 2: Different image source, no explicit title in caption -->
+            <div class="thumb image"> <!-- No data-id on thumb, rely on URL parsing -->
+                <a href="/G/MLG1002/another-ml-image-gallery" title="Another ML Image Gallery">
+                    <img data-src="https://cdn-thumbs.motherless.com/mock_image_thumb2.jpg" alt="Another ML Image Gallery">
+                </a>
+                <div class="thumb-title">Another ML Image Gallery (thumb-title)</div>
+            </div>
+
+            <!-- Item 3: gallery-tile structure, ID in URL, could be single image or gallery -->
+            <div class="gallery-tile thumb image">
+                <a href="/MLG1003/third_image_item_link" title="Third Image Item Link">
+                    <img src="https://cdn-thumbs.motherless.com/mock_image_thumb3.gif" alt="Third Image (GIF)">
+                </a>
+                <div class="title">Third Image Item Link (div.title)</div>
+            </div>
+
+            <!-- Item 4: Direct image link (less common in search, but possible) -->
+            <div class="thumb image" data-id="MLI1004"> <!-- Assuming 'I' for individual image -->
+                <a href="/i/MLI1004" title="Fourth Direct Image">
+                    <img src="https://cdn-images.motherless.com/mock_direct_image4.png">
+                </a>
+                <!-- Title only from link attribute -->
+            </div>
+
+            <!-- Item 5: thumb_wrapper, background image style for thumb -->
+            <div class="thumb_wrapper image" data-id="MLG1005">
+                <a href="/G/MLG1005/gallery-with-bg-thumb" title="Gallery with BG Thumb">
+                    <div class="preview" style="background-image:url('https://cdn-thumbs.motherless.com/mock_image_bg_thumb5.jpg');">
+                         <img src="/path/to/transparent_pixel.png" alt="Gallery with BG Thumb">
+                    </div>
+                </a>
+                <div class="title">Gallery with BG Thumb</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

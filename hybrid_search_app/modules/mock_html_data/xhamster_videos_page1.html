@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock Xhamster Video Search Results</title>
+</head>
+<body>
+    <div id="results-container" class="main-container">
+        <!-- Item 1: Uses div.video-thumb, data-src for thumb, data-previewvideo for preview -->
+        <div class="video-thumb thumb-list__item" data-id="xhv1001">
+            <a class="video-thumb__image-container" href="/videos/mock-xhamster-title-123456" title="Mock Xhamster Video One">
+                <img class="video-thumb__image" src="/static/xh_thumb_1.jpg" data-src="/real/xh_thumb_1.jpg" alt="Mock Video 1">
+                <span class="video-thumb__duration">10:30</span>
+            </a>
+            <div class="video-thumb__name-container">
+                <a class="video-thumb__name" href="/videos/mock-xhamster-title-123456" title="Mock Xhamster Video One">Mock Xhamster Video One</a>
+            </div>
+            <!-- Speculative preview data attribute on image or link -->
+            <script type="application/json" class="video-thumb__player-container" data-previewvideo="/previews/xh_preview_1.mp4"></script>
+        </div>
+
+        <!-- Item 2: Different structure, .thumb-list__item:not(.thumb-list__item--photo), src for thumb, data-preview-url on link -->
+        <div class="thumb-list__item" data-id="xhv1002">
+            <a class="thumb-image__image" href="/videos/another-video-is-here-654321.html" title="Another Xhamster Video Two" data-preview-url="/previews/xh_preview_2.webm">
+                <img class="thumb-image__image" src="/real/xh_thumb_2.jpg" alt="Another Video Two">
+                <div class="duration">08:12</div>
+            </a>
+            <a class="video-title" href="/videos/another-video-is-here-654321.html">Another Xhamster Video Two</a>
+        </div>
+
+        <!-- Item 3: video tag for preview, ID in URL pattern /videos/long-id-string/ID_NUMBER -->
+        <div class="video-thumb thumb-list__item video-thumb--has-player" data-id="xhv1003">
+             <a class="video-thumb__image-container" href="/videos/some-complex-video-url/789012" title="Complex URL Video Three">
+                <img class="video-thumb__image" src="/real/xh_thumb_3.jpg" alt="Complex URL Video Three">
+                <video class="thumb-preview__video" src="/previews/xh_preview_3.mp4" muted loop poster="/real/xh_thumb_3.jpg"></video>
+                <span class="video-duration">15:00</span>
+            </a>
+            <div class="video-thumb-info__name">Complex URL Video Three</div>
+        </div>
+
+        <!-- Item 4: Minimal data, only essential link and title, ID from data-id -->
+        <div class="video-thumb" data-id="xhv1004">
+            <a class="thumb-image__image" href="/videos/minimal-video-4-112233.html" title="Minimal Xhamster Video Four">
+                <img class="thumb-image__image" src="/real/xh_thumb_4.jpg" alt="Minimal Video Four">
+            </a>
+            <div class="video-title">Minimal Xhamster Video Four</div>
+            <!-- No duration, no explicit preview -->
+        </div>
+
+        <!-- Item 5: Using different classes for some elements, data-preview on link -->
+        <div class="thumb-list__item video-item" data-id="xhv1005">
+            <a class="video-thumb-link" href="/videos/fifth-sample-video-445566" title="Fifth Sample Video" data-preview="/previews/xh_preview_5.mp4">
+                <img class="thumb-image" src="/real/xh_thumb_5.jpg" data-src="/lazyload/xh_thumb_5.jpg" alt="Fifth Sample Video">
+                <span class="time">07:33</span>
+            </a>
+            <div class="item-title">
+                <a href="/videos/fifth-sample-video-445566">Fifth Sample Video</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

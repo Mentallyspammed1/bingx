@@ -62,7 +62,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 
 // --- Instantiate Pornsearch Orchestrator ---
-const pornsearchOrchestrator = new PornsearchOrchestrator({ /* options if any */ });
+let pornsearchOrchestrator;
+PornsearchOrchestrator.create({ /* options if any */ })
+    .then(instance => {
+        pornsearchOrchestrator = instance;
+        log.info('PornsearchOrchestrator created successfully.');
+    })
+    .catch(err => {
+        log.error('Failed to create PornsearchOrchestrator:', err);
+        process.exit(1);
+    });
 
 
 // --- Handler Functions ---

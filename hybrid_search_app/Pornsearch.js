@@ -1,7 +1,5 @@
 'use strict';
 
-// Ensure all necessary babel helpers are available if you are transpiling
-// These are typical imports, adjust if your build setup is different.
 var _classCallCheck = require('babel-runtime/helpers/classCallCheck');
 var _classCallCheck2 = _interopRequireDefault(_classCallCheck);
 var _createClass = require('babel-runtime/helpers/createClass');
@@ -9,75 +7,28 @@ var _createClass2 = _interopRequireDefault(_createClass);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-// Import core Node.js modules for file system and path manipulation
 const fs = require('fs').promises;
 const path = require('path');
-
-// Import HTTP client and HTML parser
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-// Import all your content drivers/modules
-var _Pornhub = require('./modules/Pornhub.js');
-var _Pornhub2 = _interopRequireDefault(_Pornhub);
-var _Redtube = require('./modules/Redtube.js');
-var _Redtube2 = _interopRequireDefault(_Redtube);
-var _Xhamster = require('./modules/Xhamster.js');
-var _Xhamster2 = _interopRequireDefault(_Xhamster);
-var _Xvideos = require('./modules/Xvideos.js');
-var _Xvideos2 = _interopRequireDefault(_Xvideos);
-var _Youporn = require('./modules/Youporn.js');
-var _Youporn2 = _interopRequireDefault(_Youporn);
-var _Spankbang = require('./modules/Spankbang.js');
-var _Spankbang2 = _interopRequireDefault(_Spankbang);
-var _Motherless = require('./modules/Motherless.js');
-var _Motherless2 = _interopRequireDefault(_Motherless);
-var _SexCom = require('./modules/SexCom.js');
-var _SexCom2 = _interopRequireDefault(_SexCom);
-var _MockScraper = require('./modules/mockScraper.cjs');
-var _MockScraper2 = _interopRequireDefault(_MockScraper);
-
-// Corrected Mixin Loading for Prototype Check (if still needed)
-// The core issue was `MixinModule.default()` when MixinModule itself is the function.
 const VideoMixin = require('./core/VideoMixin.js');
 const GifMixin = require('./core/GifMixin.js');
-const DummyBaseClassForMixinCheck = class {}; // Dummy class to apply mixin for prototype checking
+const DummyBaseClassForMixinCheck = class {};
 const VideoMixinPrototype = VideoMixin(DummyBaseClassForMixinCheck).prototype;
 const GifMixinPrototype = GifMixin(DummyBaseClassForMixinCheck).prototype;
 
-
-// Constants for mock data path
 const MOCK_DATA_DIR = path.join(__dirname, 'modules', 'mock_html_data');
 
 var Pornsearch = function () {
-  function Pornsearch() {
-    var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+  function Pornsearch(options, drivers, config) {
     (0, _classCallCheck2.default)(this, Pornsearch);
 
     this.query = options.query || '';
     this.page = options.page || 1;
     this.pageSize = options.pageSize || 20;
-
-    let config;
-    try {
-        config = require('./config.js');
-    } catch (e) {
-        console.error("[Pornsearch.js] Critical: Failed to load config.js. Defaulting global settings.", e.message);
-        config = { global: { defaultUserAgent: 'Mozilla/5.0', requestTimeout: 15000 }};
-    }
     this.config = config;
-
-    this.allDrivers = {
-      'pornhub': new _Pornhub2.default(options),
-      'redtube': new _Redtube2.default(options),
-      'xhamster': new _Xhamster2.default(options),
-      'xvideos': new _Xvideos2.default(options),
-      'youporn': new _Youporn2.default(options),
-      'spankbang': new _Spankbang2.default(options),
-      'motherless': new _Motherless2.default(options),
-      'sex.com': new _SexCom2.default(options),
-      'mock': new _MockScraper2.default(options)
-    };
+    this.allDrivers = drivers;
 
     if (options.drivers && Array.isArray(options.drivers) && options.drivers.length > 0) {
       this.activeDrivers = options.drivers.reduce((acc, driverName) => {
@@ -118,7 +69,7 @@ var Pornsearch = function () {
     value: async function search(searchOptions) {
       const { query, page = 1, type = 'videos', useMockData = false } = searchOptions;
 
-      if (!query) {
+      if (!query && !useMockData) {
         throw new Error("Search query cannot be empty.");
       }
       let searchType = type;
@@ -223,6 +174,46 @@ var Pornsearch = function () {
     key: 'listActiveDrivers',
     value: function listActiveDrivers() {
       return this.activeDrivers.map(driver => driver.name);
+    }
+  }], [{
+    key: 'create',
+    value: async function create(options) {
+      let config;
+      try {
+          config = require('./config.js');
+      } catch (e) {
+          console.error("[Pornsearch.js] Critical: Failed to load config.js. Defaulting global settings.", e.message);
+          config = { global: { defaultUserAgent: 'Mozilla/5.0', requestTimeout: 15000 }};
+      }
+
+      const drivers = await this.loadDrivers(options);
+      return new Pornsearch(options, drivers, config);
+    }
+  }, {
+    key: 'loadDrivers',
+    value: async function loadDrivers(options) {
+      const drivers = {};
+      const modulesDir = path.join(__dirname, 'modules');
+      const files = await fs.readdir(modulesDir);
+
+      for (const file of files) {
+        if (file.endsWith('.js') && !['driver-utils.js'].includes(file)) {
+          try {
+            const driverPath = path.join(modulesDir, file);
+            const DriverClass = require(driverPath);
+            const driverInstance = new DriverClass(options);
+            const driverName = driverInstance.name.toLowerCase();
+            drivers[driverName] = driverInstance;
+          } catch (error) {
+            console.error(`Failed to load driver from ${file}:`, error);
+          }
+        }
+      }
+      // Manually load mock scraper
+      const MockScraper = require('./modules/mockScraper.cjs');
+      drivers['mock'] = new MockScraper(options);
+      
+      return drivers;
     }
   }]);
 

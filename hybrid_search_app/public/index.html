@@ -188,7 +188,7 @@
         .card-media-container:hover .preview-gif-image, .card:focus-within .card-media-container .preview-gif-image {
             opacity: 1; pointer-events: auto;
         }
-        .card-media-container:hover img.static-thumb, .card:focus-within .card-media-container img.static-thumb { opacity: 0.1; }
+        .card-media-container:hover img.static-thumb, .card:focus-within .card-media-container img.static-thumb { opacity: 0; }
         .card-info {
             height: 100px; display: flex; flex-direction: column; justify-content: space-between;
             padding: 0.75rem; flex-grow: 1; overflow: hidden;
@@ -806,7 +806,7 @@
                     card.addEventListener('mouseenter', () => { clearTimeout(appState.hoverPauseTimeout); appState.hoverPlayTimeout = setTimeout(playVideo, HOVER_PLAY_DELAY_MS); });
                     card.addEventListener('focusin', (e) => { if(card.contains(e.target)) {clearTimeout(appState.hoverPauseTimeout); appState.hoverPlayTimeout = setTimeout(playVideo, HOVER_PLAY_DELAY_MS);}});
                     card.addEventListener('mouseleave', () => { clearTimeout(appState.hoverPlayTimeout); appState.hoverPauseTimeout = setTimeout(pauseVideo, HOVER_PAUSE_DELAY_MS); });
-                    card.addEventListener('focusout', (e) => { if (!card.contains(e.relatedTarget)) { clearTimeout(appState.hoverPlayTimeout); appState.hoverPauseTimeout = setTimeout(pauseVideo, HOVER_PAUSE_DELAY_MS); }});
+                    card.addEventListener('focusout', (e) => { if (!card.contains(e.relatedTarget)) { clearTimeout(appState.hoverPlayTimeout); appState.hoverPauseTimeout = setTimeout(pauseVideo, HO_PAUSE_DELAY_MS); }});
                 }
             }
             return card;

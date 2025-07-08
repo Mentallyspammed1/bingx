@@ -38,17 +38,7 @@ try {
     globalStrategy = process.env.BACKEND_STRATEGY || 'custom';
 }
 
-// --- Logging Configuration (Basic) ---
-const log = {
-    info: (message, ...args) => console.log(`[INFO] ${new Date().toISOString()}: ${message}`, ...args),
-    error: (message, ...args) => console.error(`[ERROR] ${new Date().toISOString()}: ${message}`, ...args),
-    warn: (message, ...args) => console.warn(`[WARN] ${new Date().toISOString()}: ${message}`, ...args),
-    debug: (message, ...args) => {
-        if (process.env.DEBUG === 'true' || (appConfig.global && appConfig.global.logLevel === 'debug')) {
-            console.log(`[DEBUG] ${new Date().toISOString()}: ${message}`, ...args);
-        }
-    }
-};
+const log = require('./core/log.js');
 
 log.info(`Initial Global Backend Strategy set to: ${globalStrategy}`);
 log.info('Site-specific strategies:', siteStrategies);
@@ -86,8 +76,7 @@ async function handlePornsearchNpmRequest(params) {
 async function handleCustomOrchestratorRequest(driverKey, params) {
     log.info(`[Orchestrator Handler] Processing for driver '${driverKey}' query '${params.query}', type '${params.type}', page ${params.page}.`);
     try {
-        // Ensure useMockData is true for current testing phase
-        const useMockData = true;
+        const useMockData = process.env.USE_MOCK_DATA === 'true';
         log.info(`[Orchestrator Handler] Using mock data: ${useMockData}`);
 
         const resultsData = await pornsearchOrchestrator.search({
@@ -119,10 +108,7 @@ app.get('/api/search', async (req, res) => {
         log.warn('[/api/search] Bad Request: Missing query parameter.');
         return res.status(400).json({ error: 'Missing required parameter: query' });
     }
-    if (!driver) {
-        log.warn('[/api/search] Bad Request: Missing driver parameter.');
-        return res.status(400).json({ error: 'Missing required parameter: driver (site/source)' });
-    }
+    
 
     let pageNumber;
     try {
@@ -136,7 +122,10 @@ app.get('/api/search', async (req, res) => {
         pageNumber = 1;
     }
 
-    const searchParams = { query, driver: driver.toLowerCase(), type: type.toLowerCase(), page: pageNumber };
+    const searchParams = { query, type: type.toLowerCase(), page: pageNumber };
+    if (driver) {
+        searchParams.platform = driver.toLowerCase();
+    }
     const driverKey = searchParams.driver;
     const effectiveStrategy = siteStrategies[driverKey] || globalStrategy;
     log.info(`[/api/search] Effective strategy for driver '${driverKey}': ${effectiveStrategy}`);

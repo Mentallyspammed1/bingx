@@ -1,24 +1,7 @@
 'use strict';
 
-let AbstractModule;
-try {
-    AbstractModule = require('../core/AbstractModule.js');
-} catch (e) {
-    console.error("Failed to load AbstractModule from ../core/, ensure path is correct.", e);
-    AbstractModule = class {
-        constructor(options = {}) { this.query = options.query; }
-        get name() { return 'UnnamedDriver'; }
-        get baseUrl() { return ''; }
-        get supportsVideos() { return false; }
-        get supportsGifs() { return false; }
-        get firstpage() { return 1; }
-    };
-}
-
+const AbstractModule = require('../core/AbstractModule.js');
 const { logger, makeAbsolute, extractPreview, validatePreview, sanitizeText } = require('./driver-utils.js');
-
-const BASE_URL_CONST = 'https://www.redtube.com';
-const DRIVER_NAME_CONST = 'Redtube';
 
 class RedtubeDriver extends AbstractModule {
     constructor(options = {}) {
@@ -26,8 +9,8 @@ class RedtubeDriver extends AbstractModule {
         logger.debug(`[${this.name}] Initialized.`);
     }
 
-    get name() { return DRIVER_NAME_CONST; }
-    get baseUrl() { return BASE_URL_CONST; }
+    get name() { return 'Redtube'; }
+    get baseUrl() { return 'https://www.redtube.com'; }
     get supportsVideos() { return true; }
     get supportsGifs() { return false; }
     get firstpage() { return 1; }

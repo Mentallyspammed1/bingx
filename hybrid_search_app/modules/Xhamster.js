@@ -99,11 +99,7 @@ class XhamsterDriver extends BaseXhamsterClass {
               const imgElement = item.find('img.video-thumb__image, img.thumb-image__image').first();
               thumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
               durationText = sanitizeText(item.find('.video-thumb__duration, .duration, .video-duration, .time, .video-thumb-info__duration').first().text()?.trim());
-
-              previewVideoUrl = item.find('script.video-thumb__player-container').attr('data-previewvideo') ||
-                                linkElement.attr('data-preview-url') ||
-                                linkElement.attr('data-preview') ||
-                                item.find('video.thumb-preview__video').attr('src');
+              previewVideoUrl = extractPreview(item, this.baseUrl, false);
 
               if (!mediaId && pageUrl) {
                   const idMatch = pageUrl.match(/\/videos\/.*?-(\d+)(?:\.html)?$|\/videos\/(\d+)\//);
@@ -123,12 +119,9 @@ class XhamsterDriver extends BaseXhamsterClass {
 
           const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl);
           const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl);
-          let finalPreview = makeAbsolute(previewVideoUrl, this.baseUrl);
+          let finalPreview = validatePreview(previewVideoUrl) ? previewVideoUrl : undefined;
 
-          if (!validatePreview(finalPreview)) {
-              finalPreview = extractPreview(item, this.baseUrl, isGifSearch);
-          }
-          if (!validatePreview(finalPreview) && isGifSearch && absoluteThumbnail?.toLowerCase().endsWith('.gif')) {
+          if (!finalPreview && isGifSearch && absoluteThumbnail?.toLowerCase().endsWith('.gif')) {
                finalPreview = absoluteThumbnail;
           }
 

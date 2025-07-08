@@ -1,35 +1,16 @@
 'use strict';
 
-let AbstractModule;
-try {
-    AbstractModule = require('../core/AbstractModule.js');
-} catch (e) {
-    console.error("Failed to load AbstractModule from ../core/, ensure path is correct.", e);
-    AbstractModule = class {
-        constructor(options = {}) { this.query = options.query; }
-        // Stubs for AbstractModule getters that drivers will override
-        get name() { return 'UnnamedDriver'; }
-        get baseUrl() { return ''; }
-        get supportsVideos() { return false; }
-        get supportsGifs() { return false; }
-        get firstpage() { return 1; }
-    };
-}
-
+const AbstractModule = require('../core/AbstractModule.js');
 const { logger, makeAbsolute, extractPreview, validatePreview, sanitizeText } = require('./driver-utils.js');
-
-const BASE_URL_CONST = 'https://www.pornhub.com'; // Renamed to avoid conflict with getter
-const DRIVER_NAME_CONST = 'Pornhub'; // Renamed to avoid conflict with getter
 
 class PornhubDriver extends AbstractModule {
     constructor(options = {}) {
         super(options);
-        // Properties are now defined by getters below
-        logger.debug(`[${this.name}] Initialized.`); // Now 'this.name' will call the getter
+        logger.debug(`[${this.name}] Initialized.`);
     }
 
-    get name() { return DRIVER_NAME_CONST; }
-    get baseUrl() { return BASE_URL_CONST; }
+    get name() { return 'Pornhub'; }
+    get baseUrl() { return 'https://www.pornhub.com'; }
     get supportsVideos() { return true; }
     get supportsGifs() { return true; }
     get firstpage() { return 1; }
@@ -39,7 +20,6 @@ class PornhubDriver extends AbstractModule {
             throw new Error(`[${this.name}] Search query is not set for video search.`);
         }
         const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
-        // Use this.baseUrl which calls the getter
         const searchUrl = new URL('/video/search', this.baseUrl);
         searchUrl.searchParams.set('search', sanitizeText(query));
         searchUrl.searchParams.set('page', String(searchPage));
@@ -125,12 +105,12 @@ class PornhubDriver extends AbstractModule {
                 return;
             }
 
-            const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl); // Use getter this.baseUrl
-            const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl); // Use getter this.baseUrl
+            const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl);
+            const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl);
 
-            let finalPreview = makeAbsolute(previewVideoUrl, this.baseUrl); // Use getter this.baseUrl
+            let finalPreview = makeAbsolute(previewVideoUrl, this.baseUrl);
             if (!validatePreview(finalPreview)) {
-                finalPreview = extractPreview(item, this.baseUrl, isGifSearch); // Use getter this.baseUrl
+                finalPreview = extractPreview(item, this.baseUrl, isGifSearch);
             }
             if (!validatePreview(finalPreview) && isGifSearch && absoluteThumbnail?.toLowerCase().endsWith('.gif')) {
                  finalPreview = absoluteThumbnail;

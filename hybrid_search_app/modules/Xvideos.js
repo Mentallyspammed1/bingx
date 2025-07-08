@@ -110,7 +110,7 @@ class XvideosDriver extends AbstractModule {
                 durationText = sanitizeText(item.find('p.metadata span.duration').text()?.trim());
                 const imgElement = item.find('div.thumb-inside img').first();
                 thumbnailUrl = imgElement.attr('data-src');
-                previewVideoUrl = imgElement.attr('data-videopreview');
+                previewVideoUrl = extractPreview(item, this.baseUrl, false);
                 if (!videoId && pageUrl) {
                     const idMatch = pageUrl.match(/\/video(\d+)\//);
                     if (idMatch && idMatch[1]) videoId = idMatch[1];
@@ -124,11 +124,9 @@ class XvideosDriver extends AbstractModule {
 
             const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl);
             const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl);
-            let finalPreview = makeAbsolute(previewVideoUrl, this.baseUrl);
+            let finalPreview = validatePreview(previewVideoUrl) ? previewVideoUrl : undefined;
 
-            if (!validatePreview(finalPreview) && !isGifSearch) {
-                 finalPreview = extractPreview(item,this.baseUrl, false);
-            } else if (!validatePreview(finalPreview) && isGifSearch && absoluteThumbnail?.toLowerCase().endsWith('.gif')) {
+            if (!finalPreview && isGifSearch && absoluteThumbnail?.toLowerCase().endsWith('.gif')) {
                  finalPreview = absoluteThumbnail;
             }
 

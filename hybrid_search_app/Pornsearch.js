@@ -67,7 +67,7 @@ var Pornsearch = function () {
   }, {
     key: 'search',
     value: async function search(searchOptions) {
-      const { query, page = 1, type = 'videos', useMockData = false } = searchOptions;
+      const { query, page = 1, type = 'videos', useMockData = false, platform = null } = searchOptions;
 
       if (!query && !useMockData) {
         throw new Error("Search query cannot be empty.");
@@ -80,7 +80,17 @@ var Pornsearch = function () {
 
       console.log(`[Pornsearch] Searching for "${query}" (${searchType}) on page ${page} (Mocking: ${useMockData ? 'YES' : 'NO'})...`);
 
-      const searchPromises = this.activeDrivers.map(async driver => {
+      let driversToSearch = this.activeDrivers;
+      if (platform) {
+        const normalizedPlatform = platform.toLowerCase() === 'sexcom' ? 'sex.com' : platform.toLowerCase();
+        driversToSearch = this.activeDrivers.filter(d => d.name.toLowerCase() === normalizedPlatform);
+        if (driversToSearch.length === 0) {
+          console.warn(`[Pornsearch] No active driver found for platform: ${platform}`);
+          return [];
+        }
+      }
+
+      const searchPromises = driversToSearch.map(async driver => {
         try {
           let searchUrl = '';
           let rawContent = '';
@@ -193,26 +203,35 @@ var Pornsearch = function () {
     key: 'loadDrivers',
     value: async function loadDrivers(options) {
       const drivers = {};
-      const modulesDir = path.join(__dirname, 'modules');
-      const files = await fs.readdir(modulesDir);
+      const modulesDirs = [
+        path.join(__dirname, 'modules'),
+        path.join(__dirname, 'modules', 'custom_scrapers')
+      ];
 
-      for (const file of files) {
-        if (file.endsWith('.js') && !['driver-utils.js'].includes(file)) {
-          try {
-            const driverPath = path.join(modulesDir, file);
-            const DriverClass = require(driverPath);
-            const driverInstance = new DriverClass(options);
-            const driverName = driverInstance.name.toLowerCase();
-            drivers[driverName] = driverInstance;
-          } catch (error) {
-            console.error(`Failed to load driver from ${file}:`, error);
+      for (const modulesDir of modulesDirs) {
+        try {
+          const files = await fs.readdir(modulesDir);
+          for (const file of files) {
+            if ((file.endsWith('.js') || file.endsWith('.cjs')) && !['driver-utils.js'].includes(file)) {
+              try {
+                const driverPath = path.join(modulesDir, file);
+                const DriverClass = require(driverPath);
+                const driverInstance = new DriverClass(options);
+                const driverName = driverInstance.name.toLowerCase();
+                drivers[driverName] = driverInstance;
+              } catch (error) {
+                console.error(`Failed to load driver from ${file}:`, error);
+              }
+            }
           }
+        } catch (dirError) {
+          console.error(`Failed to read directory ${modulesDir}:`, dirError);
         }
       }
       // Manually load mock scraper
       const MockScraper = require('./modules/mockScraper.cjs');
       drivers['mock'] = new MockScraper(options);
-      
+
       return drivers;
     }
   }]);

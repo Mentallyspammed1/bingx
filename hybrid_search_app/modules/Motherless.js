@@ -1,26 +1,16 @@
 'use strict';
 
-// Core module and mixins
 const AbstractModule = require('../core/AbstractModule.js');
-const VideoMixin = require('../core/VideoMixin.js');
-const GifMixin = require('../core/GifMixin.js');
-
 const { logger, makeAbsolute, extractPreview, validatePreview, sanitizeText } = require('./driver-utils.js');
 
-const BASE_URL_CONST = 'https://motherless.com';
-const DRIVER_NAME_CONST = 'Motherless';
-
-// Apply mixins to AbstractModule
-const BaseMotherlessClass = AbstractModule.with(VideoMixin, GifMixin);
-
-class MotherlessDriver extends BaseMotherlessClass {
+class MotherlessDriver extends AbstractModule {
   constructor(options = {}) {
     super(options);
     logger.debug(`[${this.name}] Initialized.`);
   }
 
-  get name() { return DRIVER_NAME_CONST; }
-  get baseUrl() { return BASE_URL_CONST; }
+  get name() { return 'Motherless'; }
+  get baseUrl() { return 'https://motherless.com'; }
   get supportsVideos() { return true; }
   get supportsGifs() { return true; }
   get firstpage() { return 1; }
@@ -110,11 +100,7 @@ class MotherlessDriver extends BaseMotherlessClass {
       }
 
       const durationText = type === 'videos' ? sanitizeText(item.find('.video_length').text()?.trim()) : undefined;
-      let previewVideoUrl = type === 'gifs' ? thumbnailUrl : undefined;
-      if (type === 'videos') {
-          previewVideoUrl = extractPreview(item, this.baseUrl, false);
-      }
-
+      const previewVideoUrl = extractPreview(item, this.baseUrl, type === 'gifs');
 
       if (!titleText || !relativeUrl || !id) {
         logger.warn(`[${this.name} Parser] Item ${i} (${type}): Skipping due to missing critical data. Title: ${titleText}, URL: ${relativeUrl}, ID: ${id}`);
@@ -123,7 +109,7 @@ class MotherlessDriver extends BaseMotherlessClass {
 
       const absoluteUrl = makeAbsolute(relativeUrl, this.baseUrl);
       const absoluteThumbnailUrl = makeAbsolute(thumbnailUrl, this.baseUrl);
-      const finalPreviewVideoUrl = validatePreview(makeAbsolute(previewVideoUrl, this.baseUrl)) ? makeAbsolute(previewVideoUrl, this.baseUrl) : (type === 'gifs' && absoluteThumbnailUrl ? absoluteThumbnailUrl : undefined);
+      const finalPreviewVideoUrl = validatePreview(previewVideoUrl) ? previewVideoUrl : (type === 'gifs' && absoluteThumbnailUrl ? absoluteThumbnailUrl : undefined);
 
 
       results.push({

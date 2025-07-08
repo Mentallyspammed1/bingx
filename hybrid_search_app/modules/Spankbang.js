@@ -102,11 +102,7 @@ class SpankbangDriver extends BaseSpankbangClass {
       let thumbnailUrl = imgElement.attr('data-src')?.trim() || imgElement.attr('src')?.trim();
 
       const durationText = type === 'videos' ? sanitizeText(item.find('div.l, div.dur, span.duration').first().text()?.trim()) : undefined;
-      let previewVideoUrl = linkElement.attr('data-preview');
-
-      if (!previewVideoUrl && type === 'videos') {
-           previewVideoUrl = item.find('picture > source[data-preview]').first().attr('data-preview');
-      }
+      const previewVideoUrl = extractPreview(item, this.baseUrl, type === 'gifs');
 
       if (!titleText || !relativeUrl || !id) {
         logger.warn(`[${this.name} Parser] Item ${i} (${type}): Skipping. Missing: ${!titleText?'Title ':''}${!relativeUrl?'URL ':''}${!id?'ID ':''}`);
@@ -115,12 +111,9 @@ class SpankbangDriver extends BaseSpankbangClass {
 
       const absoluteUrl = makeAbsolute(relativeUrl, this.baseUrl);
       const absoluteThumbnailUrl = makeAbsolute(thumbnailUrl, this.baseUrl);
-      let finalPreviewVideoUrl = makeAbsolute(previewVideoUrl, this.baseUrl);
+      let finalPreviewVideoUrl = validatePreview(previewVideoUrl) ? previewVideoUrl : undefined;
 
-      if (!validatePreview(finalPreviewVideoUrl)) {
-          finalPreviewVideoUrl = type === 'gifs' && absoluteThumbnailUrl?.toLowerCase().endsWith('.gif') ? absoluteThumbnailUrl : undefined;
-      }
-       if (!finalPreviewVideoUrl && type === 'gifs' && absoluteThumbnailUrl) {
+       if (!finalPreviewVideoUrl && type === 'gifs' && absoluteThumbnailUrl?.toLowerCase().endsWith('.gif')) {
           finalPreviewVideoUrl = absoluteThumbnailUrl;
        }
 

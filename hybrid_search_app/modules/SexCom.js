@@ -89,15 +89,7 @@ class SexComDriver extends BaseSexComClass {
       const imgElement = item.find('img.responsive_image, img.main_image').first();
       let thumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
 
-      let previewVideoUrl;
-      if (type === 'gifs') {
-          previewVideoUrl = imgElement.attr('data-gif_url') || imgElement.attr('data-src') || imgElement.attr('src');
-      } else {
-          previewVideoUrl = item.find('img[data-preview_url]').attr('data-preview_url') ||
-                            item.find('video.preview_video').attr('src') ||
-                            extractPreview(item, this.baseUrl, false);
-      }
-
+      const previewVideoUrl = extractPreview(item, this.baseUrl, type === 'gifs');
       const durationText = type === 'videos' ? sanitizeText(item.find('span.duration, span.video_duration').text()?.trim()) : undefined;
 
       if (!pageUrl || !title || !id) {
@@ -107,12 +99,11 @@ class SexComDriver extends BaseSexComClass {
 
       const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl);
       const absoluteThumbnailUrl = makeAbsolute(thumbnailUrl, this.baseUrl);
-      let finalPreviewVideoUrl = makeAbsolute(previewVideoUrl, this.baseUrl);
+      let finalPreviewVideoUrl = validatePreview(previewVideoUrl) ? previewVideoUrl : undefined;
 
-      if (!validatePreview(finalPreviewVideoUrl)) {
-          finalPreviewVideoUrl = type === 'gifs' && absoluteThumbnailUrl?.toLowerCase().endsWith('.gif') ? absoluteThumbnailUrl : undefined;
-      }
-       if (!finalPreviewVideoUrl && type === 'gifs' && absoluteThumbnailUrl) finalPreviewVideoUrl = absoluteThumbnailUrl;
+       if (!finalPreviewVideoUrl && type === 'gifs' && absoluteThumbnailUrl?.toLowerCase().endsWith('.gif')) {
+           finalPreviewVideoUrl = absoluteThumbnailUrl;
+       }
 
       results.push({
         id: id,

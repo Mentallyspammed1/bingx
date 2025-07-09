@@ -18,7 +18,7 @@ const BaseRedtubeClass = AbstractModule.with(VideoMixin);
 class RedtubeDriver extends BaseRedtubeClass {
     constructor(options = {}) {
         super(options);
-        logger.debug(`[${this.name}] Initialized.`);
+        logger.debug(`[${DRIVER_NAME}] Initialized.`);
     }
 
     get name() { return DRIVER_NAME; }

@@ -31,7 +31,7 @@ class SpankbangDriver extends BaseSpankbangClass {
    */
   constructor(options = {}) {
     super(options);
-    logger.debug(`[${this.name}] Initialized.`);
+    logger.debug(`[${DRIVER_NAME}] Initialized.`);
   }
 
   /**

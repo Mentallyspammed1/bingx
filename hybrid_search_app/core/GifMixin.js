@@ -4,6 +4,9 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
+var _construct = require('babel-runtime/core-js/reflect/construct');
+var _construct2 = _interopRequireDefault(_construct);
+
 var _getPrototypeOf = require('babel-runtime/core-js/object/get-prototype-of');
 var _getPrototypeOf2 = _interopRequireDefault(_getPrototypeOf);
 
@@ -36,7 +39,11 @@ var GifMixin = function (BaseClass) {
 
     function GifFeatureMixin() {
       (0, _classCallCheck3.default)(this, GifFeatureMixin);
-      return (0, _possibleConstructorReturn3.default)(this, (GifFeatureMixin.__proto__ || (0, _getPrototypeOf2.default)(GifFeatureMixin)).apply(this, arguments));
+      
+      var Super = GifFeatureMixin.__proto__ || (0, _getPrototypeOf2.default)(GifFeatureMixin);
+      var instance = (0, _construct2.default)(Super, arguments, this.constructor);
+
+      return (0, _possibleConstructorReturn3.default)(this, instance);
     }
 
     (0, _createClass3.default)(GifFeatureMixin, [{
@@ -46,7 +53,7 @@ var GifMixin = function (BaseClass) {
        * This method MUST be overridden by any concrete driver class that uses this mixin.
        *
        * @param {string} query - The search query term.
-       * @param {number} page - The page number for the search results.
+       * @param {number} page - The page number for the search results..
        * @returns {string} The fully qualified URL for GIF search.
        * @throws {OverwriteError} If this method is not implemented by the consuming class.
        */

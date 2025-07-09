@@ -1,5 +1,8 @@
 'use strict';
 
+var _construct = require('babel-runtime/core-js/reflect/construct');
+var _construct2 = _interopRequireDefault(_construct);
+
 var _getPrototypeOf = require('babel-runtime/core-js/object/get-prototype-of');
 var _getPrototypeOf2 = _interopRequireDefault(_getPrototypeOf);
 var _classCallCheck2 = require('babel-runtime/helpers/classCallCheck');
@@ -27,7 +30,11 @@ module.exports = function VideoMixin(BaseClass) {
 
     function WithVideoFeatures() {
       (0, _classCallCheck3.default)(this, WithVideoFeatures);
-      return (0, _possibleConstructorReturn3.default)(this, (WithVideoFeatures.__proto__ || (0, _getPrototypeOf2.default)(WithVideoFeatures)).apply(this, arguments));
+
+      var Super = WithVideoFeatures.__proto__ || (0, _getPrototypeOf2.default)(WithVideoFeatures);
+      var instance = (0, _construct2.default)(Super, arguments, this.constructor);
+
+      return (0, _possibleConstructorReturn3.default)(this, instance);
     }
 
     (0, _createClass3.default)(WithVideoFeatures, [{
@@ -60,3 +67,5 @@ module.exports = function VideoMixin(BaseClass) {
 
   return WithVideoFeatures;
 };
+
+// # sourceMappingURL=VideoMixin.js.map

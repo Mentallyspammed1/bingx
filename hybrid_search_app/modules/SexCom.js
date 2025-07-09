@@ -16,7 +16,7 @@ const BaseSexComClass = AbstractModule.with(VideoMixin, GifMixin);
 class SexComDriver extends BaseSexComClass {
   constructor(options = {}) {
     super(options);
-    logger.debug(`[${this.name}] Initialized.`);
+    logger.debug(`[${DRIVER_NAME_CONST}] Initialized.`);
   }
 
   get name() { return DRIVER_NAME_CONST; }

@@ -15,7 +15,7 @@ const BaseYoupornClass = AbstractModule.with(VideoMixin);
 class YoupornDriver extends BaseYoupornClass {
   constructor(options = {}) {
     super(options);
-    logger.debug(`[${this.name}] Initialized.`);
+    logger.debug(`[${DRIVER_NAME_CONST}] Initialized.`);
   }
 
   get name() { return DRIVER_NAME_CONST; }

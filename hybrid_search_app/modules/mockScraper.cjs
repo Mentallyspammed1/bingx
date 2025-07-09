@@ -33,7 +33,7 @@ const DRIVER_NAME_CONST = 'Mock';
 class MockDriver extends _AbstractModule2.default.with(_VideoMixin2.default, _GifMixin2.default) { // Renamed class to MockDriver
     constructor(options = {}) {
         super(options);
-        logger.debug(`[${this.name}] Initialized.`); // name will call getter
+        logger.debug(`[${DRIVER_NAME_CONST}] Initialized.`); // name will call getter
     }
 
     get name() { return DRIVER_NAME_CONST; }

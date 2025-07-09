@@ -13,7 +13,7 @@ const BaseXvideosClass = AbstractModule.with(VideoMixin, GifMixin);
 class XvideosDriver extends BaseXvideosClass {
     constructor(options = {}) {
         super(options);
-        logger.debug(`[${this.name}] Initialized.`);
+        logger.debug(`[${DRIVER_NAME_CONST}] Initialized.`);
     }
 
     get name() { return DRIVER_NAME_CONST; }

@@ -16,7 +16,7 @@ const log = {
 class RedtubeScraper extends AbstractModule.with(VideoMixin, GifMixin) {
     constructor(options) {
         super(options);
-        log.debug(`RedtubeScraper instantiated. Query: "${this.query}", Page: ${this.page}`);
+            log.debug(`[RedtubeScraper] Initialized with options:`, options);
     }
 
     get name() { return 'Redtube'; }

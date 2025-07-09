@@ -15,7 +15,7 @@ class AbstractModule {
       },
       timeout: 20000, // 20 seconds timeout
     });
-    logger.debug(`[AbstractModule] Initialized for driver: ${this.name}, Query: "${this.query}", Page: ${this.page}`);
+    logger.debug(`[AbstractModule] Initialized. Query: "${this.query}", Page: ${this.page}`);
   }
 
   setQuery(newQuery) {

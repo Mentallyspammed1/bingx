@@ -44,7 +44,7 @@ var Pornsearch = function () {
     } else {
       this.activeDrivers = Object.values(this.allDrivers);
     }
-    console.log(`[Pornsearch] Initialized with query: "${this.query}", page: ${this.page}, drivers: ${this.activeDrivers.map(d => d.name).join(', ')}`);
+    console.log(`[Pornsearch] Initialized with query: "${this.query}", page: ${this.page}`);
   }
 
   (0, _createClass2.default)(Pornsearch, [{

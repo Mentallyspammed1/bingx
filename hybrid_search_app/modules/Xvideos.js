@@ -28,8 +28,8 @@ class XvideosDriver extends AbstractModule {
 
     get name() { return DRIVER_NAME_CONST; }
     get baseUrl() { return BASE_URL_CONST; }
-    get supportsVideos() { return true; }
-    get supportsGifs() { return true; }
+    hasVideoSupport() { return true; }
+    hasGifSupport() { return true; }
     get firstpage() { return 0; } // XVideos uses 0-indexed pagination
 
     getVideoSearchUrl(query, page) {

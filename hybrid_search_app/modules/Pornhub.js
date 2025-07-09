@@ -11,8 +11,8 @@ class PornhubDriver extends AbstractModule {
 
     get name() { return 'Pornhub'; }
     get baseUrl() { return 'https://www.pornhub.com'; }
-    get supportsVideos() { return true; }
-    get supportsGifs() { return true; }
+    hasVideoSupport() { return true; }
+    hasGifSupport() { return true; }
     get firstpage() { return 1; }
 
     getVideoSearchUrl(query, page) {
@@ -70,12 +70,15 @@ class PornhubDriver extends AbstractModule {
                     const imgThumb = item.find('img.thumb').first();
                     thumbnailUrl = imgThumb.attr('data-src') || imgThumb.attr('src');
                 }
-                previewVideoUrl = videoElement.attr('data-webm') || videoElement.find('source[type="video/webm"]').first().attr('src');
-                 if (!previewVideoUrl) {
+                previewVideoUrl = videoElement.attr('data-webm') || videoElement.attr('data-mp4') || videoElement.find('source[type="video/webm"]').first().attr('src') || videoElement.find('source[type="video/mp4"]').first().attr('src');
+                if (!previewVideoUrl) {
                     const imgThumb = item.find('img.thumb').first();
                     if(imgThumb.attr('src')?.toLowerCase().endsWith('.gif')) previewVideoUrl = imgThumb.attr('src');
                     else if(imgThumb.attr('data-src')?.toLowerCase().endsWith('.gif')) previewVideoUrl = imgThumb.attr('data-src');
-                 }
+                }
+                if (!previewVideoUrl) {
+                    previewVideoUrl = extractPreview(item, this.baseUrl, isGifSearch);
+                }
 
                 if (!videoId && pageUrl) {
                     const idMatch = pageUrl.match(/\/gif\/(\w+)/);

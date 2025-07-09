@@ -97,9 +97,9 @@ var Pornsearch = function () {
           const parserOptions = { type: searchType, sourceName: driver.name, query: query, page: page };
 
           let getUrlMethod;
-          if (searchType === 'videos' && driver.supportsVideos && typeof driver.getVideoSearchUrl === 'function') {
+          if (searchType === 'videos' && typeof driver.hasVideoSupport === 'function' && driver.hasVideoSupport() && typeof driver.getVideoSearchUrl === 'function') {
             getUrlMethod = driver.getVideoSearchUrl;
-          } else if (searchType === 'gifs' && driver.supportsGifs && typeof driver.getGifSearchUrl === 'function') {
+          } else if (searchType === 'gifs' && typeof driver.hasGifSupport === 'function' && driver.hasGifSupport() && typeof driver.getGifSearchUrl === 'function') {
             getUrlMethod = driver.getGifSearchUrl;
           } else {
             console.warn(`  [${driver.name}] Driver does not support '${searchType}' or missing URL method. Skipping.`);
@@ -215,7 +215,15 @@ var Pornsearch = function () {
             if ((file.endsWith('.js') || file.endsWith('.cjs')) && !['driver-utils.js'].includes(file)) {
               try {
                 const driverPath = path.join(modulesDir, file);
-                const DriverClass = require(driverPath);
+                let DriverClass = require(driverPath);
+                // If it's an object with a 'default' property (Babel transpiled ES6 export)
+                if (DriverClass && typeof DriverClass === 'object' && DriverClass.default) {
+                  DriverClass = DriverClass.default;
+                }
+                // If it's still not a function (constructor), something is wrong
+                if (typeof DriverClass !== 'function') {
+                    throw new TypeError(`DriverClass for ${file} is not a constructor function.`);
+                }
                 const driverInstance = new DriverClass(options);
                 const driverName = driverInstance.name.toLowerCase();
                 drivers[driverName] = driverInstance;

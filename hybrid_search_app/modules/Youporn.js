@@ -23,8 +23,8 @@ class YoupornDriver extends BaseYoupornClass {
 
   get name() { return DRIVER_NAME_CONST; }
   get baseUrl() { return BASE_URL_CONST; }
-  get supportsVideos() { return true; }
-  get supportsGifs() { return false; } // Explicitly false
+  hasVideoSupport() { return true; }
+  hasGifSupport() { return false; } // Explicitly false
   get firstpage() { return 1; }
 
   getVideoSearchUrl(query, page) {

@@ -38,8 +38,8 @@ class MockDriver extends _AbstractModule2.default.with(_VideoMixin2.default, _Gi
 
     get name() { return DRIVER_NAME_CONST; }
     get baseUrl() { return BASE_URL_CONST; }
-    get supportsVideos() { return true; }
-    get supportsGifs() { return true; }
+    hasVideoSupport() { return true; }
+    hasGifSupport() { return true; }
     get firstpage() { return 1; }
 
 

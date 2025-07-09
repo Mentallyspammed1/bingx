@@ -26,12 +26,12 @@ class AbstractModule {
     throw new OverwriteError('Getter "baseUrl" must be implemented by the concrete scraper class.');
   }
 
-  get supportsVideos() {
-    throw new OverwriteError('Getter "supportsVideos" must be implemented by the concrete scraper class.');
+  hasVideoSupport() {
+    throw new OverwriteError('Method "hasVideoSupport" must be implemented by the concrete scraper class.');
   }
 
-  get supportsGifs() {
-    throw new OverwriteError('Getter "supportsGifs" must be implemented by the concrete scraper class.');
+  hasGifSupport() {
+    throw new OverwriteError('Method "hasGifSupport" must be implemented by the concrete scraper class.');
   }
 
   get firstpage() {

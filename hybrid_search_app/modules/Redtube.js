@@ -11,8 +11,8 @@ class RedtubeDriver extends AbstractModule {
 
     get name() { return 'Redtube'; }
     get baseUrl() { return 'https://www.redtube.com'; }
-    get supportsVideos() { return true; }
-    get supportsGifs() { return false; }
+    hasVideoSupport() { return true; }
+    hasGifSupport() { return false; }
     get firstpage() { return 1; }
 
     getVideoSearchUrl(query, page) {

@@ -11,8 +11,8 @@ class MotherlessDriver extends AbstractModule {
 
   get name() { return 'Motherless'; }
   get baseUrl() { return 'https://motherless.com'; }
-  get supportsVideos() { return true; }
-  get supportsGifs() { return true; }
+  hasVideoSupport() { return true; }
+  hasGifSupport() { return true; }
   get firstpage() { return 1; }
 
   getVideoSearchUrl(query, page) {

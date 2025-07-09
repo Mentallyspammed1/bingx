@@ -21,8 +21,8 @@ class XhamsterDriver extends BaseXhamsterClass {
 
   get name() { return DRIVER_NAME_CONST; }
   get baseUrl() { return BASE_URL_CONST; }
-  get supportsVideos() { return true; }
-  get supportsGifs() { return true; }
+  hasVideoSupport() { return true; }
+  hasGifSupport() { return true; }
   get firstpage() { return 1; }
 
   getVideoSearchUrl(query, page) {
@@ -74,35 +74,35 @@ class XhamsterDriver extends BaseXhamsterClass {
           mediaId = item.attr('data-id');
 
           if (isGifSearch) {
-              const linkElement = item.find('a.photo-thumb__image, a.thumb-image__image, a.gallery-thumb__image-container').first();
+              const linkElement = item.find('a[href], .thumb-link, .item-link').first();
               pageUrl = linkElement.attr('href');
               title = sanitizeText(linkElement.attr('title')?.trim() ||
-                                   item.find('.photo-thumb__title, .gif-thumb__name, .gallery-thumb__name a, .gallery-thumb__name').first().text()?.trim() ||
+                                   item.find('.title, .name, .item-title, .video-title, .photo-title, .gif-title').first().text()?.trim() ||
                                    item.find('img').first().attr('alt')?.trim());
 
-              const imgElement = item.find('img.photo-thumb__img, img.thumb-image__image, img.gallery-thumb__image').first();
-              thumbnailUrl = imgElement.attr('data-poster') || imgElement.attr('src');
+              const imgElement = item.find('img[src], img[data-src], .thumb-img, .item-img').first();
+              thumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
               previewVideoUrl = imgElement.attr('data-src') || imgElement.attr('data-original') || imgElement.attr('src');
               durationText = undefined;
 
               if (!mediaId && pageUrl) {
-                  const idMatch = pageUrl.match(/\/photos\/(?:gallery\/[^/]+\/[^/]+-|view\/)?(\d+)|gifs\/(\d+)/);
-                  if (idMatch) mediaId = idMatch[1] || idMatch[2] || idMatch[3];
+                  const idMatch = pageUrl.match(/\/(?:videos|photos|gifs)\/.*?-(\d+)(?:\.html)?$|\/(?:videos|photos|gifs)\/(\d+)\//);
+                  if (idMatch) mediaId = idMatch[1] || idMatch[2];
               }
           } else {
-              const linkElement = item.find('a.video-thumb__image-container, a.thumb-image__image, a.video-thumb-link').first();
+              const linkElement = item.find('a[href], .thumb-link, .item-link').first();
               pageUrl = linkElement.attr('href');
               title = sanitizeText(linkElement.attr('title')?.trim() ||
-                                   item.find('.video-thumb__name, .video-title, .video-thumb-info__name, .item-title a').first().text()?.trim() ||
+                                   item.find('.title, .name, .item-title, .video-title, .photo-title, .gif-title').first().text()?.trim() ||
                                    item.find('img').first().attr('alt')?.trim());
 
-              const imgElement = item.find('img.video-thumb__image, img.thumb-image__image').first();
+              const imgElement = item.find('img[src], img[data-src], .thumb-img, .item-img').first();
               thumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
-              durationText = sanitizeText(item.find('.video-thumb__duration, .duration, .video-duration, .time, .video-thumb-info__duration').first().text()?.trim());
+              durationText = sanitizeText(item.find('.duration, .video-duration, .time, .item-duration').first().text()?.trim());
               previewVideoUrl = extractPreview(item, this.baseUrl, false);
 
               if (!mediaId && pageUrl) {
-                  const idMatch = pageUrl.match(/\/videos\/.*?-(\d+)(?:\.html)?$|\/videos\/(\d+)\//);
+                  const idMatch = pageUrl.match(/\/(?:videos|photos|gifs)\/.*?-(\d+)(?:\.html)?$|\/(?:videos|photos|gifs)\/(\d+)\//);
                   if (idMatch) mediaId = idMatch[1] || idMatch[2];
               }
           }

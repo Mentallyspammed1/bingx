@@ -21,8 +21,8 @@ class SexComDriver extends BaseSexComClass {
 
   get name() { return DRIVER_NAME_CONST; }
   get baseUrl() { return BASE_URL_CONST; }
-  get supportsVideos() { return true; }
-  get supportsGifs() { return true; }
+  hasVideoSupport() { return true; }
+  hasGifSupport() { return true; }
   get firstpage() { return 1; }
 
   getVideoSearchUrl(query, page) {
@@ -89,7 +89,7 @@ class SexComDriver extends BaseSexComClass {
       const imgElement = item.find('img.responsive_image, img.main_image').first();
       let thumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
 
-      const previewVideoUrl = extractPreview(item, this.baseUrl, type === 'gifs');
+      const previewVideoUrl = extractPreview($, item, this.name, this.baseUrl);
       const durationText = type === 'videos' ? sanitizeText(item.find('span.duration, span.video_duration').text()?.trim()) : undefined;
 
       if (!pageUrl || !title || !id) {

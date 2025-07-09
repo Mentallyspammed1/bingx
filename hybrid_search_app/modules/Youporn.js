@@ -3,7 +3,6 @@
 // Core module and mixins
 const AbstractModule = require('../core/AbstractModule.js');
 const VideoMixin = require('../core/VideoMixin.js');
-// const GifMixin = require('../core/GifMixin.js'); // Youporn does not support GIFs
 
 const { logger, makeAbsolute, extractPreview, validatePreview, sanitizeText } = require('./driver-utils.js');
 
@@ -11,9 +10,7 @@ const BASE_URL_CONST = 'https://www.youporn.com';
 const DRIVER_NAME_CONST = 'Youporn';
 
 // Apply mixins to AbstractModule
-let BaseYoupornClass = AbstractModule;
-BaseYoupornClass = VideoMixin(BaseYoupornClass);
-// If GifMixin were used: BaseYoupornClass = GifMixin(BaseYoupornClass);
+const BaseYoupornClass = AbstractModule.with(VideoMixin);
 
 class YoupornDriver extends BaseYoupornClass {
   constructor(options = {}) {
@@ -40,9 +37,6 @@ class YoupornDriver extends BaseYoupornClass {
     return searchUrl.href;
   }
 
-  // getGifSearchUrl is not needed as supportsGifs is false.
-  // If called, AbstractMethodEnforcer (if active in mixin) would throw.
-
   parseResults($, htmlOrJsonData, parserOptions) {
     const { type, sourceName } = parserOptions;
     const results = [];
@@ -51,7 +45,6 @@ class YoupornDriver extends BaseYoupornClass {
       return [];
     }
 
-    // Selectors based on mock HTML for youporn_videos_page1.html
     const videoItems = $('div.video-box, li.video-item, div.thumbnail-video-container');
 
     if (!videoItems || videoItems.length === 0) {
@@ -77,7 +70,7 @@ class YoupornDriver extends BaseYoupornClass {
 
       const durationText = sanitizeText(item.find('span.video-duration, span.duration-text, span.duration, span.time').first().text()?.trim());
 
-      let animatedPreviewUrl = extractPreview(item, this.baseUrl);
+      let animatedPreviewUrl = extractPreview($, item, this.name, this.baseUrl);
 
       if (!titleText || !relativeUrl || !id) {
         logger.warn(`[${this.name} Parser] Item ${i}: Skipping due to missing title, URL, or ID. Title: ${titleText}, URL: ${relativeUrl}, ID: ${id}`);

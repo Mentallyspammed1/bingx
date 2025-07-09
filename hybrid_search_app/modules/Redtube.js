@@ -1,30 +1,50 @@
 'use strict';
 
 const AbstractModule = require('../core/AbstractModule.js');
-const { logger, makeAbsolute, extractPreview, validatePreview, sanitizeText } = require('./driver-utils.js');
+const VideoMixin = require('../core/VideoMixin.js');
+const { logger, makeAbsolute, validatePreview, sanitizeText } = require('./driver-utils.js');
 
-class RedtubeDriver extends AbstractModule {
+const REDTUBE_API_BASE_URL = 'https://api.redtube.com/';
+const REDTUBE_WEB_BASE_URL = 'https://www.redtube.com/';
+const DRIVER_NAME = 'Redtube';
+
+const BaseRedtubeClass = AbstractModule.with(VideoMixin);
+
+/**
+ * @class RedtubeDriver
+ * @classdesc Driver for fetching video content from Redtube using their official API.
+ * This driver specifically implements the `VideoMixin` methods.
+ */
+class RedtubeDriver extends BaseRedtubeClass {
     constructor(options = {}) {
         super(options);
         logger.debug(`[${this.name}] Initialized.`);
     }
 
-    get name() { return 'Redtube'; }
-    get baseUrl() { return 'https://www.redtube.com'; }
+    get name() { return DRIVER_NAME; }
+    get baseUrl() { return REDTUBE_WEB_BASE_URL; } // For resolving URLs from API response
     hasVideoSupport() { return true; }
     hasGifSupport() { return false; }
-    get firstpage() { return 1; }
+    get firstpage() { return 1; } // Redtube API is 1-indexed
 
+    /**
+     * Constructs the Redtube API URL for video search.
+     * @param {string} query - The search query.
+     * @param {number} page - The page number (1-indexed).
+     * @returns {string} The full API URL for the search.
+     */
     getVideoSearchUrl(query, page) {
-        if (!query || typeof query !== 'string' || query.trim() === '') {
-            throw new Error(`[${this.name}] Search query is not set for video search.`);
-        }
-        const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
-        const searchUrl = new URL(this.baseUrl);
-        searchUrl.searchParams.set('search', sanitizeText(query));
-        searchUrl.searchParams.set('page', String(searchPage));
-        logger.debug(`[${this.name}] Generated video URL: ${searchUrl.href}`);
-        return searchUrl.href;
+        const encodedQuery = encodeURIComponent(query.trim());
+        const pageParam = Math.max(1, page || this.firstpage);
+
+        const url = new URL(REDTUBE_API_BASE_URL);
+        url.searchParams.set('data', 'redtube.videos.search');
+        url.searchParams.set('output', 'json');
+        url.searchParams.set('search', encodedQuery);
+        url.searchParams.set('page', pageParam);
+
+        logger.debug(`[${this.name}] Generated video search URL: ${url.href}`);
+        return url.href;
     }
 
     getGifSearchUrl(query, page) {
@@ -32,73 +52,61 @@ class RedtubeDriver extends AbstractModule {
         return null;
     }
 
-    parseResults($, htmlOrJsonData, parserOptions) {
-        if (!$) {
-            logger.error(`[${this.name}] Cheerio object ($) is null. Expecting HTML.`);
-            return [];
-        }
-
+    /**
+     * Parses the JSON response from the Redtube API for video search.
+     * @param {null} $ - Cheerio instance (null for API responses).
+     * @param {object} rawData - The raw JSON response object from Redtube API.
+     * @param {object} options - Options containing search context.
+     * @returns {Array<object>} An array of structured video results.
+     */
+    parseResults($, rawData, options) {
+        const { type, sourceName } = options;
         const results = [];
-        const { type, sourceName } = parserOptions;
 
-        const videoItems = $('div.video_bloc, li.video_item, div.video-tile, div.videoBlock');
-
-        if (!videoItems || videoItems.length === 0) {
-            logger.warn(`[${this.name}] No video items found with speculative selectors.`);
+        if (type !== 'videos') {
+            logger.warn(`[${sourceName}] This driver only supports 'videos', not '${type}'.`);
             return [];
         }
 
-        videoItems.each((i, el) => {
-            const item = $(el);
+        if (!rawData || !rawData.videos || !Array.isArray(rawData.videos)) {
+            logger.warn(`[${sourceName}] Invalid or empty API response. Expected a 'videos' array.`, rawData);
+            return [];
+        }
 
-            const linkElement = item.find('a.video_link, a.video-tile_thumbnail_link, a.video_title_link, a.videoLink').first();
-            let relativeUrlToPage = linkElement.attr('href');
-            let titleText = sanitizeText(item.find('span.video_title_text, strong.video_title_strong, p.video-tile_title, .videoTitle').first().text()?.trim() || linkElement.attr('title')?.trim());
+        logger.info(`[${sourceName}] Parsing ${rawData.videos.length} video results from API...`);
 
-            if (!titleText && relativeUrlToPage) {
-                const parts = relativeUrlToPage.split('/');
-                const slug = parts.filter(p => p && !/^\d+$/.test(p)).pop();
-                if (slug) titleText = sanitizeText(slug.replace(/[_-]/g, ' '));
-            }
-
-            let videoId = item.attr('data-id') || item.attr('data-video_id');
-            if (!videoId && relativeUrlToPage) {
-                const idMatch = relativeUrlToPage.match(/\/(\d+)$/);
-                if (idMatch && idMatch[1]) videoId = idMatch[1];
-            }
-
-            if (!titleText || !relativeUrlToPage || !videoId) {
-                logger.warn(`[${this.name}] Item ${i}: Skipping due to missing title, URL or ID.`);
+        rawData.videos.forEach(videoWrapper => {
+            const apiVideoData = videoWrapper.video;
+            if (!apiVideoData || !apiVideoData.video_id) {
+                logger.warn(`[${sourceName}] Skipping malformed video item from API:`, videoWrapper);
                 return;
             }
 
-            const durationText = sanitizeText(item.find('span.duration, span.video_duration, span.video-tile_duration, var.duration').first().text()?.trim());
+            const id = apiVideoData.video_id;
+            const title = sanitizeText(apiVideoData.title);
+            const url = makeAbsolute(apiVideoData.url, this.baseUrl);
+            const duration = sanitizeText(apiVideoData.duration);
+            const thumbnail = makeAbsolute(apiVideoData.default_thumb, this.baseUrl);
+            const preview_video = makeAbsolute(apiVideoData.thumb, this.baseUrl); // API 'thumb' is often animated
 
-            const imageElement = item.find('img.video_thumbnail_img, img.video-tile_thumbnail_img, img.thumb').first();
-            let staticThumbnailUrl = imageElement.attr('data-src') || imageElement.attr('src');
-            if (staticThumbnailUrl && staticThumbnailUrl.startsWith('data:image/')) {
-                 staticThumbnailUrl = imageElement.attr('data-thumb_url') || imageElement.attr('data-mediumthumb');
+            if (!id || !title || !url || !thumbnail) {
+                logger.warn(`[${sourceName}] Skipping API video item due to missing essential data:`, { id, title, url, thumbnail });
+                return;
             }
 
-            let animatedPreviewUrl = extractPreview(item, this.baseUrl);
-
-            const absoluteUrl = makeAbsolute(relativeUrlToPage, this.baseUrl);
-            const absoluteThumbnail = makeAbsolute(staticThumbnailUrl, this.baseUrl);
-            const finalPreview = validatePreview(animatedPreviewUrl) ? animatedPreviewUrl : '';
-
             results.push({
-                id: videoId,
-                title: titleText,
-                url: absoluteUrl,
-                thumbnail: absoluteThumbnail || '',
-                duration: durationText || 'N/A',
-                preview_video: finalPreview,
+                id: id,
+                title: title,
+                url: url,
+                duration: duration,
+                thumbnail: thumbnail,
+                preview_video: validatePreview(preview_video) ? preview_video : undefined,
                 source: sourceName,
-                type: type
+                type: 'videos'
             });
         });
 
-        logger.debug(`[${this.name}] Parsed ${results.length} ${type} items.`);
+        logger.info(`[${sourceName}] Parsed ${results.length} video results.`);
         return results;
     }
 }

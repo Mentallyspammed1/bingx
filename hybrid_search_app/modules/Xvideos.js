@@ -1,26 +1,16 @@
 'use strict';
 
-let AbstractModule;
-try {
-    AbstractModule = require('../core/AbstractModule.js');
-} catch (e) {
-    console.error("Failed to load AbstractModule from ../core/, ensure path is correct.", e);
-    AbstractModule = class {
-        constructor(options = {}) { this.query = options.query; }
-        get name() { return 'UnnamedDriver'; }
-        get baseUrl() { return ''; }
-        get supportsVideos() { return false; }
-        get supportsGifs() { return false; }
-        get firstpage() { return 1; }
-    };
-}
-
+const AbstractModule = require('../core/AbstractModule.js');
+const VideoMixin = require('../core/VideoMixin.js');
+const GifMixin = require('../core/GifMixin.js');
 const { logger, makeAbsolute, extractPreview, validatePreview, sanitizeText } = require('./driver-utils.js');
 
 const BASE_URL_CONST = 'https://www.xvideos.com';
 const DRIVER_NAME_CONST = 'Xvideos';
 
-class XvideosDriver extends AbstractModule {
+const BaseXvideosClass = AbstractModule.with(VideoMixin, GifMixin);
+
+class XvideosDriver extends BaseXvideosClass {
     constructor(options = {}) {
         super(options);
         logger.debug(`[${this.name}] Initialized.`);
@@ -110,7 +100,7 @@ class XvideosDriver extends AbstractModule {
                 durationText = sanitizeText(item.find('p.metadata span.duration').text()?.trim());
                 const imgElement = item.find('div.thumb-inside img').first();
                 thumbnailUrl = imgElement.attr('data-src');
-                previewVideoUrl = extractPreview(item, this.baseUrl, false);
+                previewVideoUrl = extractPreview($, item, this.name, this.baseUrl);
                 if (!videoId && pageUrl) {
                     const idMatch = pageUrl.match(/\/video(\d+)\//);
                     if (idMatch && idMatch[1]) videoId = idMatch[1];
@@ -142,7 +132,7 @@ class XvideosDriver extends AbstractModule {
             });
         });
 
-        logger.debug(`[${this.name}] Parsed ${results.length} ${type} items from mock.`);
+        logger.debug(`[${this.name}] Parsed ${results.length} ${type} items.`);
         return results;
     }
 }

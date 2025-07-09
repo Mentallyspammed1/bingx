@@ -1,35 +1,74 @@
-// core/GifMixin.js
 'use strict';
-const enforceAbstractMethods = require('./abstractMethodFactory');
 
-const gifAbstractMethods = [
-  'getGifSearchUrl',    // Expected to return a string (URL). Params: (query, page)
-  'parseResults', // Expected to parse data and return an array. Params: (cheerioInstance, rawHtmlOrJsonData, parserOptions)
-];
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _getPrototypeOf = require('babel-runtime/core-js/object/get-prototype-of');
+var _getPrototypeOf2 = _interopRequireDefault(_getPrototypeOf);
+
+var _classCallCheck2 = require('babel-runtime/helpers/classCallCheck');
+var _classCallCheck3 = _interopRequireDefault(_classCallCheck2);
+
+var _createClass2 = require('babel-runtime/helpers/createClass');
+var _createClass3 = _interopRequireDefault(_createClass2);
+
+var _possibleConstructorReturn2 = require('babel-runtime/helpers/possibleConstructorReturn');
+var _possibleConstructorReturn3 = _interopRequireDefault(_possibleConstructorReturn2);
+
+var _inherits2 = require('babel-runtime/helpers/inherits');
+var _inherits3 = _interopRequireDefault(_inherits2);
+
+var _OverwriteError = require('./OverwriteError');
+var _OverwriteError2 = _interopRequireDefault(_OverwriteError);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /**
- * GifMixin - A factory function that creates a mixin to add GIF-related abstract method requirements.
- * @param {Function} BaseClass - The base class constructor to extend.
- * @returns {Function} A new class constructor with enforced abstract methods for GIFs.
+ * @file GifMixin.js
+ * A mixin factory that enhances a base class with abstract GIF-related methods.
+ * Classes applying this mixin are contractually obligated to implement `getGifSearchUrl()`
+ * and rely on `parseResults()` for GIF parsing capabilities.
  */
-module.exports = (BaseClass) => {
-    // Following the same pattern as VideoMixin and original file content.
-    if (typeof enforceAbstractMethods === 'function') {
-        return enforceAbstractMethods(BaseClass, gifAbstractMethods);
+var GifMixin = function (BaseClass) {
+  var GifFeatureMixin = function (_BaseClass) {
+    (0, _inherits3.default)(GifFeatureMixin, _BaseClass);
+
+    function GifFeatureMixin() {
+      (0, _classCallCheck3.default)(this, GifFeatureMixin);
+      return (0, _possibleConstructorReturn3.default)(this, (GifFeatureMixin.__proto__ || (0, _getPrototypeOf2.default)(GifFeatureMixin)).apply(this, arguments));
     }
-    class MixedGif extends BaseClass {
-        // constructor(...args) {
-        //     super(...args);
-        //     if (this.constructor === MixedGif) {
-        //         if (typeof this.getGifSearchUrl !== 'function') {
-        //             throw new Error("Class using GifMixin must implement 'getGifSearchUrl'");
-        //         }
-        //         // parseResults is shared, but a GIF-specific implementation might be checked for
-        //         if (typeof this.parseResults !== 'function') { // Or a more specific gifParser if that was the pattern
-        //             throw new Error("Class using GifMixin must implement 'parseResults' (or a specific gifParser)");
-        //         }
-        //     }
-        // }
-    }
-    return MixedGif;
+
+    (0, _createClass3.default)(GifFeatureMixin, [{
+      key: 'getGifSearchUrl',
+      /**
+       * Abstract method to construct the full URL for a GIF search query.
+       * This method MUST be overridden by any concrete driver class that uses this mixin.
+       *
+       * @param {string} query - The search query term.
+       * @param {number} page - The page number for the search results.
+       * @returns {string} The fully qualified URL for GIF search.
+       * @throws {OverwriteError} If this method is not implemented by the consuming class.
+       */
+      value: function getGifSearchUrl(query, page) {
+        throw new _OverwriteError2.default('getGifSearchUrl');
+      }
+    }, {
+      key: 'hasGifSupport',
+      /**
+       * Indicates if this driver supports GIF searches.
+       * Concrete drivers should override this method to return `true`.
+       * @returns {boolean}
+       */
+      value: function hasGifSupport() {
+        return false; // Default to false; concrete drivers must explicitly set to true.
+      }
+    }]);
+    return GifFeatureMixin;
+  }(BaseClass);
+
+  return GifFeatureMixin;
 };
+
+exports.default = GifMixin;
+module.exports = exports['default'];

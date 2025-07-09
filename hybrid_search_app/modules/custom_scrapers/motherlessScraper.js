@@ -24,11 +24,17 @@ const DRIVER_NAME = 'Motherless'; // Match frontend dropdown
 class MotherlessDriver extends AbstractModule {
     constructor(query) {
         super(query);
-        this.name = DRIVER_NAME;
-        this.baseUrl = BASE_URL;
         this.supportsVideos = true;
         this.supportsGifs = true; // Motherless has distinct sections for images/GIFs
         this.firstpage = 1;
+    }
+
+    get name() {
+        return DRIVER_NAME;
+    }
+
+    get baseUrl() {
+        return BASE_URL;
     }
 
     /**

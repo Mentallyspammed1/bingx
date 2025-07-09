@@ -16,11 +16,11 @@ const log = {
 class YouPornScraper extends AbstractModule.with(VideoMixin, GifMixin) {
     constructor(options) {
         super(options);
-        this.baseUrl = 'https://www.youporn.com';
         log.debug(`YouPornScraper instantiated. Query: "${this.query}", Page: ${this.page}`);
     }
 
     get name() { return 'YouPorn'; }
+    get baseUrl() { return 'https://www.youporn.com'; }
     get firstpage() { return 1; }
 
     // --- Video Search Methods ---

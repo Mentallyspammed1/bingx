@@ -26,11 +26,17 @@ const DRIVER_NAME = 'Sex.com';
 class SexComDriver extends AbstractModule {
     constructor(query) {
         super(query);
-        this.name = DRIVER_NAME;
-        this.baseUrl = BASE_URL;
         this.supportsVideos = true;
         this.supportsGifs = true;
         this.firstpage = 1;
+    }
+
+    get name() {
+        return DRIVER_NAME;
+    }
+
+    get baseUrl() {
+        return BASE_URL;
     }
 
     /**

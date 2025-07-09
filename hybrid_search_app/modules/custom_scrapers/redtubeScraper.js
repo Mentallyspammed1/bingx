@@ -16,11 +16,11 @@ const log = {
 class RedtubeScraper extends AbstractModule.with(VideoMixin, GifMixin) {
     constructor(options) {
         super(options);
-        this.baseUrl = 'https://www.redtube.com';
         log.debug(`RedtubeScraper instantiated. Query: "${this.query}", Page: ${this.page}`);
     }
 
     get name() { return 'Redtube'; }
+    get baseUrl() { return 'https://www.redtube.com'; }
     get firstpage() { return 1; }
 
     // --- Video Search Methods ---

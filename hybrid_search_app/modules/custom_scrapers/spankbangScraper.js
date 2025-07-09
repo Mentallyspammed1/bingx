@@ -25,11 +25,17 @@ const DRIVER_NAME = 'Spankbang';
 class SpankbangDriver extends AbstractModule {
     constructor(query) {
         super(query);
-        this.name = DRIVER_NAME;
-        this.baseUrl = BASE_URL;
         this.supportsVideos = true;
         this.supportsGifs = true;
         this.firstpage = 1; // Spankbang pagination is 1-indexed in the path
+    }
+
+    get name() {
+        return DRIVER_NAME;
+    }
+
+    get baseUrl() {
+        return BASE_URL;
     }
 
     /**

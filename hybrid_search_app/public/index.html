@@ -807,7 +807,7 @@
                     card.addEventListener('mouseenter', () => { clearTimeout(appState.hoverPauseTimeout); appState.hoverPlayTimeout = setTimeout(playVideo, HOVER_PLAY_DELAY_MS); });
                     card.addEventListener('focusin', (e) => { if(card.contains(e.target)) {clearTimeout(appState.hoverPauseTimeout); appState.hoverPlayTimeout = setTimeout(playVideo, HOVER_PLAY_DELAY_MS);}});
                     card.addEventListener('mouseleave', () => { clearTimeout(appState.hoverPlayTimeout); appState.hoverPauseTimeout = setTimeout(pauseVideo, HOVER_PAUSE_DELAY_MS); });
-                    card.addEventListener('focusout', (e) => { if (!card.contains(e.relatedTarget)) { clearTimeout(appState.hoverPlayTimeout); appState.hoverPauseTimeout = setTimeout(pauseVideo, HO_PAUSE_DELAY_MS); }});
+                    card.addEventListener('focusout', (e) => { if (!card.contains(e.relatedTarget)) { clearTimeout(appState.hoverPlayTimeout); appState.hoverPauseTimeout = setTimeout(pauseVideo, HOVER_PAUSE_DELAY_MS); }});
                 }
             }
             return card;

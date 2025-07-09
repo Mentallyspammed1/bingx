@@ -62,7 +62,7 @@ class PornhubDriver extends AbstractModule {
             if (isGifSearch) {
                 const linkA = item.find('a').first();
                 pageUrl = linkA.attr('href');
-                title = sanitizeText(linkA.attr('title')?.trim() || item.find('span.title, div.title').first().text()?.trim());
+                title = sanitizeText(item.find('span.title, div.title').first().text()?.trim() || linkA.attr('title')?.trim());
 
                 const videoElement = item.find('video').first();
                 thumbnailUrl = videoElement.attr('poster');

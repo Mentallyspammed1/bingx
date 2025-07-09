@@ -65,6 +65,67 @@ var Pornsearch = function () {
       console.log(`[Pornsearch] Query updated to: "${this.query}" for all active drivers.`);
     }
   }, {
+    key: '_fetch',
+    value: async function _fetch(driver, searchUrl, useMockData, page, searchType) {
+        let rawContent = '';
+        if (useMockData) {
+            const normalizedDriverNameForFile = driver.name.toLowerCase().replace(/[\s.]+/g, '');
+            const mockFileName = `${normalizedDriverNameForFile}_${searchType}_page${page}.html`;
+            const mockFilePath = path.join(MOCK_DATA_DIR, mockFileName);
+            try {
+                rawContent = await fs.readFile(mockFilePath, 'utf8');
+                console.log(`  [${driver.name}] Loaded mock data from: ${mockFilePath}`);
+            } catch (fileError) {
+                console.error(`  [${driver.name}] ERROR: Failed to load mock data from ${mockFilePath}: ${fileError.message}. Skipping.`);
+                return null;
+            }
+        } else {
+            console.log(`  [${driver.name}] Fetching live content from: ${searchUrl}`);
+            const response = await axios.get(searchUrl, {
+                headers: {
+                    'User-Agent': this.config.global.defaultUserAgent || 'Mozilla/5.0',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8,application/json;q=0.7',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Referer': driver.baseUrl
+                },
+                timeout: this.config.global.requestTimeout || 15000
+            });
+            rawContent = response.data;
+        }
+        return rawContent;
+    }
+  }, {
+    key: '_parse',
+    value: async function _parse(driver, rawContent, parserOptions) {
+        let cheerioInstance = null;
+        let jsonData = null;
+
+        if (typeof rawContent === 'string' && rawContent.trim().startsWith('<')) {
+            cheerioInstance = cheerio.load(rawContent);
+        } else if (typeof rawContent === 'object' || (typeof rawContent === 'string' && rawContent.trim().startsWith('{'))) {
+            jsonData = (typeof rawContent === 'string') ? JSON.parse(rawContent) : rawContent;
+        } else {
+            console.warn(`  [${driver.name}] Unknown content format. Skipping.`);
+            return [];
+        }
+
+        const results = await driver.parseResults(cheerioInstance, jsonData || rawContent, parserOptions);
+
+        if (Array.isArray(results)) {
+            console.log(`  [${driver.name}] Parsed ${results.length} ${parserOptions.type} results.`);
+            // Ensure source and type are consistently added if driver didn't do it
+            return results.map(r => ({
+                ...r,
+                source: r.source || driver.name, // Prioritize driver's source, then orchestrator's
+                type: r.type || parserOptions.type      // Prioritize driver's type, then orchestrator's
+            }));
+        } else {
+            console.warn(`  [${driver.name}] parseResults did not return an array. Skipping.`);
+            return [];
+        }
+    }
+  }, {
     key: 'search',
     value: async function search(searchOptions) {
       const { query, page = 1, type = 'videos', useMockData = false, platform = null } = searchOptions;
@@ -93,7 +154,6 @@ var Pornsearch = function () {
       const searchPromises = driversToSearch.map(async driver => {
         try {
           let searchUrl = '';
-          let rawContent = '';
           const parserOptions = { type: searchType, sourceName: driver.name, query: query, page: page };
 
           let getUrlMethod;
@@ -113,59 +173,12 @@ var Pornsearch = function () {
             return [];
           }
 
-          if (useMockData) {
-            // Normalize driver name for filename: lowercase, remove spaces and dots.
-            const normalizedDriverNameForFile = driver.name.toLowerCase().replace(/[\s.]+/g, '');
-            const mockFileName = `${normalizedDriverNameForFile}_${searchType}_page${page}.html`;
-            const mockFilePath = path.join(MOCK_DATA_DIR, mockFileName);
-            try {
-              rawContent = await fs.readFile(mockFilePath, 'utf8');
-              console.log(`  [${driver.name}] Loaded mock data from: ${mockFilePath}`);
-            } catch (fileError) {
-              console.error(`  [${driver.name}] ERROR: Failed to load mock data from ${mockFilePath}: ${fileError.message}. Skipping.`);
-              return [];
-            }
-          } else {
-            console.log(`  [${driver.name}] Fetching live content from: ${searchUrl}`);
-            const response = await axios.get(searchUrl, {
-              headers: {
-                'User-Agent': this.config.global.defaultUserAgent || 'Mozilla/5.0',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8,application/json;q=0.7',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Referer': driver.baseUrl
-              },
-              timeout: this.config.global.requestTimeout || 15000
-            });
-            rawContent = response.data;
-          }
-
-          let cheerioInstance = null;
-          let jsonData = null;
-
-          if (typeof rawContent === 'string' && rawContent.trim().startsWith('<')) {
-              cheerioInstance = cheerio.load(rawContent);
-          } else if (typeof rawContent === 'object' || (typeof rawContent === 'string' && rawContent.trim().startsWith('{'))) {
-              jsonData = (typeof rawContent === 'string') ? JSON.parse(rawContent) : rawContent;
-          } else {
-              console.warn(`  [${driver.name}] Unknown content format. Skipping.`);
+          const rawContent = await this._fetch(driver, searchUrl, useMockData, page, searchType);
+          if (!rawContent) {
               return [];
           }
 
-          const results = await driver.parseResults(cheerioInstance, jsonData || rawContent, parserOptions);
-
-          if (Array.isArray(results)) {
-            console.log(`  [${driver.name}] Parsed ${results.length} ${searchType} results.`);
-            // Ensure source and type are consistently added if driver didn't do it
-            return results.map(r => ({
-                ...r,
-                source: r.source || driver.name, // Prioritize driver's source, then orchestrator's
-                type: r.type || searchType      // Prioritize driver's type, then orchestrator's
-            }));
-          } else {
-            console.warn(`  [${driver.name}] parseResults did not return an array. Skipping.`);
-            return [];
-          }
+          return await this._parse(driver, rawContent, parserOptions);
         } catch (error) {
           console.error(`  [Pornsearch] Error searching ${searchType} on ${driver.name} (Mock: ${useMockData}):`, error.message);
           if (error.response) {
@@ -236,10 +249,6 @@ var Pornsearch = function () {
           console.error(`Failed to read directory ${modulesDir}:`, dirError);
         }
       }
-      // Manually load mock scraper
-      const MockScraper = require('./modules/mockScraper.cjs');
-      drivers['mock'] = new MockScraper(options);
-
       return drivers;
     }
   }]);

@@ -15,6 +15,9 @@ const PornsearchOrchestrator = require('./Pornsearch.js');
 // --- Constants ---
 const app = express();
 const PORT = process.env.PORT || 3003
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
+const cache = {};
 
 // --- Global Configuration & Strategy ---
 let globalStrategy = 'custom';
@@ -126,9 +129,16 @@ app.get('/api/search', async (req, res) => {
     if (driver) {
         searchParams.platform = driver.toLowerCase();
     }
-    const driverKey = searchParams.driver;
+    const driverKey = searchParams.platform;
     const effectiveStrategy = siteStrategies[driverKey] || globalStrategy;
     log.info(`[/api/search] Effective strategy for driver '${driverKey}': ${effectiveStrategy}`);
+
+    const cacheKey = `${driverKey}-${searchParams.type}-${searchParams.query}-${searchParams.page}`;
+    const cachedResult = cache[cacheKey];
+    if (cachedResult && (Date.now() - cachedResult.timestamp < CACHE_DURATION_MS)) {
+        log.info(`[/api/search] Returning cached results for key: ${cacheKey}`);
+        return res.status(200).json(cachedResult.data);
+    }
 
     try {
         let responsePayload;
@@ -143,6 +153,12 @@ app.get('/api/search', async (req, res) => {
             log.error(`[/api/search] Unknown strategy '${effectiveStrategy}' for driver '${driverKey}'.`);
             return res.status(501).json({ error: `Strategy '${effectiveStrategy}' not implemented for '${driverKey}'.` });
         }
+
+        cache[cacheKey] = {
+            timestamp: Date.now(),
+            data: responsePayload,
+        };
+
         res.status(200).json(responsePayload);
 
     } catch (error) {
@@ -150,6 +166,23 @@ app.get('/api/search', async (req, res) => {
         const statusCode = error.status || 500;
         const responseMessage = error.message || 'An internal server error occurred.';
         res.status(statusCode).json({ error: responseMessage });
+    }
+});
+
+app.get('/api/health', (req, res) => {
+    if (pornsearchOrchestrator) {
+        res.status(200).json({ status: 'ok' });
+    } else {
+        res.status(503).json({ status: 'error', message: 'Scraper orchestrator not yet available.' });
+    }
+});
+
+app.get('/api/scrapers', (req, res) => {
+    if (pornsearchOrchestrator) {
+        const driverNames = pornsearchOrchestrator.listActiveDrivers();
+        res.status(200).json({ scrapers: driverNames });
+    } else {
+        res.status(503).json({ error: 'Scraper orchestrator not yet available.' });
     }
 });
 

@@ -245,6 +245,9 @@
         .modal-link-container {
             width: 100%; padding: 1rem 1.5rem; border-top: 2px solid rgba(255, 255, 255, 0.1);
             text-align: center; box-shadow: inset 0 10px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
         }
         .modal-link {
             color: var(--link-color); font-weight: 600; text-decoration: none;
@@ -274,13 +277,27 @@
         .skeleton-card {
             background: var(--card-bg); border: 2px solid #333959; border-radius: 10px;
             height: 300px; display: flex; flex-direction: column; overflow: hidden;
-            animation: pulse 1.5s infinite ease-in-out;
+            position: relative;
+        }
+        .skeleton-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -150%;
+            width: 150%;
+            height: 100%;
+            background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+            animation: shimmer 1.5s infinite;
         }
         .skeleton-img { height: 200px; background-color: #1f253d; }
         .skeleton-info { flex-grow: 1; padding: 0.75rem; display: flex; flex-direction: column; justify-content: space-between; }
         .skeleton-text { height: 1em; background-color: #1f253d; border-radius: 4px; margin-bottom: 0.5rem; width: 90%; }
         .skeleton-link { height: 0.8em; background-color: #1f253d; border-radius: 4px; width: 40%; margin-top: auto; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        @keyframes shimmer {
+            100% {
+                left: 150%;
+            }
+        }
 
         .hidden { display: none !important; }
         @media (max-width: 640px) {
@@ -288,6 +305,28 @@
             .search-container, #resultsDiv, #paginationControls, #favoritesView { padding-left: 0.5rem; padding-right: 0.5rem; }
             .modal-content { padding: 1rem; }
             .modal-link-container { padding: 0.75rem 1rem; }
+        }
+    </style>
+    <style>
+        [data-theme="light"] {
+            --neon-pink: #d9006c;
+            --neon-cyan: #00a5b3;
+            --neon-green: #28a745;
+            --neon-purple: #6f00b3;
+            --dark-bg-start: #f0f2f5;
+            --dark-bg-end: #e9ecef;
+            --input-bg: #ffffff;
+            --text-color: #212529;
+            --card-bg: rgba(255, 255, 255, 0.8);
+            --modal-bg: rgba(255, 255, 255, 0.96);
+            --error-bg: rgba(220, 53, 69, 0.88);
+            --error-border: var(--neon-pink);
+            --disabled-opacity: 0.65;
+            --focus-outline-color: var(--neon-green);
+            --link-color: var(--neon-cyan);
+            --link-hover-color: var(--neon-green);
+            --favorite-btn-color: #6c757d;
+            --favorite-btn-active-color: var(--neon-pink);
         }
     </style>
 </head>
@@ -301,6 +340,9 @@
         </h1>
         <div class="text-center mb-4">
             <button id="toggleFavoritesBtn" class="btn-neon px-4 py-2 text-sm">View Favorites (<span id="favoritesCountDisplay">0</span>)</button>
+            <button id="clearHistoryBtn" class="btn-neon px-4 py-2 text-sm">Clear History</button>
+            <button id="themeToggleBtn" class="btn-neon px-4 py-2 text-sm">Toggle Theme</button>
+            <button id="randomSearchBtn" class="btn-neon px-4 py-2 text-sm">Random Search</button>
         </div>
 
         <div class="search-controls flex flex-col sm:flex-row items-stretch sm:space-y-4 sm:space-y-0 sm:space-x-3 md:space-x-4 mb-6">
@@ -319,15 +361,6 @@
             <div class="relative mb-4 sm:mb-0">
                 <label for="driverSelect" class="sr-only">Search Provider</label>
                 <select id="driverSelect" aria-label="Select Search Provider" class="select-neon w-full sm:w-auto">
-                    <option value="Pornhub">Pornhub</option>
-                    <option value="Xvideos">XVideos</option>
-                    <option value="Redtube" selected>Redtube</option>
-                    <option value="Youporn">YouPorn</option>
-                    <option value="Motherless">Motherless</option>
-                    <option value="SexCom">Sex.com</option>
-                    <option value="Spankbang">Spankbang</option>
-                    <option value="Xhamster">Xhamster</option>
-                    <option value="mock">Mock (Test)</option>
                 </select>
             </div>
             <button id="searchBtn" type="button" class="btn-neon px-6 py-3 font-semibold text-base flex items-center justify-center w-full sm:w-auto" aria-controls="resultsDiv" aria-describedby="errorMessage">
@@ -364,6 +397,8 @@
         </div>
     </div>
 
+    <button id="scrollToTopBtn" class="hidden fixed bottom-5 right-5 btn-neon p-3 rounded-full text-2xl leading-none" aria-label="Scroll to top" title="Scroll to top">↑</button>
+
     <script src="https://cdn.jsdelivr.net/npm/axios@1.7.2/dist/axios.min.js"></script>
     <script>
         'use strict';
@@ -376,6 +411,7 @@
         const RESULTS_PER_PAGE_HEURISTIC = 10;
         const PLACEHOLDER_GIF_DATA_URI = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
         const FAVORITES_STORAGE_KEY = 'neonSearchFavorites';
+        const THEME_STORAGE_KEY = 'neonSearchTheme';
 
         const searchInput = document.getElementById('searchInput');
         const clearSearchBtn = document.getElementById('clearSearchBtn');
@@ -401,12 +437,17 @@
         const favoritesView = document.getElementById('favoritesView');
         const favoritesGrid = document.getElementById('favoritesGrid');
         const noFavoritesMessage = document.getElementById('noFavoritesMessage');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const randomSearchBtn = document.getElementById('randomSearchBtn');
+        const scrollToTopBtn = document.getElementById('scrollToTopBtn');
 
         const appState = {
             isLoading: false, currentPage: 1, currentQuery: '', currentDriver: driverSelect.value, currentType: typeSelect.value,
             resultsCache: [], lastFocusedElement: null, maxResultsHeuristic: RESULTS_PER_PAGE_HEURISTIC,
             hoverPlayTimeout: null, hoverPauseTimeout: null, currentAbortController: null,
             favorites: [], showingFavorites: false,
+            currentTheme: 'dark',
         };
 
         const log = {
@@ -418,7 +459,54 @@
             apiError: (message, ...args) => console.error(`%c[API FAIL] ${message}`, 'color: #ff3333; font-weight: bold;', ...args),
             modal: (message, ...args) => console.log(`%c[MODAL] ${message}`, 'color: #9d00ff;', ...args),
             favorites: (message, ...args) => console.log(`%c[FAV] ${message}`, 'color: #ff00aa;', ...args),
+            theme: (message, ...args) => console.log(`%c[THEME] ${message}`, 'color: #ffff00;', ...args),
         };
+
+        function loadTheme() {
+            const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+            if (savedTheme) {
+                appState.currentTheme = savedTheme;
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                log.theme(`Loaded theme: ${savedTheme}`);
+            }
+        }
+
+        function saveTheme() {
+            localStorage.setItem(THEME_STORAGE_KEY, appState.currentTheme);
+            log.theme(`Saved theme: ${appState.currentTheme}`);
+        }
+
+        function toggleTheme() {
+            appState.currentTheme = appState.currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', appState.currentTheme);
+            saveTheme();
+        }
+
+        function getRandomQuery() {
+            const queries = [
+                'anal', 'teen', 'milf', 'lesbian', 'ebony', 'asian', 'big ass', 'big tits', 'blowjob', 'creampie',
+                'cumshot', 'deepthroat', 'facial', 'gangbang', 'hardcore', 'interracial', 'latina', 'massage',
+                'masturbation', 'orgy', 'pussy licking', 'threesome', 'BDSM', 'hentai', 'cosplay', 'pawg',
+            ];
+            return queries[Math.floor(Math.random() * queries.length)];
+        }
+
+        async function loadScrapers() {
+            try {
+                const response = await axios.get('/api/scrapers');
+                const scrapers = response.data.scrapers;
+                driverSelect.innerHTML = '';
+                scrapers.forEach(scraper => {
+                    const option = document.createElement('option');
+                    option.value = scraper;
+                    option.textContent = scraper;
+                    driverSelect.appendChild(option);
+                });
+                driverSelect.value = 'Redtube'; // Default value
+            } catch (error) {
+                log.error('Failed to load scrapers:', error);
+            }
+        }
 
         function renderMediaErrorPlaceholder(container, message = 'Media Error') {
             container.innerHTML = '';
@@ -539,6 +627,22 @@
             sourceLink.textContent = `View on ${itemData.source || 'Source'}: "${itemData.title || 'Untitled'}"`;
             modalLinkContainer.appendChild(sourceLink);
 
+            const copyUrlBtn = document.createElement('button');
+            copyUrlBtn.type = 'button';
+            copyUrlBtn.className = 'btn-neon px-4 py-2 text-sm';
+            copyUrlBtn.textContent = 'Copy URL';
+            copyUrlBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(itemData.url).then(() => {
+                    copyUrlBtn.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyUrlBtn.textContent = 'Copy URL';
+                    }, 2000);
+                }).catch(err => {
+                    log.error('Failed to copy URL to clipboard:', err);
+                });
+            });
+            modalLinkContainer.appendChild(copyUrlBtn);
+
             mediaModal.classList.add('is-open');
             mediaModal.setAttribute('aria-hidden', 'false');
             requestAnimationFrame(() => closeModalBtn.focus());
@@ -651,6 +755,20 @@
             }
             log.favorites('Hiding favorites, returning to search results.');
             if (toggleFavoritesBtn) toggleFavoritesBtn.innerHTML = `View Favorites (<span id="favoritesCountDisplay">${appState.favorites.length}</span>)`;
+            updateURL(true);
+        }
+
+        function clearHistory() {
+            log.info('Clearing search history and resetting state.');
+            appState.resultsCache = [];
+            appState.currentPage = 1;
+            appState.currentQuery = '';
+            searchInput.value = '';
+            clearSearchBtn.style.display = 'none';
+            resultsDiv.innerHTML = '';
+            initialMessage?.classList.remove('hidden');
+            paginationControls.classList.add('hidden');
+            hideError();
             updateURL(true);
         }
 
@@ -799,7 +917,7 @@
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(itemData, itemActualType); }
             });
 
-            if (itemActualType === 'videos') {
+            if (itemActualType === 'videos' || (itemActualType === 'gifs' && mediaContainer.querySelector('video.preview-video'))) {
                 const videoPreview = mediaContainer.querySelector('video.preview-video');
                 if (videoPreview) {
                     const playVideo = () => videoPreview.play().catch(e => {if (e.name !== 'AbortError') log.warn('Preview play error:', e.message);});
@@ -1010,7 +1128,10 @@
         });
         searchInput.addEventListener('input', () => { clearSearchBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none'; });
         typeSelect.addEventListener('change', () => performSearch(1, true));
-        driverSelect.addEventListener('change', () => performSearch(1, true));
+        driverSelect.addEventListener('change', () => {
+            log.info(`Driver changed to: ${driverSelect.value}`);
+            performSearch(1, true);
+        });
         prevBtn.addEventListener('click', () => { if (!prevBtn.disabled && !appState.isLoading) performSearch(appState.currentPage - 1, true); });
         nextBtn.addEventListener('click', () => { if (!nextBtn.disabled && !appState.isLoading) performSearch(appState.currentPage + 1, true); });
         closeModalBtn.addEventListener('click', closeModal);
@@ -1038,9 +1159,47 @@
             });
         }
 
+        if (clearHistoryBtn) {
+            clearHistoryBtn.addEventListener('click', () => {
+                if (appState.isLoading) return;
+                clearHistory();
+            });
+        }
+
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                if (appState.isLoading) return;
+                toggleTheme();
+            });
+        }
+
+        if (randomSearchBtn) {
+            randomSearchBtn.addEventListener('click', () => {
+                if (appState.isLoading) return;
+                searchInput.value = getRandomQuery();
+                performSearch(1, true);
+            });
+        }
+
+        if (scrollToTopBtn) {
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 200) {
+                    scrollToTopBtn.classList.remove('hidden');
+                } else {
+                    scrollToTopBtn.classList.add('hidden');
+                }
+            });
+
+            scrollToTopBtn.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             log.info('DOM fully loaded.');
             loadFavorites();
+            loadTheme();
+            loadScrapers();
             handleUrlOrState();
             clearSearchBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none';
         });

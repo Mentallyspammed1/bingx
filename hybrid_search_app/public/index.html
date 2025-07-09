@@ -492,19 +492,55 @@
         }
 
         async function loadScrapers() {
+            log.info('Attempting to load scrapers...');
+            const driverSelect = document.getElementById('driverSelect');
+            if (!driverSelect) {
+                log.error('driverSelect element not found!');
+                return;
+            }
+            log.info('driverSelect element found:', driverSelect);
+
             try {
                 const response = await axios.get('/api/scrapers');
+                log.info('API response for /api/scrapers:', response.data);
+
                 const scrapers = response.data.scrapers;
-                driverSelect.innerHTML = '';
-                scrapers.forEach(scraper => {
+                if (!Array.isArray(scrapers)) {
+                    log.error('Scrapers data is not an array:', scrapers);
+                    return;
+                }
+                log.info('Scrapers array received:', scrapers);
+
+                driverSelect.innerHTML = ''; // Clear existing options
+                log.info('driverSelect innerHTML cleared.');
+
+                if (scrapers.length === 0) {
+                    log.warn('No scrapers received from API.');
                     const option = document.createElement('option');
-                    option.value = scraper;
-                    option.textContent = scraper;
+                    option.value = '';
+                    option.textContent = 'No Scrapers Available';
                     driverSelect.appendChild(option);
-                });
-                driverSelect.value = 'Redtube'; // Default value
+                    driverSelect.disabled = true; // Disable if no options
+                } else {
+                    scrapers.forEach(scraper => {
+                        log.info('Adding scraper option:', scraper);
+                        const option = document.createElement('option');
+                        option.value = scraper;
+                        option.textContent = scraper;
+                        driverSelect.appendChild(option);
+                    });
+                    driverSelect.value = 'Redtube'; // Default value
+                    driverSelect.disabled = false; // Ensure it's enabled
+                }
+                log.info('driverSelect innerHTML after population:', driverSelect.innerHTML);
+
             } catch (error) {
                 log.error('Failed to load scrapers:', error);
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'Error Loading Scrapers';
+                driverSelect.appendChild(option);
+                driverSelect.disabled = true; // Disable on error
             }
         }
 

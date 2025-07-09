@@ -134,8 +134,8 @@ class MotherlessDriver extends BaseMotherlessClass {
     logger.info(`[${sourceName}] Parsing ${type} results...`);
 
     // Common selector for all content items (videos, images, GIFs)
-    // Motherless often uses `div.content-item` or `div.thumb-container`
-    const contentItems = $('div.content-item, div.thumb-container');
+    // Motherless often uses `div.thumb.image` or `div.gallery-tile`
+    const contentItems = $('div.thumb.image, div.gallery-tile');
 
     if (!contentItems.length) {
       logger.warn(`[${sourceName}] No content items found with current selectors. Page structure may have changed.`);

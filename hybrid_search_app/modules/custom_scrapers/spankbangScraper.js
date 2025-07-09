@@ -23,19 +23,19 @@ const DRIVER_NAME = 'Spankbang';
  * @classdesc Driver for scraping video and GIF content from Spankbang.
  */
 class SpankbangDriver extends AbstractModule {
-    constructor(query) {
-        super(query);
+    constructor(options = {}) {
+        super(options);
     }
 
     get firstpage() {
         return 1; // Spankbang pagination is 1-indexed in the path
     }
 
-    hasVideosSupport() {
+    hasVideoSupport() {
         return true;
     }
 
-    hasGifsSupport() {
+    hasGifSupport() {
         return true;
     }
 

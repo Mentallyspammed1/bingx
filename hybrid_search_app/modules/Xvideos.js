@@ -28,9 +28,7 @@ class XvideosDriver extends BaseXvideosClass {
         }
         const xvideosPage = Math.max(0, (parseInt(page, 10) || (this.firstpage + 1)) - 1);
         const searchUrl = new URL(this.baseUrl);
-        searchUrl.pathname = '/';
-        searchUrl.searchParams.set('k', sanitizeText(query));
-        searchUrl.searchParams.set('p', String(xvideosPage));
+        searchUrl.pathname = `/q/${encodeURIComponent(sanitizeText(query))}/${xvideosPage}`;
         logger.debug(`[${this.name}] Generated video URL: ${searchUrl.href}`);
         return searchUrl.href;
     }

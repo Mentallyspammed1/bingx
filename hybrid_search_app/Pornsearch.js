@@ -30,6 +30,7 @@ var Pornsearch = function () {
     this.config = config;
     this.allDrivers = drivers;
 
+    this.activeDrivers = [];
     if (options.drivers && Array.isArray(options.drivers) && options.drivers.length > 0) {
       this.activeDrivers = options.drivers.reduce((acc, driverName) => {
         const normalizedDriverName = driverName.toLowerCase() === 'sexcom' ? 'sex.com' : driverName.toLowerCase();
@@ -41,8 +42,12 @@ var Pornsearch = function () {
         }
         return acc;
       }, []);
-    } else {
+    } else if (this.allDrivers) {
       this.activeDrivers = Object.values(this.allDrivers);
+    }
+
+    if (this.activeDrivers.length === 0) {
+      console.warn('[Pornsearch] Warning: No active drivers were loaded. The application may not function as expected.');
     }
     console.log(`[Pornsearch] Initialized with query: "${this.query}", page: ${this.page}`);
   }
@@ -103,6 +108,13 @@ var Pornsearch = function () {
 
         if (typeof rawContent === 'string' && rawContent.trim().startsWith('<')) {
             cheerioInstance = cheerio.load(rawContent);
+            if (parserOptions && !parserOptions.useMockData) {
+                const noResultsSelectors = '#videoSearchResult .no-results-found, .no-results-found-container, .noResultsMessage';
+                if (cheerioInstance(noResultsSelectors).length > 0) {
+                    console.log(`  [${driver.name}] No results found on page.`);
+                    return [];
+                }
+            }
         } else if (typeof rawContent === 'object' || (typeof rawContent === 'string' && rawContent.trim().startsWith('{'))) {
             jsonData = (typeof rawContent === 'string') ? JSON.parse(rawContent) : rawContent;
         } else {
@@ -142,9 +154,13 @@ var Pornsearch = function () {
       console.log(`[Pornsearch] Searching for "${query}" (${searchType}) on page ${page} (Mocking: ${useMockData ? 'YES' : 'NO'})...`);
 
       let driversToSearch = this.activeDrivers;
+      if (!useMockData) {
+        driversToSearch = driversToSearch.filter(d => d.name.toLowerCase() !== 'mock');
+      }
+
       if (platform) {
         const normalizedPlatform = platform.toLowerCase() === 'sexcom' ? 'sex.com' : platform.toLowerCase();
-        driversToSearch = this.activeDrivers.filter(d => d.name.toLowerCase() === normalizedPlatform);
+        driversToSearch = driversToSearch.filter(d => d.name.toLowerCase() === normalizedPlatform);
         if (driversToSearch.length === 0) {
           console.warn(`[Pornsearch] No active driver found for platform: ${platform}`);
           return [];

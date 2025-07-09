@@ -139,6 +139,11 @@ class PornhubDriver extends BasePornhubClass {
 
     logger.info(`[${sourceName}] Parsing ${type} results...`);
 
+    if ($('#videoSearchResult .no-results-found, .no-results-found-container').length > 0) {
+      logger.warn(`[${sourceName}] No results found for query. The page indicates no results.`);
+      return [];
+    }
+
     if (type === 'videos') {
       // --- SPECULATIVE VIDEO CSS SELECTORS - VERIFY THESE! ---
       // Pornhub video items are often within a `div.phimage` or similar container.
@@ -213,8 +218,8 @@ class PornhubDriver extends BasePornhubClass {
 
     } else if (type === 'gifs') {
       // --- SPECULATIVE GIF CSS SELECTORS - VERIFY THESE! ---
-      // Pornhub GIF items are often within `div.gifImageBlock` or similar.
-      const gifItems = $('div.gifImageBlock, .gif-item, .gif-thumb');
+      // Pornhub GIF items are often within `li.gifVideoBlock` or similar.
+      const gifItems = $('li.gifVideoBlock, .gif-item, .gif-thumb');
 
       if (!gifItems.length) {
         logger.warn(`[${sourceName}] No GIF items found with current selectors. Page structure may have changed.`);

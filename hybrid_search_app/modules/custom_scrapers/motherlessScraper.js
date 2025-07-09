@@ -22,19 +22,19 @@ const DRIVER_NAME = 'Motherless'; // Match frontend dropdown
  * @classdesc Driver for scraping video and image/GIF content from Motherless.
  */
 class MotherlessDriver extends AbstractModule {
-    constructor(query) {
-        super(query);
+    constructor(options = {}) {
+        super(options);
     }
 
     get firstpage() {
         return 1;
     }
 
-    hasVideosSupport() {
+    hasVideoSupport() {
         return true;
     }
 
-    hasGifsSupport() {
+    hasGifSupport() {
         return true; // Motherless has distinct sections for images/GIFs
     }
 

@@ -157,10 +157,17 @@ function extractPreview($, item, driverName, baseUrl) {
     }
   }
 
-  // Strategy 2: Check common data attributes on image and container
+  // Strategy 2: Check common data attributes on link, image and container
+  const linkElement = item.find('a').first();
   const imgElement = item.find('img[class*="thumb"], img[class*="image"], img').first();
 
   for (const attr of PREVIEW_DATA_ATTRIBUTES) {
+    if (linkElement.length && linkElement.attr(attr)) {
+      previewVideoCandidate = linkElement.attr(attr);
+      logger.debug(chalk.blue(`[${driverName}] Found raw preview from link data attribute "${attr}": ${previewVideoCandidate}`));
+      absolutePreviewUrl = makeAbsolute(previewVideoCandidate, baseUrl);
+      if (absolutePreviewUrl && validatePreview(absolutePreviewUrl)) return absolutePreviewUrl;
+    }
     if (imgElement.length && imgElement.attr(attr)) {
       previewVideoCandidate = imgElement.attr(attr);
       logger.debug(chalk.blue(`[${driverName}] Found raw preview from image data attribute "${attr}": ${previewVideoCandidate}`));

@@ -24,19 +24,19 @@ const DRIVER_NAME = 'Sex.com';
  * @classdesc Driver for scraping video and GIF content from Sex.com.
  */
 class SexComDriver extends AbstractModule {
-    constructor(query) {
-        super(query);
+    constructor(options = {}) {
+        super(options);
     }
 
     get firstpage() {
         return 1;
     }
 
-    hasVideosSupport() {
+    hasVideoSupport() {
         return true;
     }
 
-    hasGifsSupport() {
+    hasGifSupport() {
         return true;
     }
 

@@ -56,15 +56,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Instantiate Pornsearch Orchestrator ---
 let pornsearchOrchestrator;
-PornsearchOrchestrator.create({ /* options if any */ })
-    .then(instance => {
-        pornsearchOrchestrator = instance;
+
+async function initializeOrchestrator() {
+    try {
+        pornsearchOrchestrator = await PornsearchOrchestrator.create({ /* options if any */ });
         log.info('PornsearchOrchestrator created successfully.');
-    })
-    .catch(err => {
+    } catch (err) {
         log.error('Failed to create PornsearchOrchestrator:', err);
         process.exit(1);
-    });
+    }
+}
 
 
 // --- Handler Functions ---
@@ -202,10 +203,12 @@ app.get('/', (req, res) => {
 // --- Start Server ---
 // Check if the module is being run directly
 if (require.main === module) {
-    app.listen(PORT, '0.0.0.0', () => { // Listen on 0.0.0.0 to be accessible externally if needed
-        log.info(`Hybrid backend server started on http://localhost:${PORT} (accessible also via http://<your-ip>:${PORT} if firewall allows)`);
-        log.info(`Current Global Backend Strategy: ${globalStrategy}`);
-        log.info(`Serving frontend from: ${path.join(__dirname, 'public')}`);
+    initializeOrchestrator().then(() => {
+        app.listen(PORT, '0.0.0.0', () => { // Listen on 0.0.0.0 to be accessible externally if needed
+            log.info(`Hybrid backend server started on http://localhost:${PORT} (accessible also via http://<your-ip>:${PORT} if firewall allows)`);
+            log.info(`Current Global Backend Strategy: ${globalStrategy}`);
+            log.info(`Serving frontend from: ${path.join(__dirname, 'public')}`);
+        });
     });
 }
 

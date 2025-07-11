@@ -2,7 +2,7 @@
 
 const AbstractModule = require('../core/AbstractModule.js');
 const VideoMixin = require('../core/VideoMixin.js');
-const { logger, makeAbsolute, extractPreview, sanitizeText } = require('./driver-utils.js');
+const { logger, makeAbsolute, extractPreview, sanitizeText, validatePreview } = require('./driver-utils.js');
 
 const BASE_URL_CONST = 'https://www.eporner.com';
 const DRIVER_NAME_CONST = 'Eporner';

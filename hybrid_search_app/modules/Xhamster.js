@@ -204,7 +204,8 @@ class XhamsterDriver extends BaseXhamsterClass {
       // --- SPECULATIVE GIF CSS SELECTORS - VERIFY THESE! ---
       // Common selectors for GIF items on Xhamster search results.
       // Often similar to video items, but might have different classes or structures.
-      const gifItems = $('div.gif-item, li.gif-thumb, div.gif-box');
+      // const gifItems = $('div.gif-item, li.gif-thumb, div.gif-box'); // Original
+      const gifItems = $('div.photo-thumb, div.gif-thumb, div.gallery-thumb'); // Updated based on xhamster_gifs_page1.html
 
       if (!gifItems.length) {
         logger.warn(`[${sourceName}] No GIF items found with current selectors. Page structure may have changed.`);
@@ -215,7 +216,8 @@ class XhamsterDriver extends BaseXhamsterClass {
         const item = $(element);
 
         // GIF Page URL: often an `<a>` tag wrapping the GIF.
-        const linkElement = item.find('a.gif-link, a[href*="/gifs/"]').first();
+        // const linkElement = item.find('a.gif-link, a[href*="/gifs/"]').first(); // Original
+        const linkElement = item.find('a[href]').first(); // Simplified to find any link with href
         let gifPageUrl = linkElement.attr('href');
 
         // GIF ID: often part of the URL path or a data attribute.

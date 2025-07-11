@@ -230,7 +230,8 @@ class PornhubDriver extends BasePornhubClass {
         const item = $(element);
 
         // GIF Page URL: The `a` tag wrapping the GIF.
-        const linkElement = item.find('a[href*="/gifs/"], a.link-gifs').first();
+        // const linkElement = item.find('a[href*="/gifs/"], a.link-gifs').first(); // Original
+        const linkElement = item.find('a').first(); // Simplified for testing
         let gifPageUrl = linkElement.attr('href');
 
         // GIF ID: Often part of the URL path (e.g., `/gifs/ID/`) or a data attribute.

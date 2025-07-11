@@ -143,6 +143,7 @@ function extractPreview($, item, driverName, baseUrl) {
       videoTag.attr('data-src') ||
       videoTag.attr('data-video-src') ||
       videoTag.attr('data-preview-src') ||
+      videoTag.attr('data-webm') || // Added data-webm
       videoTag.find('source[src], source[data-src]').first().attr('src') ||
       videoTag.find('source[src], source[data-src]').first().attr('data-src');
 

@@ -44,7 +44,7 @@ class Eporner extends AbstractModule {
 
             let id = '';
             if (relativeUrl) {
-                const idMatch = relativeUrl.match(/\/video-(.*)\/);
+                const idMatch = relativeUrl.match(/\/video-(.*)\//);
                 if (idMatch && idMatch[1]) id = idMatch[1];
             }
 

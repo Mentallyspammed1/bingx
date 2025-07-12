@@ -82,7 +82,6 @@ class Motherless extends AbstractModule {
             return [];
         }
 
-        const results = [];
         const isGifSearch = parserOptions.type === 'gifs';
 
         // General item selector for Motherless (Galleries or direct items)

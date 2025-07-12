@@ -14,7 +14,7 @@ This is a hybrid search application primarily built with Node.js and JavaScript.
 
 *   `/`: Root directory containing main application files (`server.js`, `Pornsearch.js`, `config.js`, `config.json`, `package.json`).
 *   `__tests__/`: Contains unit tests for various modules and the server.
-*   `core/`: Houses core functionalities and base classes for scrapers, such as `AbstractModule.js`, `VideoMixin.js`, and `GifMixin.js`.
+*   `core/`: Houses core functionalities and base classes for scrapers, suchs as `AbstractModule.js`, `VideoMixin.js`, and `GifMixin.js`.
 *   `modules/`: Contains the main scraper implementations (e.g., `Pornhub.js`, `Redtube.js`, `Xhamster.js`, `Xvideos.js`, `Youporn.js`, `Motherless.js`).
 *   `modules/custom_scrapers/`: Contains older, potentially deprecated custom scraper implementations.
 *   `modules/driver-utils.js`: A centralized utility module for common scraper logic.
@@ -52,3 +52,243 @@ As a CLI agent, I have certain limitations:
 *   **External Services/Libraries**: I cannot directly integrate or set up external services like proxy networks or headless browser environments (e.g., Puppeteer, Selenium).
 *   **New Framework Setup**: I cannot set up entirely new testing frameworks or complex build processes. My actions are limited to modifying existing code and running shell commands within the provided environment.
 *   **No User Interaction for Shell Commands**: I cannot interact with shell commands that require user input (e.g., interactive prompts).
+
+## Platform Scrapers Overview
+
+Here's a summary of all the individual platform scrapers (drivers) that have been developed and integrated into your Neon Video Search application during our conversation:
+ * Pornhub.js: A driver designed to scrape video and GIF content from Pornhub. It implements both VideoMixin and GifMixin and relies on HTML parsing with Cheerio.
+ * Redtube.js: This driver focuses on fetching video content from Redtube, primarily by interacting with their official API (JSON responses). It implements VideoMixin.
+ * Xhamster.js: A driver for scraping video and GIF content from Xhamster. It uses HTML parsing with Cheerio and implements both VideoMixin and GifMixin. (Note: NedtXhamster.js was provided as an updated version of this).
+ * Xvideos.js: This driver is mentioned as being integrated into the Pornsearch orchestrator and server.cjs, indicating it's a platform-specific scraper. (Its code was not explicitly provided in the conversation, but its presence is noted).
+ * Youporn.js: Similar to Xvideos, this driver is mentioned in the server.cjs file as one of the integrated platforms. (Its code was not explicitly provided).
+ * Spankbang.js: A newly provided driver for scraping video and GIF content from Spankbang, implementing VideoMixin and GifMixin and relying on HTML parsing.
+ * Motherless.js: A newly provided driver for scraping video and GIF content from Motherless. It's notable for handling GIFs within Motherless's 'images' section and implements both VideoMixin and GifMixin.
+ * MockDriver: An example/test driver included directly within server.cjs to demonstrate how a driver should be structured and how it interacts with the system, without making actual external requests. It implements both VideoMixin and GifMixin.
+In essence, your application is built to support 7 distinct external adult content platforms (Pornhub, Redtube, Xhamster, Xvideos, Youporn, Spankbang, Motherless) plus a Mock driver for testing, all managed by the Pornsearch orchestrator and leveraging shared utility functions and mixins for consistent development.
+
+## Driver Details
+
+```json
+{
+  "drivers_details": [
+    {
+      "name": "Pornhub",
+      "baseUrl": "https://www.example.com",
+      "supportsVideos": true,
+      "supportsGifs": true,
+      "videoSearch": {
+        "urlPattern": "https://www.example.com/video/search?search={query}&page={page}",
+        "itemSelectors": [
+          "div.phimage",
+          ".video-item",
+          ".videoblock"
+        ],
+        "linkSelector": "a[href*=\"\/view_video.php\"], a[href*=\"\/video\/\"], a.link-videos",
+        "titleExtraction": "From link 'title' attribute, image 'alt' attribute, or text content of '.title, .video-title'.",
+        "thumbnailSelector": "img[src], img[data-src]",
+        "durationSelector": "var.duration, span.duration",
+        "idExtraction": "From URL (viewkey=ID or /video/ID/) or item 'data-id' attribute.",
+        "previewVideoExtraction": "Uses 'extractPreview' utility (checks 'data-mediabook', video tags, etc.)."
+      },
+      "gifSearch": {
+        "urlPattern": "https://www.example.com/gifs/search?search={query}&page={page}",
+        "itemSelectors": [
+          "div.gifImageBlock",
+          ".gif-item",
+          ".gif-thumb"
+        ],
+        "linkSelector": "a[href*=\"\/gifs\/\"], a.link-gifs",
+        "titleExtraction": "From link 'title' attribute, image 'alt' attribute, or text content of '.title, .gif-title'.",
+        "thumbnailSelector": "img[src], img[data-src]",
+        "idExtraction": "From URL (/gifs/ID/) or item 'data-id' attribute.",
+        "previewVideoExtraction": "Uses 'extractPreview' utility (checks video tags, data attributes, etc.)."
+      }
+    },
+    {
+      "name": "Redtube",
+      "baseUrl": "https://www.redtube.com/",
+      "apiBaseUrl": "https://api.redtube.com/",
+      "supportsVideos": true,
+      "supportsGifs": false,
+      "videoSearch": {
+        "urlPattern": "https://api.redtube.com/?data=redtube.videos.search&search={query}&page={page}",
+        "parsingMethod": "Parses JSON API response.",
+        "jsonPathForItems": "rawData.videos[].video",
+        "keyExtraction": {
+          "id": "video_id",
+          "title": "title",
+          "url": "url",
+          "duration": "duration",
+          "thumbnail": "default_thumb",
+          "preview_video": "thumb (or potentially embed_url)"
+        }
+      },
+      "gifSearch": {
+        "urlPattern": "N/A (Not supported via API)",
+        "parsingMethod": "N/A"
+      }
+    },
+    {
+      "name": "Xhamster",
+      "baseUrl": "https://www.xhamster.com",
+      "supportsVideos": true,
+      "supportsGifs": true,
+      "videoSearch": {
+        "urlPattern": "https://www.xhamster.com/videos/search/{query_hyphenated}/{page}/",
+        "itemSelectors": [
+          "div.video-item",
+          "li.video-thumb",
+          "div.video-box"
+        ],
+        "linkSelector": "a.video-link, a[href*=\"\/videos\/\"]",
+        "titleExtraction": "From image 'alt' attribute, link 'title' attribute, or text content of '.title, h3 a'.",
+        "thumbnailSelector": "img[src], img[data-src]",
+        "durationSelector": ".duration, .time",
+        "idExtraction": "From URL (/-ID/ or last path segment) or item 'data-id' attribute.",
+        "previewVideoExtraction": "Uses 'extractPreview' utility."
+      },
+      "gifSearch": {
+        "urlPattern": "https://www.xhamster.com/gifs/search/{query_hyphenated}/{page}/",
+        "itemSelectors": [
+          "div.gif-item",
+          "li.gif-thumb",
+          "div.gif-box"
+        ],
+        "linkSelector": "a.gif-link, a[href*=\"\/gifs\/\"]",
+        "titleExtraction": "From image 'alt' attribute, link 'title' attribute, or text content of '.title, h3 a'.",
+        "thumbnailSelector": "img[src], img[data-src]",
+        "idExtraction": "From URL (/-ID/ or last path segment) or item 'data-id' attribute.",
+        "previewVideoExtraction": "Uses 'extractPreview' utility."
+      }
+    },
+    {
+      "name": "Spankbang",
+      "baseUrl": "https://spankbang.com",
+      "supportsVideos": true,
+      "supportsGifs": true,
+      "videoSearch": {
+        "urlPattern": "https://spankbang.com/s/{query}/{page}/",
+        "itemSelectors": [
+          "div.video-item",
+          "li.video-box",
+          "div.video-list-item"
+        ],
+        "linkSelector": "a[href*=\"\/video\/\"], a.video-link",
+        "titleExtraction": "From image 'alt' attribute, link 'title' attribute, or text content of '.title, h3 a'.",
+        "thumbnailSelector": "img[src], img[data-src]",
+        "durationSelector": ".duration, .time",
+        "idExtraction": "From URL (/video/ID/) or item 'data-id' attribute.",
+        "previewVideoExtraction": "Uses 'extractPreview' utility."
+      },
+      "gifSearch": {
+        "urlPattern": "https://spankbang.com/gifs/{query}/{page}/",
+        "itemSelectors": [
+          "div.gif-item",
+          "li.gif-box",
+          "div.gif-list-item"
+        ],
+        "linkSelector": "a[href*=\"\/gifs\/\"], a.gif-link",
+        "titleExtraction": "From image 'alt' attribute, link 'title' attribute, or text content of '.title, h3 a'.",
+        "thumbnailSelector": "img[src], img[data-src]",
+        "idExtraction": "From URL (/gifs/ID/) or item 'data-id' attribute.",
+        "previewVideoExtraction": "Uses 'extractPreview' utility."
+      }
+    },
+    {
+      "name": "Motherless",
+      "baseUrl": "https://motherless.com",
+      "supportsVideos": true,
+      "supportsGifs": true,
+      "videoSearch": {
+        "urlPattern": "https://motherless.com/videos/search/{query}/page{page}",
+        "itemSelectors": [
+          "div.content-item",
+          "div.thumb-container"
+        ],
+        "linkSelector": "a[href]",
+        "titleExtraction": "From image 'alt' attribute, link 'title' attribute, or text content of '.title, h3 a, .caption'.",
+        "thumbnailSelector": "img[src], img[data-src]",
+        "durationSelector": ".duration, .time",
+        "idExtraction": "From URL (last path segment) or item 'data-id' attribute.",
+        "previewVideoExtraction": "Uses 'extractPreview' utility."
+      },
+      "gifSearch": {
+        "urlPattern": "https://motherless.com/images/search/{query}/page{page}",
+        "itemSelectors": [
+          "div.content-item",
+          "div.thumb-container"
+        ],
+        "linkSelector": "a[href]",
+        "titleExtraction": "From image 'alt' attribute, link 'title' attribute, or text content of '.title, h3 a, .caption'.",
+        "thumbnailSelector": "img[src], img[data-src]",
+        "idExtraction": "From URL (last path segment) or item 'data-id' attribute.",
+        "previewVideoExtraction": "Uses 'extractPreview' utility (items without animated preview are skipped in GIF search)."
+      }
+    },
+    {
+      "name": "Xvideos",
+      "baseUrl": "N/A (Code not provided)",
+      "supportsVideos": "N/A (Code not provided)",
+      "supportsGifs": "N/A (Code not provided)",
+      "videoSearch": {
+        "urlPattern": "N/A (Code not provided)",
+        "itemSelectors": "N/A (Code not provided)",
+        "linkSelector": "N/A (Code not provided)",
+        "titleExtraction": "N/A (Code not provided)",
+        "thumbnailSelector": "N/A (Code not provided)",
+        "durationSelector": "N/A (Code not provided)",
+        "idExtraction": "N/A (Code not provided)",
+        "previewVideoExtraction": "N/A (Code not provided)"
+      },
+      "gifSearch": {
+        "urlPattern": "N/A (Code not provided)",
+        "itemSelectors": "N/A (Code not provided)",
+        "linkSelector": "N/A (Code not provided)",
+        "titleExtraction": "N/A (Code not provided)",
+        "thumbnailSelector": "N/A (Code not provided)",
+        "idExtraction": "N/A (Code not provided)",
+        "previewVideoExtraction": "N/A (Code not provided)"
+      }
+    },
+    {
+      "name": "Youporn",
+      "baseUrl": "N/A (Code not provided)",
+      "supportsVideos": "N/A (Code not provided)",
+      "supportsGifs": "N/A (Code not provided)",
+      "videoSearch": {
+        "urlPattern": "N/A (Code not provided)",
+        "itemSelectors": "N/A (Code not provided)",
+        "linkSelector": "N/A (Code not provided)",
+        "titleExtraction": "N/A (Code not provided)",
+        "thumbnailSelector": "N/A (Code not provided)",
+        "durationSelector": "N/A (Code not provided)",
+        "idExtraction": "N/A (Code not provided)",
+        "previewVideoExtraction": "N/A (Code not provided)"
+      },
+      "gifSearch": {
+        "urlPattern": "N/A (Code not provided)",
+        "itemSelectors": "N/A (Code not provided)",
+        "linkSelector": "N/A (Code not provided)",
+        "titleExtraction": "N/A (Code not provided)",
+        "thumbnailSelector": "N/A (Code not provided)",
+        "idExtraction": "N/A (Code not provided)",
+        "previewVideoExtraction": "N/A (Code not provided)"
+      }
+    },
+    {
+      "name": "Mock",
+      "baseUrl": "http://mock.com",
+      "supportsVideos": true,
+      "supportsGifs": true,
+      "videoSearch": {
+        "urlPattern": "http://mock.com/videos?q={query}&page={page}",
+        "parsingMethod": "Returns hardcoded mock results. Does not scrape HTML."
+      },
+      "gifSearch": {
+        "urlPattern": "http://mock.com/gifs?q={query}&page={page}",
+        "parsingMethod": "Returns hardcoded mock results. Does not scrape HTML."
+      }
+    }
+  ]
+}
+```

@@ -7,7 +7,7 @@ import webbrowser
 from datetime import datetime
 
 import requests  # Added for downloading thumbnails
-from colorama import Fore, Style, init
+from colorama import Fore, init, Style
 
 # Initialize Colorama for cross-platform colored output
 init(autoreset=True)
@@ -45,15 +45,15 @@ THUMBNAILS_DIR = "downloaded_thumbnails"
 DEFAULT_SOUP_SLEEP = 1.0
 DEFAULT_SEARCH_LIMIT = 30
 DEFAULT_PAGE_NUMBER = 1 # Note: Most pornLib forks don't directly support 'page' in search()
-DEFAULT_ENGINE = 'xvideos'
+DEFAULT_ENGINE = "xvideos"
 
 # Engines mapping - we will load these dynamically
 # The key is the user-friendly name, the value is the relative import path within pornLib
 ENGINE_MODULE_MAP = {
-    'xvideos': 'xvideos.XVideos',
-    'pornhub': 'pornhub.Pornhub',
-    'redtube': 'redtube.Redtube',
-    'youporn': 'youporn.Youporn',
+    "xvideos": "xvideos.XVideos",
+    "pornhub": "pornhub.Pornhub",
+    "redtube": "redtube.Redtube",
+    "youporn": "youporn.Youporn",
 }
 
 # --- Dynamic PornLib Client Loading ---
@@ -65,23 +65,23 @@ def get_pornlib_client(engine_name: str):
     try:
         # Import the base pornLib module first
         global pornLib # Make pornLib available globally once imported
-        if 'pornLib' not in sys.modules:
-            pornLib = importlib.import_module('pornLib')
+        if "pornLib" not in sys.modules:
+            pornLib = importlib.import_module("pornLib")
             logger.info(f"{NEON_GREEN}Base pornLib module imported successfully!{RESET_ALL}")
         else:
-            pornLib = sys.modules['pornLib'] # Already imported
+            pornLib = sys.modules["pornLib"] # Already imported
 
         if engine_name not in ENGINE_MODULE_MAP:
             raise ValueError(f"Unsupported engine: {engine_name}. Supported are: {', '.join(ENGINE_MODULE_MAP.keys())}")
 
-        module_path, class_name = ENGINE_MODULE_MAP[engine_name].rsplit('.', 1)
-        
+        module_path, class_name = ENGINE_MODULE_MAP[engine_name].rsplit(".", 1)
+
         # Import the specific submodule (e.g., pornLib.xvideos)
-        submodule = importlib.import_module(f'pornLib.{module_path}')
-        
+        submodule = importlib.import_module(f"pornLib.{module_path}")
+
         # Get the client class from the submodule
         client_class = getattr(submodule, class_name)
-        
+
         return client_class()
 
     except ImportError as e:
@@ -117,8 +117,8 @@ def sanitize_filename(filename: str) -> str:
     if not filename:
         return "unknown_title"
     # Remove punctuation and problematic characters, replace spaces with underscores
-    filename = re.sub(r'[^\w\s-]', '', filename.lower())
-    filename = re.sub(r'[-\s]+', '_', filename).strip('_')
+    filename = re.sub(r"[^\w\s-]", "", filename.lower())
+    filename = re.sub(r"[-\s]+", "_", filename).strip("_")
     # Limit length
     max_len = 100 # Max length for the sanitized part
     if len(filename) > max_len:
@@ -132,16 +132,14 @@ def download_file(url: str, local_filepath: str, timeout: int = 10) -> bool:
     """
     try:
         logger.debug(f"Attempting to download: {url} to {local_filepath}")
-        response = requests.get(url, stream=True, timeout=timeout, headers={'User-Agent': 'Mozilla/5.0'})
+        response = requests.get(url, stream=True, timeout=timeout, headers={"User-Agent": "Mozilla/5.0"})
         if response.status_code == 200:
-            with open(local_filepath, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+            with open(local_filepath, "wb") as f:
+                f.writelines(response.iter_content(chunk_size=8192))
             logger.info(f"{NEON_GREEN}Successfully downloaded {url} to {local_filepath}{RESET_ALL}")
             return True
-        else:
-            logger.warning(f"{NEON_YELLOW}Failed to download {url}. Status code: {response.status_code}{RESET_ALL}")
-            return False
+        logger.warning(f"{NEON_YELLOW}Failed to download {url}. Status code: {response.status_code}{RESET_ALL}")
+        return False
     except requests.exceptions.RequestException as e:
         logger.error(f"{NEON_RED}Error downloading {url}: {e}{RESET_ALL}")
         return False
@@ -161,7 +159,7 @@ class PornClient:
         """Initializes the specific pornLib client."""
         logger.info(f"{NEON_BLUE}Attempting to initialize client for '{self.engine_name}'...{RESET_ALL}")
         self._client = get_pornlib_client(self.engine_name)
-        
+
         if self._client:
             logger.info(f"{NEON_GREEN}Successfully initialized PornLib Client: engine='{self.engine_name}', soup_sleep={self.soup_sleep:.2f}s{RESET_ALL}")
         else:
@@ -191,9 +189,9 @@ class PornClient:
         try:
             import inspect
             sig = inspect.signature(self._client.search)
-            search_kwargs = {'keyword': query, 'limit': limit}
-            if 'page' in sig.parameters:
-                search_kwargs['page'] = page
+            search_kwargs = {"keyword": query, "limit": limit}
+            if "page" in sig.parameters:
+                search_kwargs["page"] = page
                 logger.debug(f"PornLib client for '{self.engine_name}' supports 'page' parameter.")
             else:
                 logger.warning(f"{NEON_YELLOW}Warning: PornLib client for '{self.engine_name}' does not appear to support a 'page' parameter directly in its search method. Fetching first {limit} results only.{RESET_ALL}")
@@ -204,11 +202,11 @@ class PornClient:
             parsed_results = []
             if results:
                 for i, item in enumerate(results):
-                    if hasattr(item, 'title') and hasattr(item, 'img') and hasattr(item, 'link'):
+                    if hasattr(item, "title") and hasattr(item, "img") and hasattr(item, "link"):
                         original_img_url = item.img
                         local_img_path = original_img_url # Default to original URL
 
-                        if original_img_url and isinstance(original_img_url, str) and original_img_url.startswith('http'):
+                        if original_img_url and isinstance(original_img_url, str) and original_img_url.startswith("http"):
                             try:
                                 video_title_sanitized = sanitize_filename(item.title if item.title else f"video_{i}")
                                 # Try to get extension from URL, default to .jpg
@@ -233,17 +231,17 @@ class PornClient:
                                 logger.error(f"{NEON_RED}Error processing thumbnail for '{item.title}': {e}. Using original URL.{RESET_ALL}")
 
                         parsed_results.append({
-                            'title': item.title,
-                            'img': local_img_path, # This will be local path if download succeeded, else original URL
-                            'link': item.link,
-                            'quality': getattr(item, 'quality', 'N/A'),
-                            'time': getattr(item, 'time', 'N/A'),
-                            'channel_name': getattr(item, 'channel_name', 'N/A'),
-                            'channel_link': getattr(item, 'channel_link', '#'),
+                            "title": item.title,
+                            "img": local_img_path, # This will be local path if download succeeded, else original URL
+                            "link": item.link,
+                            "quality": getattr(item, "quality", "N/A"),
+                            "time": getattr(item, "time", "N/A"),
+                            "channel_name": getattr(item, "channel_name", "N/A"),
+                            "channel_link": getattr(item, "channel_link", "#"),
                         })
                     else:
                         logger.warning(f"{NEON_YELLOW}Skipping unrecognized video item #{i+1} due to missing core attributes (title, img, link). Item type: {type(item)}. Raw item: {item}{RESET_ALL}")
-            
+
             logger.info(f"{NEON_GREEN}Search yielded {len(parsed_results)} parsed results from engine '{self.engine_name}'.{RESET_ALL}")
             return parsed_results
         except Exception as e:
@@ -261,7 +259,7 @@ def generate_html_output(results, query, engine, search_limit, output_dir=".", p
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     query_part = query.replace(" ", "_").lower()
-    
+
     filename_prefix = prefix_format.format(engine=engine, query_part=query_part, timestamp=timestamp)
     output_filename = os.path.join(output_dir, f"{filename_prefix}.html")
 
@@ -419,13 +417,13 @@ def generate_html_output(results, query, engine, search_limit, output_dir=".", p
     """
 
     for video in results:
-        title = video.get('title', 'N/A')
-        img = video.get('img', 'https://via.placeholder.com/300x200?text=No+Image')
-        link = video.get('link', '#')
-        quality = video.get('quality', 'N/A')
-        video_time = video.get('time', 'N/A')
-        channel_name = video.get('channel_name', 'N/A')
-        channel_link = video.get('channel_link', '#')
+        title = video.get("title", "N/A")
+        img = video.get("img", "https://via.placeholder.com/300x200?text=No+Image")
+        link = video.get("link", "#")
+        quality = video.get("quality", "N/A")
+        video_time = video.get("time", "N/A")
+        channel_name = video.get("channel_name", "N/A")
+        channel_link = video.get("channel_link", "#")
 
         html_content += f"""
                 <div class="video-item">
@@ -479,7 +477,7 @@ def main():
     if not query:
         logger.critical(f"{NEON_RED}Search query cannot be empty. Exiting.{RESET_ALL}")
         sys.exit(1)
-    
+
     # Input validation for search_limit
     try:
         limit_input = input(f"{NEON_YELLOW}Max results to fetch? [{DEFAULT_SEARCH_LIMIT}]: {RESET_ALL}{NEON_BRIGHT}")
@@ -503,7 +501,7 @@ def main():
         page_number = DEFAULT_PAGE_NUMBER
 
     # Engine selection
-    available_engines = ', '.join(ENGINE_MODULE_MAP.keys())
+    available_engines = ", ".join(ENGINE_MODULE_MAP.keys())
     engine_input = input(f"{NEON_YELLOW}PornLib engine? [{DEFAULT_ENGINE}] (Options: {available_engines}): {RESET_ALL}{NEON_BRIGHT}")
     engine = engine_input.lower().strip() if engine_input.strip() else DEFAULT_ENGINE
     logger.debug(f"User selected engine: {engine}")
@@ -536,7 +534,7 @@ def main():
 
     # Auto-open HTML
     auto_open_input = input(f"{NEON_YELLOW}Auto-open HTML file (y/n)? [y]: {RESET_ALL}{NEON_BRIGHT}")
-    auto_open_html = auto_open_input.lower().strip() in ('y', 'yes', '')
+    auto_open_html = auto_open_input.lower().strip() in ("y", "yes", "")
     logger.debug(f"User selected auto-open HTML: {auto_open_html}")
 
     logger.info(f"{NEON_CYAN}--- Settings Summary ---{RESET_ALL}")

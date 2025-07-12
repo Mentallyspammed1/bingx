@@ -19,7 +19,7 @@ from typing import Any
 # Third-party Libraries
 # requests is used implicitly by bing_image_downloader
 from bing_image_downloader import downloader
-from colorama import Back, Fore, Style, init
+from colorama import Back, Fore, init, Style
 from tqdm import tqdm
 
 # Attempt to import Pillow for image metadata; provide guidance if missing
@@ -104,10 +104,10 @@ def print_info(text: str) -> None:
 def sanitize_filename(name: str) -> str:
     """Removes/replaces invalid filename chars and truncates."""
     # Remove characters invalid in most file systems
-    sanitized = "".join(c for c in name if c.isalnum() or c in (' ', '_', '-')).strip()
+    sanitized = "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).strip()
     # Replace spaces with underscores and ensure no leading/trailing underscores
-    sanitized = '_'.join(filter(None, sanitized.split(' ')))
-    sanitized = '_'.join(filter(None, sanitized.split('_'))) # Collapse multiple underscores
+    sanitized = "_".join(filter(None, sanitized.split(" ")))
+    sanitized = "_".join(filter(None, sanitized.split("_"))) # Collapse multiple underscores
     # Limit length
     return sanitized[:MAX_FILENAME_LENGTH]
 
@@ -146,9 +146,9 @@ def rename_files(file_paths: list[str], base_query: str) -> list[str]:
     if first_valid_dir is None and file_paths: # All paths are empty strings or None, or file_paths is not empty but contains no valid paths
          print_error("Cannot determine directory for renaming files. All paths are invalid.")
          return list(file_paths) # Return original paths as is, though they are problematic
-    elif first_valid_dir is None and not file_paths: # Should be caught by earlier check
+    if first_valid_dir is None and not file_paths: # Should be caught by earlier check
          return []
-    
+
     dir_name = first_valid_dir if first_valid_dir is not None else "." # Fallback to CWD if all paths were relative without dir
 
     print_info(f"Attempting to rename {len(file_paths)} files in '{dir_name}' with prefix '{sanitized_query}'...")
@@ -156,7 +156,7 @@ def rename_files(file_paths: list[str], base_query: str) -> list[str]:
     # Sort to ensure consistent numbering (e.g., _1, _2, _3)
     # Original file_paths order might not be alphabetical/numerical.
     sorted_file_paths = sorted(file_paths)
-    
+
     actual_renames_count = 0
 
     for idx, old_path in enumerate(
@@ -185,7 +185,7 @@ def rename_files(file_paths: list[str], base_query: str) -> list[str]:
 
             target_path_for_rename = potential_new_path
             collision_counter = 1
-            
+
             # Handle potential filename collisions
             while os.path.exists(target_path_for_rename):
                 # Check if it's the *same* file we are trying to rename
@@ -209,7 +209,7 @@ def rename_files(file_paths: list[str], base_query: str) -> list[str]:
                     print_error(f"Could not find unique name for {os.path.basename(old_path)} after 100 attempts. Skipping rename for this file.")
                     target_path_for_rename = old_path # Fallback to original path
                     break
-            
+
             # At this point, target_path_for_rename is either a unique new path,
             # or old_path if it was samefile or collision resolution failed.
 
@@ -229,7 +229,7 @@ def rename_files(file_paths: list[str], base_query: str) -> list[str]:
                 except Exception as e: # Catch any other unexpected error during rename
                     print_error(f"Unexpected error renaming {os.path.basename(old_path)} to {os.path.basename(target_path_for_rename)}: {e}")
                     # current_file_final_path remains old_path
-            
+
             final_paths_after_rename.append(current_file_final_path)
 
         except Exception as e: # Catch errors in the processing of a single file
@@ -246,7 +246,7 @@ def rename_files(file_paths: list[str], base_query: str) -> list[str]:
     elif file_paths: # Input was not empty, but output is
         print_warning("No files were successfully processed for renaming (e.g., all source files missing).")
     # If file_paths was empty, initial warning already shown.
-    
+
     return final_paths_after_rename
 
 
@@ -381,7 +381,7 @@ def get_local_file_metadata(file_path: str) -> dict[str, Any]:
             metadata["file_size_bytes"] = os.path.getsize(file_path)
         except OSError as size_err:
              err_msg = f"OS error getting size: {size_err}"
-             metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata['error'] else err_msg
+             metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata["error"] else err_msg
              print_warning(f"Could not get size for {metadata['filename']}: {size_err}")
 
         if PIL_AVAILABLE and Image and UnidentifiedImageError:
@@ -390,23 +390,23 @@ def get_local_file_metadata(file_path: str) -> dict[str, Any]:
                     metadata["dimensions"] = f"{img.width}x{img.height}"
             except UnidentifiedImageError:
                 err_msg = "Cannot identify image file (PIL)"
-                metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata['error'] else err_msg
+                metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata["error"] else err_msg
             except Exception as img_err: # Catch other PIL errors
                 err_msg = f"Error reading image dimensions (PIL): {img_err}"
-                metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata['error'] else err_msg
+                metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata["error"] else err_msg
                 print_warning(f"Could not get dimensions for {metadata['filename']} (PIL): {img_err}")
         elif not PIL_AVAILABLE:
             err_msg = "Pillow not installed (for dimensions)"
-            metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata['error'] else err_msg
+            metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata["error"] else err_msg
             # Warning printed once at start of parallel extraction
 
     except OSError as e: # Catch OS errors related to file_path access itself
         err_msg = f"OS error accessing file for metadata: {e}"
-        metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata['error'] else err_msg
+        metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata["error"] else err_msg
         print_error(f"Error accessing {metadata['filename']} for metadata: {e}")
     except Exception as e:
         err_msg = f"Unexpected error getting metadata for {metadata['filename']}: {e}"
-        metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata['error'] else err_msg
+        metadata["error"] = f"{metadata['error']}; {err_msg}" if metadata["error"] else err_msg
         print_error(err_msg) # Log the specific error
 
     return metadata
@@ -468,7 +468,7 @@ def save_metadata(metadata_list: list[dict[str, Any]], output_dir_base: str, que
              print_error(f"Cannot save metadata, base output directory '{output_dir_base}' does not exist and couldn't be created.")
              return False
 
-        with open(metadata_file_path, "w", encoding='utf-8') as f:
+        with open(metadata_file_path, "w", encoding="utf-8") as f:
             json.dump(metadata_list, f, indent=4, ensure_ascii=False)
         print_success(f"Metadata saved successfully to: {metadata_file_path}")
         return True
@@ -492,8 +492,7 @@ def get_user_input() -> dict[str, Any]:
         if query:
             inputs["query"] = query
             break
-        else:
-            print_warning("Search query cannot be empty.")
+        print_warning("Search query cannot be empty.")
 
     output_dir_base = input(
         Fore.CYAN + f"📂 Enter Base Output Directory (images go into a query-specific subfolder here) [default: {DEFAULT_OUTPUT_DIR}]: " + Fore.WHITE
@@ -507,8 +506,7 @@ def get_user_input() -> dict[str, Any]:
             if limit > 0:
                 inputs["limit"] = limit
                 break
-            else:
-                print_warning("Number of images must be positive.")
+            print_warning("Number of images must be positive.")
         except ValueError:
             print_error("Invalid input. Please enter a whole number.")
 
@@ -519,13 +517,12 @@ def get_user_input() -> dict[str, Any]:
             if timeout > 0:
                 inputs["timeout"] = timeout
                 break
-            else:
-                print_warning("Timeout must be positive.")
+            print_warning("Timeout must be positive.")
         except ValueError:
             print_error("Invalid input. Please enter a whole number.")
 
     adult_filter_off_input = input(Fore.CYAN + "🔞 Disable adult filter? (y/N): " + Fore.WHITE).strip().lower()
-    inputs["adult_filter_off"] = adult_filter_off_input == 'y'
+    inputs["adult_filter_off"] = adult_filter_off_input == "y"
 
     print_header("🎨 Search Filters (Optional - Press Enter to skip)")
     print_info("Examples: Size:Large, Type:Photo, Color:Monochrome, License:ShareCommercially")
@@ -534,7 +531,7 @@ def get_user_input() -> dict[str, Any]:
     print_info("Layout: Square, Wide, Tall | People: Face, Portrait")
     print_info("Date: PastDay, PastWeek, PastMonth, PastYear")
     print_info("License: Any, Public, Share, ShareCommercially, Modify, ModifyCommercially")
-    
+
     inputs["filters"] = {
         "size": input(Fore.CYAN + "📏 Size: " + Fore.WHITE).strip(),
         "color": input(Fore.CYAN + "🎨 Color: " + Fore.WHITE).strip(),
@@ -634,7 +631,7 @@ def main() -> None:
             print_info("First few metadata entries (up to 5):")
             for item in metadata[:min(5, len(metadata))]:
                 size_str = f"{item.get('file_size_bytes', 'N/A')} bytes"
-                dim_str = item.get('dimensions', 'N/A')
+                dim_str = item.get("dimensions", "N/A")
                 error_str = f" {Fore.RED}(Error: {item['error']})" if item.get("error") else ""
                 print(f"  - {Fore.MAGENTA}{item.get('filename', 'N/A')}{Style.RESET_ALL}: Size: {size_str}, Dims: {dim_str}{error_str}")
             if len(metadata) > 5:

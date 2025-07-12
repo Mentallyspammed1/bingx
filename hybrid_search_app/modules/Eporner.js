@@ -1,22 +1,15 @@
 'use strict';
 
 const AbstractModule = require('../core/AbstractModule.js');
-const VideoMixin = require('../core/VideoMixin.js');
-const { logger, makeAbsolute, extractPreview, sanitizeText, validatePreview } = require('./driver-utils.js');
+const { makeAbsolute, extractPreview, sanitizeText, validatePreview } = require('./driver-utils.js');
 
-const BASE_URL_CONST = 'https://www.eporner.com';
-const DRIVER_NAME_CONST = 'Eporner';
-
-const BaseEpornerClass = AbstractModule.with(VideoMixin);
-
-class EpornerDriver extends BaseEpornerClass {
+class Eporner extends AbstractModule {
     constructor(options = {}) {
         super(options);
-        logger.debug(`[${DRIVER_NAME_CONST}] Initialized.`);
     }
 
-    get name() { return DRIVER_NAME_CONST; }
-    get baseUrl() { return BASE_URL_CONST; }
+    get name() { return 'Eporner'; }
+    get baseUrl() { return 'https://www.eporner.com'; }
     hasVideoSupport() { return true; }
     hasGifSupport() { return false; }
     get firstpage() { return 1; }
@@ -27,7 +20,6 @@ class EpornerDriver extends BaseEpornerClass {
         if (pageNumber > 1) {
             searchUrl.pathname += `/${pageNumber}`;
         }
-        logger.debug(`[${this.name}] Generated videoUrl: ${searchUrl.href}`);
         return searchUrl.href;
     }
 
@@ -35,14 +27,12 @@ class EpornerDriver extends BaseEpornerClass {
         const { type, sourceName } = parserOptions;
         const results = [];
         if (!$) {
-            logger.error(`[${this.name} Parser] Cheerio instance is null or undefined.`);
             return [];
         }
 
         const videoItems = $('div.mb');
 
         if (!videoItems || videoItems.length === 0) {
-            logger.warn(`[${this.name} Parser] No video items found with selectors for type '${type}'.`);
             return [];
         }
 
@@ -54,7 +44,7 @@ class EpornerDriver extends BaseEpornerClass {
 
             let id = '';
             if (relativeUrl) {
-                const idMatch = relativeUrl.match(/\/video-(.*)\//);
+                const idMatch = relativeUrl.match(/\/video-(.*)\/);
                 if (idMatch && idMatch[1]) id = idMatch[1];
             }
 
@@ -66,7 +56,6 @@ class EpornerDriver extends BaseEpornerClass {
             let animatedPreviewUrl = extractPreview($, item, this.name, this.baseUrl);
 
             if (!titleText || !relativeUrl || !id) {
-                logger.warn(`[${this.name} Parser] Item ${i}: Skipping due to missing title, URL, or ID. Title: ${titleText}, URL: ${relativeUrl}, ID: ${id}`);
                 return;
             }
 
@@ -85,9 +74,8 @@ class EpornerDriver extends BaseEpornerClass {
                 type: type
             });
         });
-        logger.debug(`[${this.name} Parser] Parsed ${results.length} items for type '${type}'.`);
         return results;
     }
 }
 
-module.exports = EpornerDriver;
+module.exports = Eporner;

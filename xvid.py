@@ -7,7 +7,7 @@ import sys
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Assuming ratelimit is installed
 from ratelimit import limits, sleep_and_retry  # type: ignore
@@ -16,16 +16,16 @@ from ratelimit import limits, sleep_and_retry  # type: ignore
 
 # Engine mapping for dynamic import
 ENGINE_MODULE_MAP = {
-    'xvideos': {'module': 'xvideos', 'class': 'XVideos'},
-    'pornhub': {'module': 'pornhub', 'class': 'Pornhub'},
-    'redtube': {'module': 'redtube', 'class': 'Redtube'},
-    'youporn': {'module': 'youporn', 'class': 'Youporn'},
+    "xvideos": {"module": "xvideos", "class": "XVideos"},
+    "pornhub": {"module": "pornhub", "class": "Pornhub"},
+    "redtube": {"module": "redtube", "class": "Redtube"},
+    "youporn": {"module": "youporn", "class": "Youporn"},
 }
 
 # ==============================================================================
 # Dynamic PornLib Client Loader
 # ==============================================================================
-def _get_pornlib_client_dynamically(engine_name: str) -> Optional[Any]:
+def _get_pornlib_client_dynamically(engine_name: str) -> Any | None:
     """
     Dynamically imports and returns the pornLib client for the specified engine.
     Assumes 'scoutbaker/pornLib' is installed and its modules (xvideos, pornhub, etc.)
@@ -38,17 +38,17 @@ def _get_pornlib_client_dynamically(engine_name: str) -> Optional[Any]:
         return None
 
     engine_details = ENGINE_MODULE_MAP[engine_name_lower]
-    module_to_import = engine_details['module']
-    class_to_instantiate = engine_details['class']
+    module_to_import = engine_details["module"]
+    class_to_instantiate = engine_details["class"]
 
     try:
         logger.debug(f"Dynamically importing module: '{module_to_import}' for engine '{engine_name}'")
         # Attempt to import the module directly (e.g., 'xvideos', 'pornhub')
         client_module = importlib.import_module(module_to_import)
-        
+
         logger.debug(f"Getting class '{class_to_instantiate}' from module '{module_to_import}'")
         ClientClass = getattr(client_module, class_to_instantiate)
-        
+
         logger.info(f"Successfully loaded class '{class_to_instantiate}' from '{module_to_import}'. Instantiating client.")
         return ClientClass()
 
@@ -76,7 +76,7 @@ def _get_pornlib_client_dynamically(engine_name: str) -> Optional[Any]:
 LOG_LEVEL = logging.DEBUG
 logging.basicConfig(
     level=LOG_LEVEL,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ DEFAULT_ENGINE = "xvideos"
 VALID_ENGINES = list(ENGINE_MODULE_MAP.keys())
 DEFAULT_SOUP_SLEEP = 1.0 # This parameter is passed to PornClient but internal pornLib clients handle actual sleep.
 DEFAULT_FILENAME_PREFIX = "{engine}_search_{query_part}_{timestamp}"
-DEFAULT_AUTO_OPEN = 'y'
+DEFAULT_AUTO_OPEN = "y"
 
 # Fallback image for failed thumbnails - feel free to replace with your custom neon image!
 FALLBACK_THUMBNAIL_URL = "https://via.placeholder.com/280x158.png?text=Thumbnail+Unavailable"
@@ -107,22 +107,22 @@ class VideoDataClass:
     title: str
     img: str # URL for thumbnail
     link: str # URL to the full video page
-    preview_url: Optional[str] = None # URL for the short preview video (e.g., MP4/WebM)
-    quality: Optional[str | int] = None
-    time: Optional[str] = None # Video duration
-    channel_name: Optional[str] = None
-    channel_link: Optional[str] = None
+    preview_url: str | None = None # URL for the short preview video (e.g., MP4/WebM)
+    quality: str | int | None = None
+    time: str | None = None # Video duration
+    channel_name: str | None = None
+    channel_link: str | None = None
 
 @dataclass
 class VideoDownloadDataClass:
-    low: Optional[str] = None
-    high: Optional[str] = None
-    hls: Optional[str] = None # HLS streaming URL
+    low: str | None = None
+    high: str | None = None
+    hls: str | None = None # HLS streaming URL
 
 @dataclass
 class Tags:
-    name: Optional[str] = None
-    id: Optional[str] = None
+    name: str | None = None
+    id: str | None = None
 
 # ==============================================================================
 # PornClient Class
@@ -163,21 +163,20 @@ class PornClient:
         results: list[VideoDataClass] = []
         try:
             # Dynamically determine if the client's search method supports 'page'
-            search_kwargs = {'keyword': query} # 'keyword' is standard in pornLib
-            
+            search_kwargs = {"keyword": query} # 'keyword' is standard in pornLib
+
             # Some clients might take 'limit', others might not.
             # Most pornLib search methods don't standardize 'limit' in the call,
             # results are often sliced after. For now, we assume limit is handled by slicing.
             # If a client explicitly supports 'limit' in its signature, it could be added here.
 
             client_search_signature = inspect.signature(self._client.search)
-            if 'page' in client_search_signature.parameters:
-                search_kwargs['page'] = page
+            if "page" in client_search_signature.parameters:
+                search_kwargs["page"] = page
                 logger.debug(f"Client for '{self.engine}' supports 'page' parameter. Using page={page}.")
-            else:
-                if page != DEFAULT_PAGE: # Only warn if user tried to use a non-default page
-                    logger.warning(f"Client for '{self.engine}' does not support 'page' parameter in its search method. Ignoring page={page}.")
-            
+            elif page != DEFAULT_PAGE: # Only warn if user tried to use a non-default page
+                logger.warning(f"Client for '{self.engine}' does not support 'page' parameter in its search method. Ignoring page={page}.")
+
             # Call the actual pornLib client's search method with appropriate arguments
             logger.debug(f"Calling {self.engine} client search with arguments: {search_kwargs}")
             search_data = self._client.search(**search_kwargs)
@@ -194,19 +193,19 @@ class PornClient:
                     break
 
                 # Extract and validate data, providing fallbacks
-                title: str = item.get('title', 'No Title Available').strip() or 'No Title Available'
-                link: str = item.get('url', '#').strip() or '#'
+                title: str = item.get("title", "No Title Available").strip() or "No Title Available"
+                link: str = item.get("url", "#").strip() or "#"
 
-                img_url_raw: str = item.get('thumb', item.get('img', '')).strip()
-                preview_url_raw: str = item.get('preview', item.get('preview_url', '')).strip()
+                img_url_raw: str = item.get("thumb", item.get("img", "")).strip()
+                preview_url_raw: str = item.get("preview", item.get("preview_url", "")).strip()
 
                 # Validate image URL
-                img_url = img_url_raw if img_url_raw and (img_url_raw.startswith('http://') or img_url_raw.startswith('https://')) else FALLBACK_THUMBNAIL_URL
+                img_url = img_url_raw if img_url_raw and (img_url_raw.startswith("http://") or img_url_raw.startswith("https://")) else FALLBACK_THUMBNAIL_URL
                 if img_url == FALLBACK_THUMBNAIL_URL and img_url_raw:
                     logger.warning(f"Invalid or missing thumbnail URL for video '{title}' (Index {i}): '{img_url_raw}'. Using fallback.")
 
                 # Validate preview URL
-                preview_url: Optional[str] = preview_url_raw if preview_url_raw and (preview_url_raw.startswith('http://') or preview_url_raw.startswith('https://')) else None
+                preview_url: str | None = preview_url_raw if preview_url_raw and (preview_url_raw.startswith("http://") or preview_url_raw.startswith("https://")) else None
                 if preview_url is None and preview_url_raw:
                     logger.warning(f"Invalid or missing preview URL for video '{title}' (Index {i}): '{preview_url_raw}'. Preview will be unavailable.")
 
@@ -215,17 +214,17 @@ class PornClient:
                     img=img_url,
                     link=link,
                     preview_url=preview_url,
-                    time=item.get('duration', item.get('time')), # Duration might be 'time' or 'duration'
-                    channel_name=item.get('channel', item.get('uploader_name')), # Channel might be 'channel' or 'uploader_name'
-                    quality=item.get('quality') # Add quality if available
+                    time=item.get("duration", item.get("time")), # Duration might be 'time' or 'duration'
+                    channel_name=item.get("channel", item.get("uploader_name")), # Channel might be 'channel' or 'uploader_name'
+                    quality=item.get("quality") # Add quality if available
                 ))
             # The 'if len(results) >= limit: break' inside the loop handles the limit.
             # The redundant block below has been removed.
-            
+
             logger.info(f"Successfully parsed {len(results)} videos from {self.engine} for query '{query}'.")
             # If the client doesn't support 'page' and we got results, they are effectively from page 1.
             # The limit is applied to these results.
-            
+
         except Exception as e:
             logger.error(f"Error during search on {self.engine} for query '{query}': {e}", exc_info=True)
             # Depending on severity, you might want to re-raise or return empty results.
@@ -457,7 +456,7 @@ def generate_html_output(videos: list[VideoDataClass], query: str, filename: str
         safe_quality = html.escape(str(video.quality)) if video.quality else "N/A" # Include quality if available
 
         img_alt_text = f"Thumbnail for {safe_title}"
-        preview_attr = f'data-preview-url="{safe_preview_url}"' if safe_preview_url else ''
+        preview_attr = f'data-preview-url="{safe_preview_url}"' if safe_preview_url else ""
 
         # Preload attribute for the first few thumbnails for faster display
         preload_attr = 'preload="auto"' if i < 3 else 'loading="lazy"'
@@ -650,7 +649,7 @@ def is_positive_integer(value: str) -> bool:
 
 def is_yes_no(value: str) -> bool:
     """Checks if the value is 'y' or 'n' (case-insensitive)."""
-    return value.lower() in ['y', 'n']
+    return value.lower() in ["y", "n"]
 
 # ==============================================================================
 # Main Function
@@ -701,7 +700,7 @@ def main():
         is_yes_no,
         "Please enter 'y' or 'n'.",
         DEFAULT_AUTO_OPEN
-    ).lower() == 'y'
+    ).lower() == "y"
 
     logger.info(f"Initializing PornClient for '{engine}'...")
     try:
@@ -714,7 +713,7 @@ def main():
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     # Sanitize query for filename: replace spaces/slashes, truncate to 30 chars
-    query_part = "".join(c for c in query if c.isalnum() or c in (' ', '_'))[:30].replace(' ', '_').strip('_')
+    query_part = "".join(c for c in query if c.isalnum() or c in (" ", "_"))[:30].replace(" ", "_").strip("_")
     if not query_part:
         query_part = "results" # Fallback if query becomes empty after sanitization
 
@@ -725,12 +724,12 @@ def main():
     html_content = generate_html_output(videos, query, str(output_html_filename))
 
     try:
-        with open(output_html_filename, 'w', encoding='utf-8') as f:
+        with open(output_html_filename, "w", encoding="utf-8") as f:
             f.write(html_content)
         logger.info(f"HTML output saved successfully to {output_html_filename}")
 
         if auto_open:
-            webbrowser.open(f'file://{output_html_filename.resolve()}')
+            webbrowser.open(f"file://{output_html_filename.resolve()}")
             logger.info(f"Opened {output_html_filename} in browser.")
     except OSError as e:
         logger.error(f"Failed to write or open HTML file '{output_html_filename}': {e}", exc_info=True)

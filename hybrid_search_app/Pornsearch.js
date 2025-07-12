@@ -233,8 +233,7 @@ var Pornsearch = function () {
     value: async function loadDrivers(options) {
       const drivers = {};
       const modulesDirs = [
-        path.join(__dirname, 'modules'),
-        path.join(__dirname, 'modules', 'custom_scrapers')
+        path.join(__dirname, 'modules')
       ];
 
       for (const modulesDir of modulesDirs) {

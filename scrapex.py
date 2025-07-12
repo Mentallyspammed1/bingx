@@ -16,7 +16,7 @@ from typing import Any
 
 # Third-party Libraries
 from bing_image_downloader import downloader
-from colorama import Back, Fore, Style, init
+from colorama import Back, Fore, init, Style
 from tqdm import tqdm
 
 # Attempt to import Pillow for image metadata; provide guidance if missing
@@ -102,8 +102,8 @@ def print_info(text: str) -> None:
 def sanitize_filename(name: str) -> str:
     """Removes or replaces characters invalid for filenames and truncates."""
     # Remove characters invalid in most file systems
-    sanitized = "".join(c for c in name if c.isalnum() or c in (' ', '_', '-')).rstrip()
-    sanitized = sanitized.replace(' ', '_')  # Replace spaces with underscores
+    sanitized = "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).rstrip()
+    sanitized = sanitized.replace(" ", "_")  # Replace spaces with underscores
     # Limit length
     return sanitized[:MAX_FILENAME_LENGTH]
 
@@ -339,7 +339,7 @@ def save_metadata(metadata_list: list[dict[str, Any]], output_dir: str, query: s
     metadata_file_path = os.path.join(output_dir, metadata_filename)
 
     try:
-        with open(metadata_file_path, "w", encoding='utf-8') as f:
+        with open(metadata_file_path, "w", encoding="utf-8") as f:
             json.dump(metadata_list, f, indent=4, ensure_ascii=False)
         print_success(f"Metadata saved successfully to: {metadata_file_path}")
         return True
@@ -364,8 +364,7 @@ def get_user_input() -> dict[str, Any]:
         if query:
             inputs["query"] = query
             break
-        else:
-            print_warning("Search query cannot be empty.")
+        print_warning("Search query cannot be empty.")
 
     # Output Directory
     output_dir_base = input(
@@ -381,8 +380,7 @@ def get_user_input() -> dict[str, Any]:
             if limit > 0:
                 inputs["limit"] = limit
                 break
-            else:
-                print_warning("Number of images must be positive.")
+            print_warning("Number of images must be positive.")
         except ValueError:
             print_error("Invalid input. Please enter a whole number.")
 
@@ -393,14 +391,13 @@ def get_user_input() -> dict[str, Any]:
             if timeout > 0:
                 inputs["timeout"] = timeout
                 break
-            else:
-                print_warning("Timeout must be positive.")
+            print_warning("Timeout must be positive.")
         except ValueError:
             print_error("Invalid input. Please enter a whole number.")
 
     # Adult Filter
     adult_filter_off_input = input(Fore.CYAN + "🔞 Disable adult filter? (y/N): " + Fore.WHITE).strip().lower()
-    inputs["adult_filter_off"] = adult_filter_off_input == 'y'
+    inputs["adult_filter_off"] = adult_filter_off_input == "y"
 
     # Filter Inputs
     print_header("🎨 Search Filters (Optional)")

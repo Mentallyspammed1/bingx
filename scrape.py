@@ -7,7 +7,7 @@ from datetime import datetime
 
 import requests
 from bing_image_downloader import downloader
-from colorama import Back, Fore, Style, init
+from colorama import Back, Fore, init, Style
 from tqdm import tqdm
 
 # Initialize Colorama

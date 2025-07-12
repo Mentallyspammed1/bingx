@@ -1,124 +1,206 @@
 'use strict';
 
-// Core module and mixins
-const AbstractModule = require('../core/AbstractModule.js');
-const VideoMixin = require('../core/VideoMixin.js');
-const GifMixin = require('../core/GifMixin.js');
+let AbstractModule;
+try {
+    AbstractModule = require('../core/AbstractModule');
+} catch (e) {
+    AbstractModule = class {
+        constructor(query) { this.query = query; }
+        get name() { return 'UnnamedDriver'; }
+        get baseUrl() { return ''; }
+        get supportsVideos() { return false; }
+        get supportsGifs() { return false; }
+        get firstpage() { return 1; }
+    };
+}
 
-const { logger, makeAbsolute, extractPreview, validatePreview, sanitizeText } = require('./driver-utils.js');
+const BASE_URL = 'https://www.sex.com';
+// Frontend driverSelect uses "sex", so orchestrator will likely map "Sex.com" to "sex" or use "sex" as key.
+// Let's use "Sex.com" for display name and assume orchestrator handles mapping if its key is "sex".
+const DRIVER_NAME = 'Sex.com';
 
-const BASE_URL_CONST = 'https://www.sex.com';
-const DRIVER_NAME_CONST = 'Sex.com';
-
-// Apply mixins to AbstractModule
-const BaseSexComClass = AbstractModule.with(VideoMixin, GifMixin);
-
-class SexComDriver extends BaseSexComClass {
-  constructor(options = {}) {
-    super(options);
-    logger.debug(`[${DRIVER_NAME_CONST}] Initialized.`);
-  }
-
-  get name() { return DRIVER_NAME_CONST; }
-  get baseUrl() { return BASE_URL_CONST; }
-  hasVideoSupport() { return true; }
-  hasGifSupport() { return true; }
-  get firstpage() { return 1; }
-
-  getVideoSearchUrl(query, page) {
-    let currentQuery = query || this.query;
-    if (!currentQuery || typeof currentQuery !== 'string' || currentQuery.trim() === '') {
-      throw new Error('[Sex.com Driver] Search query is not set or is empty for video search.');
-    }
-    const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage);
-    const searchUrl = new URL('/search/videos', this.baseUrl);
-    searchUrl.searchParams.set('query', sanitizeText(currentQuery));
-    searchUrl.searchParams.set('page', String(pageNumber));
-    logger.debug(`[${this.name}] Generated videoUrl: ${searchUrl.href}`);
-    return searchUrl.href;
-  }
-
-  getGifSearchUrl(query, page) {
-    let currentQuery = query || this.query;
-    if (!currentQuery || typeof currentQuery !== 'string' || currentQuery.trim() === '') {
-      throw new Error('[Sex.com Driver] Search query is not set or is empty for GIF search.');
-    }
-    const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage);
-    const searchUrl = new URL('/search/gifs', this.baseUrl);
-    searchUrl.searchParams.set('query', sanitizeText(currentQuery));
-    searchUrl.searchParams.set('page', String(pageNumber));
-    logger.debug(`[${this.name}] Generated gifUrl: ${searchUrl.href}`);
-    return searchUrl.href;
-  }
-
-  parseResults($, htmlOrJsonData, parserOptions) {
-    const { type, sourceName } = parserOptions;
-    const results = [];
-    if (!$) {
-      logger.error(`[${this.name} Parser] Cheerio instance is null or undefined.`);
-      return [];
+/**
+ * @class SexComDriver
+ * @classdesc Driver for scraping video and GIF content from Sex.com.
+ */
+class SexComDriver extends AbstractModule {
+    constructor(options = {}) {
+        super(options);
     }
 
-    const itemSelector = type === 'videos' ?
-      'div.masonry_box.video, div.video_preview_box' :
-      'div.masonry_box.gif, div.gif_preview_box';
+    get firstpage() {
+        return 1;
+    }
 
-    $(itemSelector).each((i, el) => {
-      const item = $(el);
+    hasVideoSupport() {
+        return true;
+    }
 
-      const linkElement = item.find('a.image_wrapper, a.box_link, .video_shortlink_container a').first();
-      let pageUrl = linkElement.attr('href');
+    hasGifSupport() {
+        return true;
+    }
 
-      let title = sanitizeText(
-          linkElement.attr('title')?.trim() ||
-          item.find('p.title, h2.title, div.video_title').first().text()?.trim()
-      );
-      if (!title && item.find('p.title a').length) {
-          title = sanitizeText(item.find('p.title a').first().text()?.trim() || item.find('p.title a').first().attr('title')?.trim());
-      }
-      if (!title && item.find('h2.title a').length) {
-           title = sanitizeText(item.find('h2.title a').first().text()?.trim() || item.find('h2.title a').first().attr('title')?.trim());
-      }
+    get name() {
+        return DRIVER_NAME;
+    }
 
-      let id = item.attr('data-id');
-      if (!id && pageUrl) {
-          const match = pageUrl.match(/\/(?:video|gifs|pin)\/(\d+)/);
-          if (match && match[1]) id = match[1];
-      }
+    get baseUrl() {
+        return BASE_URL;
+    }
 
-      const imgElement = item.find('img.responsive_image, img.main_image').first();
-      let thumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
+    /**
+     * Constructs the URL for searching videos on Sex.com.
+     * Example: https://www.sex.com/search/videos?query=test&page=1
+     * @param {string} query - The search query string.
+     * @param {number} page - The page number for search results (1-indexed).
+     * @returns {string} The fully qualified URL for video search.
+     */
+    getVideoSearchUrl(query, page) {
+        if (!query || typeof query !== 'string' || query.trim() === '') {
+            throw new Error(`[${this.name}] Search query is not set for video search.`);
+        }
+        const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
 
-      const previewVideoUrl = extractPreview($, item, this.name, this.baseUrl);
-      const durationText = type === 'videos' ? sanitizeText(item.find('span.duration, span.video_duration').text()?.trim()) : undefined;
+        const searchUrl = new URL('/search/videos', this.baseUrl); // Specific path for videos
+        searchUrl.searchParams.set('query', query.trim());
+        searchUrl.searchParams.set('page', String(searchPage));
 
-      if (!pageUrl || !title || !id) {
-        logger.warn(`[${this.name} Parser] Item ${i} (${type}): Skipping. Missing: ${!pageUrl?'URL ':''}${!title?'Title ':''}${!id?'ID ':''}`);
-        return;
-      }
+        // console.log(`[${this.name}] Generated video URL: ${searchUrl.href}`);
+        return searchUrl.href;
+    }
 
-      const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl);
-      const absoluteThumbnailUrl = makeAbsolute(thumbnailUrl, this.baseUrl);
-      let finalPreviewVideoUrl = validatePreview(previewVideoUrl) ? previewVideoUrl : undefined;
+    /**
+     * Constructs the URL for searching GIFs on Sex.com.
+     * Example: https://www.sex.com/search/gifs?query=test&page=1
+     * @param {string} query - The search query string.
+     * @param {number} page - The page number for search results (1-indexed).
+     * @returns {string} The fully qualified URL for GIF search.
+     */
+    getGifSearchUrl(query, page) {
+        if (!query || typeof query !== 'string' || query.trim() === '') {
+            throw new Error(`[${this.name}] Search query is not set for GIF search.`);
+        }
+        const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
 
-       if (!finalPreviewVideoUrl && type === 'gifs' && absoluteThumbnailUrl?.toLowerCase().endsWith('.gif')) {
-           finalPreviewVideoUrl = absoluteThumbnailUrl;
-       }
+        const searchUrl = new URL('/search/gifs', this.baseUrl); // Specific path for gifs
+        searchUrl.searchParams.set('query', query.trim());
+        searchUrl.searchParams.set('page', String(searchPage));
 
-      results.push({
-        id: id,
-        title: title,
-        url: absoluteUrl,
-        thumbnail: absoluteThumbnailUrl || '',
-        duration: durationText || (type === 'videos' ? 'N/A' : undefined),
-        preview_video: finalPreviewVideoUrl || '',
-        source: sourceName,
-        type: type
-      });
-    });
-    logger.debug(`[${this.name} Parser] Parsed ${results.length} items for type '${type}'.`);
-    return results;
-  }
+        // console.log(`[${this.name}] Generated GIF URL: ${searchUrl.href}`);
+        return searchUrl.href;
+    }
+
+    /**
+     * Parses HTML from a Sex.com search results page.
+     * @param {CheerioAPI} $ - Cheerio object.
+     * @param {string|object} htmlOrJsonData - Raw HTML or JSON data.
+     * @param {object} parserOptions - Options including type, sourceName, query, page.
+     * @returns {Array<object>} Array of MediaResult objects.
+     */
+    parseResults($, htmlOrJsonData, parserOptions) {
+        if (!$) {
+            // console.warn(`[${this.name}] Cheerio object ($) is null. Expecting HTML.`);
+            return [];
+        }
+
+        const results = [];
+        const isGifSearch = parserOptions.type === 'gifs';
+
+        // Selectors for Sex.com are highly speculative and need verification.
+        // Common list item classes: 'masonry_box', 'thumb', 'item'
+        const itemSelector = isGifSearch ?
+            'div.masonry_box.gif, div.gif_preview_box' :
+            'div.masonry_box.video, div.video_preview_box';
+
+        $(itemSelector).each((i, el) => {
+            const item = $(el);
+
+            const linkElement = item.find('a.image_wrapper, a.title_link, a.box_link').first();
+            let pageUrl = linkElement.attr('href');
+
+            let title = item.find('p.title, h2.title, div.video_title').text()?.trim() ||
+                        linkElement.attr('title')?.trim() ||
+                        item.find('img').attr('alt')?.trim();
+
+            if (!pageUrl) {
+                 // Try to find a link within a known wrapper if the primary one failed
+                const fallbackLink = item.find('.image_wrapper a, .video_shortlink_container a').first();
+                pageUrl = fallbackLink.attr('href');
+                if (!title) title = fallbackLink.attr('title')?.trim();
+            }
+
+            if (!pageUrl || !title) {
+                // console.warn(`[${this.name}] Item ${i} (${parserOptions.type}): Skipping due to missing title or page URL.`);
+                return;
+            }
+
+            const imgElement = item.find('img.responsive_image, img.main_image, img.thumb_image').first();
+            let thumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
+
+            let previewUrl;
+            if (isGifSearch) {
+                // For GIFs, the preview is often the thumbnail itself or a specific data attribute for animated version
+                previewUrl = item.find('img[data-gif_url]').attr('data-gif_url') || thumbnailUrl;
+            } else {
+                // For videos, look for data attributes or specific video tags
+                previewUrl = item.find('img[data-preview_url]').attr('data-preview_url') ||
+                             item.find('video.preview_video source').attr('src') ||
+                             item.find('video.preview_video').attr('src');
+            }
+
+            const durationText = isGifSearch ? undefined : item.find('span.duration, .video_duration').text()?.trim();
+
+            // ID extraction for Sex.com (speculative)
+            // URLs might be like /video/123456-title or /gifs/123456-title
+            let mediaId = null;
+            const idMatch = pageUrl.match(/\/(?:video|gifs)\/(\d+)/);
+            if (idMatch && idMatch[1]) {
+                mediaId = idMatch[1];
+            } else {
+                 mediaId = item.attr('data-id') || item.attr('id');
+                 if (mediaId && mediaId.includes('_')) mediaId = mediaId.split('_').pop();
+            }
+
+            const absoluteUrl = this._makeAbsolute(pageUrl, this.baseUrl);
+            const absoluteThumbnail = this._makeAbsolute(thumbnailUrl, this.baseUrl);
+            const absolutePreview = this._makeAbsolute(previewUrl, this.baseUrl);
+
+            if (!absoluteUrl || !title) {
+                 return;
+            }
+
+            results.push({
+                id: mediaId || `sexcom_${parserOptions.type}_${i}`,
+                title: title,
+                url: absoluteUrl,
+                thumbnail: absoluteThumbnail || '',
+                duration: durationText || (isGifSearch ? undefined : 'N/A'),
+                preview_video: absolutePreview || (isGifSearch ? absoluteThumbnail : ''),
+                source: this.name,
+                type: parserOptions.type
+            });
+        });
+
+        // console.log(`[${this.name}] Parsed ${results.length} ${parserOptions.type} items.`);
+        return results;
+    }
+
+    _makeAbsolute(urlString, baseUrl) {
+        if (!urlString || typeof urlString !== 'string' || urlString.trim() === '') return undefined;
+        if (urlString.startsWith('data:image/')) return urlString;
+        try {
+            if (urlString.startsWith('//')) {
+                return new URL(`https:${urlString}`).href;
+            }
+            if (urlString.startsWith('http:') || urlString.startsWith('https:')) {
+                return new URL(urlString).href;
+            }
+            return new URL(urlString, baseUrl).href;
+        } catch (e) {
+            // console.warn(`[${this.name}] Failed to resolve URL: "${urlString}" with base "${baseUrl}"`, e.message);
+            return undefined;
+        }
+    }
 }
 
 module.exports = SexComDriver;

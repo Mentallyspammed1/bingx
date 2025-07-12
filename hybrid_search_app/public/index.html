@@ -529,7 +529,7 @@
                         option.textContent = scraper;
                         driverSelect.appendChild(option);
                     });
-                    driverSelect.value = 'Redtube'; // Default value
+                    driverSelect.value = scrapers[0]; // Default to the first available scraper
                     driverSelect.disabled = false; // Ensure it's enabled
                 }
                 log.info('driverSelect innerHTML after population:', driverSelect.innerHTML);

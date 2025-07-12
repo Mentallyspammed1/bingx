@@ -274,10 +274,24 @@ function sanitizeText(text) {
   return sanitized.length > 0 ? sanitized : undefined;
 }
 
+/**
+ * Centralized error handler for drivers.
+ * @param {Error} error - The error object.
+ * @param {string} driverName - The name of the driver where the error occurred.
+ * @param {string} context - The context of the error (e.g., 'fetching', 'parsing').
+ */
+function handleError(error, driverName, context) {
+    logger.error(`[${driverName}] Error during ${context}:`, error.message);
+    if (error.response) {
+        logger.error(`[${driverName}] Status: ${error.response.status}`);
+    }
+}
+
 module.exports = {
   makeAbsolute,
   extractPreview,
   validatePreview,
   sanitizeText,
-  logger
+  logger,
+  handleError
 };

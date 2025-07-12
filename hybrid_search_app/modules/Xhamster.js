@@ -52,15 +52,6 @@ class XhamsterDriver extends BaseXhamsterClass {
   }
 
   /**
-   * Gets the default starting page number for searches (0-indexed for Xhamster).
-   * @type {number}
-   * @readonly
-   */
-  get firstpage() {
-    return 0; // Xhamster often uses 0-indexed pagination for search results
-  }
-
-  /**
    * Indicates if this driver supports video searches.
    * @returns {boolean}
    */
@@ -86,7 +77,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    */
   getVideoSearchUrl(query, page) {
     const encodedQuery = encodeURIComponent(query.trim().replace(/\s/g, '-')); // Xhamster often uses hyphens for spaces in URLs
-    const pageNumber = Math.max(0, page || this.firstpage); // Ensure page is at least 0
+    const pageNumber = Math.max(0, (parseInt(page, 10) || (this.firstpage + 1)) - 1); // Ensure page is at least 0
 
     // Example: https://www.xhamster.com/videos/search/anal-sex/3
     const url = new URL(`${XHAMSTER_VIDEO_SEARCH_PATH}${encodedQuery}/${pageNumber}/`, this.baseUrl);
@@ -104,7 +95,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    */
   getGifSearchUrl(query, page) {
     const encodedQuery = encodeURIComponent(query.trim().replace(/\s/g, '-')); // Xhamster often uses hyphens for spaces in URLs
-    const pageNumber = Math.max(0, page || this.firstpage); // Ensure page is at least 0
+    const pageNumber = Math.max(0, (parseInt(page, 10) || (this.firstpage + 1)) - 1); // Ensure page is at least 0
 
     // Example: https://www.xhamster.com/gifs/search/cat-gif/1
     const url = new URL(`${XHAMSTER_GIF_SEARCH_PATH}${encodedQuery}/${pageNumber}/`, this.baseUrl);

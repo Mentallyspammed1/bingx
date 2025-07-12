@@ -20,7 +20,6 @@ class XvideosDriver extends BaseXvideosClass {
     get baseUrl() { return BASE_URL_CONST; }
     hasVideoSupport() { return true; }
     hasGifSupport() { return true; }
-    get firstpage() { return 0; } // XVideos uses 0-indexed pagination
 
     getVideoSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {

@@ -22,7 +22,6 @@ class YoupornDriver extends BaseYoupornClass {
   get baseUrl() { return BASE_URL_CONST; }
   hasVideoSupport() { return true; }
   hasGifSupport() { return false; } // Explicitly false
-  get firstpage() { return 1; }
 
   getVideoSearchUrl(query, page) {
     let currentQuery = query || this.query;

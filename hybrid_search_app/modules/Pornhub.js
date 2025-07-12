@@ -16,10 +16,6 @@ class Pornhub extends AbstractModule {
     return 'https://www.pornhub.com';
   }
 
-  get firstpage() {
-    return 1;
-  }
-
   hasVideoSupport() {
     return true;
   }

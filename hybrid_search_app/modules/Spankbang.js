@@ -27,10 +27,6 @@ class SpankbangDriver extends AbstractModule {
         super(options);
     }
 
-    get firstpage() {
-        return 1; // Spankbang pagination is 1-indexed in the path
-    }
-
     hasVideoSupport() {
         return true;
     }

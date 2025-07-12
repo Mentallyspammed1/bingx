@@ -25,7 +25,6 @@ class RedtubeDriver extends BaseRedtubeClass {
     get baseUrl() { return REDTUBE_WEB_BASE_URL; } // For resolving URLs from API response
     hasVideoSupport() { return true; }
     hasGifSupport() { return false; }
-    get firstpage() { return 1; } // Redtube API is 1-indexed
 
     /**
      * Constructs the Redtube API URL for video search.

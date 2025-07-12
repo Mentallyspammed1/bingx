@@ -6,10 +6,6 @@ class Motherless extends AbstractModule {
         super(options);
     }
 
-    get firstpage() {
-        return 1;
-    }
-
     hasVideoSupport() {
         return true;
     }

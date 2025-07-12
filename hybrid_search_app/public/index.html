@@ -443,7 +443,7 @@
         const scrollToTopBtn = document.getElementById('scrollToTopBtn');
 
         const appState = {
-            isLoading: false, currentPage: 1, currentQuery: '', currentDriver: driverSelect.value, currentType: typeSelect.value,
+            isLoading: false, currentPage: 1, currentQuery: '', currentDriver: 'all', currentType: 'videos',
             resultsCache: [], lastFocusedElement: null, maxResultsHeuristic: RESULTS_PER_PAGE_HEURISTIC,
             hoverPlayTimeout: null, hoverPauseTimeout: null, currentAbortController: null,
             favorites: [], showingFavorites: false,
@@ -493,7 +493,6 @@
 
         async function loadScrapers() {
             log.info('Attempting to load scrapers...');
-            const driverSelect = document.getElementById('driverSelect');
             if (!driverSelect) {
                 log.error('driverSelect element not found!');
                 return;
@@ -511,16 +510,17 @@
                 }
                 log.info('Scrapers array received:', scrapers);
 
-                driverSelect.innerHTML = ''; // Clear existing options
+                driverSelect.innerHTML = '';
                 log.info('driverSelect innerHTML cleared.');
+
+                const allOption = document.createElement('option');
+                allOption.value = 'all';
+                allOption.textContent = 'All';
+                driverSelect.appendChild(allOption);
 
                 if (scrapers.length === 0) {
                     log.warn('No scrapers received from API.');
-                    const option = document.createElement('option');
-                    option.value = '';
-                    option.textContent = 'No Scrapers Available';
-                    driverSelect.appendChild(option);
-                    driverSelect.disabled = true; // Disable if no options
+                    driverSelect.value = 'all';
                 } else {
                     scrapers.forEach(scraper => {
                         log.info('Adding scraper option:', scraper);
@@ -529,18 +529,23 @@
                         option.textContent = scraper;
                         driverSelect.appendChild(option);
                     });
-                    driverSelect.value = scrapers[0]; // Default to the first available scraper
-                    driverSelect.disabled = false; // Ensure it's enabled
+                    driverSelect.disabled = false;
                 }
+                driverSelect.value = appState.currentDriver || 'all';
                 log.info('driverSelect innerHTML after population:', driverSelect.innerHTML);
 
             } catch (error) {
                 log.error('Failed to load scrapers:', error);
-                const option = document.createElement('option');
-                option.value = '';
-                option.textContent = 'Error Loading Scrapers';
-                driverSelect.appendChild(option);
-                driverSelect.disabled = true; // Disable on error
+                driverSelect.innerHTML = '';
+                const allOption = document.createElement('option');
+                allOption.value = 'all';
+                allOption.textContent = 'All (error loading others)';
+                driverSelect.appendChild(allOption);
+                const errorOption = document.createElement('option');
+                errorOption.value = '';
+                errorOption.textContent = 'Error Loading Scrapers';
+                errorOption.disabled = true;
+                driverSelect.appendChild(errorOption);
             }
         }
 
@@ -1041,19 +1046,20 @@
 
         function updateURL(replace = false) {
             let newUrl;
-            const currentPath = window.location.pathname; // Keep current path
+            const currentPath = window.location.pathname;
             if (appState.showingFavorites) {
                 newUrl = `${currentPath}#favorites`;
             } else {
                 const params = new URLSearchParams();
                 if (appState.currentQuery) params.set('q', appState.currentQuery);
-                if (appState.currentDriver) params.set('driver', appState.currentDriver);
+                if (appState.currentDriver && appState.currentDriver !== 'all') {
+                    params.set('driver', appState.currentDriver);
+                }
                 if (appState.currentType) params.set('type', appState.currentType);
                 if (appState.currentPage > 1) params.set('page', appState.currentPage);
                 newUrl = `${currentPath}${params.toString() ? '?' + params.toString() : ''}`;
             }
             const historyMethod = replace ? window.history.replaceState : window.history.pushState;
-            // Store less data in history state to avoid exceeding limits
             historyMethod.call(window.history, {
                 currentQuery: appState.currentQuery,
                 currentDriver: appState.currentDriver,
@@ -1071,8 +1077,8 @@
             const urlHasFavoritesHash = window.location.hash === '#favorites';
 
             const query = params.get('q') || state?.currentQuery || '';
-            const driver = params.get('driver') || state?.currentDriver || driverSelect.value;
-            const type = params.get('type') || state?.currentType || typeSelect.value;
+            const driver = state?.currentDriver ?? params.get('driver') ?? 'all';
+            const type = params.get('type') || state?.currentType || 'videos';
             const page = parseInt(params.get('page'), 10) || state?.currentPage || 1;
             const showingFavoritesFromState = state?.showingFavorites || urlHasFavoritesHash;
 
@@ -1086,13 +1092,9 @@
                 return;
             }
 
-            if (appState.showingFavorites) hideFavoritesView(); // Ensure we switch from fav view if needed
+            if (appState.showingFavorites) hideFavoritesView();
 
             if (query) {
-                appState.currentQuery = query;
-                appState.currentDriver = driver;
-                appState.currentType = type;
-                // appState.currentPage will be set by performSearch
                 await performSearch(page, false);
             } else {
                 resultsDiv.innerHTML = '';
@@ -1100,9 +1102,11 @@
                 paginationControls.classList.add('hidden');
                 hideError();
                 setSearchState(false);
-                appState.currentQuery = ''; appState.currentPage = 1; appState.resultsCache = [];
+                appState.currentQuery = '';
+                appState.currentPage = 1;
+                appState.resultsCache = [];
                 if (window.location.search || window.location.hash) {
-                    updateURL(true); // Clean URL if it had params/hash but no query
+                    updateURL(true);
                 }
             }
         }
@@ -1114,7 +1118,11 @@
             const driver = driverSelect.value;
             const type = typeSelect.value;
 
-            if (isUserInitiated && !query) { showError('Please enter a search query.'); searchInput.focus(); return; }
+            if (isUserInitiated && !query) {
+                showError('Please enter a search query.');
+                searchInput.focus();
+                return;
+            }
 
             const isNewSearchContext = query !== appState.currentQuery || driver !== appState.currentDriver || type !== appState.currentType;
             const targetPage = (isUserInitiated && isNewSearchContext) ? 1 : Math.max(1, page);
@@ -1130,13 +1138,14 @@
             setSearchState(true);
             log.info(`PerformSearch: Q='${query}', D='${driver}', T='${type}', P=${targetPage}, UserInitiated=${isUserInitiated}`);
 
-            const apiResponse = await fetchResultsFromApi(query, driver, type, targetPage);
+            const apiDriver = driver === 'all' ? undefined : driver;
+            const apiResponse = await fetchResultsFromApi(query, apiDriver, type, targetPage);
 
             if (query === appState.currentQuery && driver === appState.currentDriver && type === appState.currentType && targetPage === appState.currentPage) {
                 setSearchState(false);
                 if (apiResponse.success) {
                     displaySearchResults(apiResponse.data);
-                    updateURL(isUserInitiated ? false : true);
+                    if (isUserInitiated) updateURL();
                 } else if (!apiResponse.isAbort) {
                     showError(apiResponse.error || 'Failed to fetch results.');
                     displaySearchResults([]);
@@ -1154,12 +1163,7 @@
             clearSearchBtn.style.display = 'none';
             searchInput.focus();
             if (!appState.showingFavorites) {
-                resultsDiv.innerHTML = '';
-                initialMessage?.classList.remove('hidden');
-                paginationControls.classList.add('hidden');
-                hideError();
-                appState.currentQuery = ''; appState.currentPage = 1; appState.resultsCache = [];
-                updateURL(true);
+                clearHistory();
             }
         });
         searchInput.addEventListener('input', () => { clearSearchBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none'; });
@@ -1174,7 +1178,7 @@
         mediaModal.addEventListener('click', (e) => { if (e.target === mediaModal) closeModal(); });
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && mediaModal.classList.contains('is-open')) closeModal(); });
 
-        modal.addEventListener('keydown', (e) => {
+        mediaModal.addEventListener('keydown', (e) => {
             if (e.key === 'Tab' && mediaModal.classList.contains('is-open')) {
                 const focusableElements = Array.from(
                     mediaModal.querySelectorAll('button, [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
@@ -1231,12 +1235,14 @@
             });
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            log.info('DOM fully loaded.');
+        window.addEventListener('popstate', (event) => handleUrlOrState(event.state));
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            log.info('DOM fully loaded and parsed.');
             loadFavorites();
             loadTheme();
-            loadScrapers();
-            handleUrlOrState();
+            await loadScrapers();
+            await handleUrlOrState();
             clearSearchBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none';
         });
 

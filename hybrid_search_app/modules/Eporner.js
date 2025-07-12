@@ -12,15 +12,14 @@ class Eporner extends AbstractModule {
     get baseUrl() { return 'https://www.eporner.com'; }
     hasVideoSupport() { return true; }
     hasGifSupport() { return false; }
-    get firstpage() { return 1; }
 
     getVideoSearchUrl(query, page) {
         const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage);
-        const searchUrl = new URL('/search/' + encodeURIComponent(query) + '/', this.baseUrl);
+        let searchPath = `/search/${encodeURIComponent(query)}/`;
         if (pageNumber > 1) {
-            searchUrl.pathname += `/${pageNumber}`;
+            searchPath += `${pageNumber}`;
         }
-        return searchUrl.href;
+        return new URL(searchPath, this.baseUrl).href;
     }
 
     parseResults($, htmlOrJsonData, parserOptions) {

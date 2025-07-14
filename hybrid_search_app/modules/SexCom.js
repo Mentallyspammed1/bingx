@@ -93,12 +93,16 @@ class SexComDriver extends AbstractModule {
 
         // Selectors for Sex.com are highly speculative and need verification.
         // Common list item classes: 'masonry_box', 'thumb', 'item'
-        const itemSelector = isGifSearch ?
-            'div.masonry_box.gif, div.gif_preview_box' :
-            'div.masonry_box.video, div.video_preview_box';
+        const itemSelector = 'div.masonry_box';
 
         $(itemSelector).each((i, el) => {
             const item = $(el);
+
+            const pageUrlFromVideo = item.find('a[href*="/video/"]').attr('href');
+            const pageUrlFromGif = item.find('a[href*="/gifs/"]').attr('href');
+
+            if (isGifSearch && !pageUrlFromGif) return;
+            if (!isGifSearch && !pageUrlFromVideo) return;
 
             const linkElement = item.find('a.image_wrapper, a.title_link, a.box_link').first();
             let pageUrl = linkElement.attr('href');

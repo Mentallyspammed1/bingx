@@ -97,7 +97,7 @@ const PREVIEW_PLACEHOLDER_REGEX = /(no-preview|nothumb|placeholder|default-thumb
 const PREVIEW_DATA_ATTRIBUTES = [
   'data-preview', 'data-video-preview', 'data-videopreview', 'data-video-url',
   'data-media-url', 'data-previewvideo', 'data-src', 'data-webm', 'data-mp4',
-  'data-gifsrc', 'data-preview-url', 'data-poster-url', 'data-gif-url'
+  'data-gifsrc', 'data-preview-url', 'data-poster-url', 'data-gif-url', 'data-mediabook'
 ];
 
 /**

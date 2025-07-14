@@ -86,16 +86,24 @@ var Pornsearch = function () {
             }
         } else {
             console.log(`  [${driver.name}] Fetching live content from: ${searchUrl}`);
+            const defaultHeaders = {
+                'User-Agent': getRandomUserAgent(),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8,application/json;q=0.7',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': driver.baseUrl
+            };
+
+            let customHeaders = {};
+            if (typeof driver.getCustomHeaders === 'function') {
+                customHeaders = driver.getCustomHeaders();
+            }
+
             const options = {
-                headers: {
-                    'User-Agent': getRandomUserAgent(),
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8,application/json;q=0.7',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'Referer': driver.baseUrl
-                },
+                headers: { ...defaultHeaders, ...customHeaders },
                 timeout: this.config.global.requestTimeout || 15000
             };
+            
             const response = await fetchWithRetry(searchUrl, options);
             rawContent = response.data;
         }

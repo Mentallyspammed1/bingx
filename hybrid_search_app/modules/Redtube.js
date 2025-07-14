@@ -37,7 +37,7 @@ class RedtubeDriver extends BaseRedtubeClass {
         const pageParam = Math.max(1, page || this.firstpage);
 
         const url = new URL(REDTUBE_API_BASE_URL);
-        url.searchParams.set('data', 'redtube.videos.search');
+        url.searchParams.set('data', 'redtube.videos.searchVideos');
         url.searchParams.set('output', 'json');
         url.searchParams.set('search', encodedQuery);
         url.searchParams.set('page', pageParam);

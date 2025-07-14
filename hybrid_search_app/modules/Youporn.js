@@ -36,6 +36,12 @@ class YoupornDriver extends BaseYoupornClass {
     return searchUrl.href;
   }
 
+  getCustomHeaders() {
+    return {
+      'Cookie': 'age_verified=1'
+    };
+  }
+
   parseResults($, htmlOrJsonData, parserOptions) {
     const { type, sourceName } = parserOptions;
     const results = [];
@@ -44,7 +50,7 @@ class YoupornDriver extends BaseYoupornClass {
       return [];
     }
 
-    const videoItems = $('div.video-box, li.video-item, div.thumbnail-video-container');
+    const videoItems = $('div.video-card');
 
     if (!videoItems || videoItems.length === 0) {
       logger.warn(`[${this.name} Parser] No video items found with selectors for type '${type}'.`);
@@ -53,10 +59,9 @@ class YoupornDriver extends BaseYoupornClass {
 
     videoItems.each((i, el) => {
       const item = $(el);
-      const linkElement = item.find('a.video-box-link, a.video-link, a.video-thumb-link').first();
+      const linkElement = item.find('a.video-card-link').first();
       let relativeUrl = linkElement.attr('href');
-      let titleText = sanitizeText(linkElement.attr('title')?.trim() ||
-                      item.find('.video-title, .title-text, .title, .videoDetails > p.video-title, .title-wrapper > p.title').first().text()?.trim());
+      let titleText = sanitizeText(item.find('div.video-card-title').text()?.trim());
 
       let id = item.attr('data-id');
       if (!id && relativeUrl) {
@@ -64,10 +69,10 @@ class YoupornDriver extends BaseYoupornClass {
           if (idMatch && idMatch[1]) id = idMatch[1];
       }
 
-      const imgElement = item.find('img.video-thumbnail, img.thumb, img.video-thumb-img').first();
+      const imgElement = item.find('img.video-card-image').first();
       let staticThumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
 
-      const durationText = sanitizeText(item.find('span.video-duration, span.duration-text, span.duration, span.time').first().text()?.trim());
+      const durationText = sanitizeText(item.find('span.video-duration').first().text()?.trim());
 
       let animatedPreviewUrl = extractPreview($, item, this.name, this.baseUrl);
 

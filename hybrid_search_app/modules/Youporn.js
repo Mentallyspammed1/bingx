@@ -50,7 +50,7 @@ class YoupornDriver extends BaseYoupornClass {
       return [];
     }
 
-    const videoItems = $('div.video-card');
+    const videoItems = $('div[data-segment="video"]');
 
     if (!videoItems || videoItems.length === 0) {
       logger.warn(`[${this.name} Parser] No video items found with selectors for type '${type}'.`);
@@ -59,9 +59,13 @@ class YoupornDriver extends BaseYoupornClass {
 
     videoItems.each((i, el) => {
       const item = $(el);
-      const linkElement = item.find('a.video-card-link').first();
+      // Assume the main link is the primary element within the item
+      const linkElement = item.find('a').first();
+      if (!linkElement.length) return; // Skip if no link found
+
       let relativeUrl = linkElement.attr('href');
-      let titleText = sanitizeText(item.find('div.video-card-title').text()?.trim());
+      // Try to find title from a specific element, or fall back to the link's title attribute
+      let titleText = sanitizeText(item.find('[class*="video-title"]').text()?.trim() || linkElement.attr('title') || '');
 
       let id = item.attr('data-id');
       if (!id && relativeUrl) {
@@ -69,10 +73,10 @@ class YoupornDriver extends BaseYoupornClass {
           if (idMatch && idMatch[1]) id = idMatch[1];
       }
 
-      const imgElement = item.find('img.video-card-image').first();
+      const imgElement = item.find('img').first();
       let staticThumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
 
-      const durationText = sanitizeText(item.find('span.video-duration').first().text()?.trim());
+      const durationText = sanitizeText(item.find('[class*="duration"]').first().text()?.trim());
 
       let animatedPreviewUrl = extractPreview($, item, this.name, this.baseUrl);
 

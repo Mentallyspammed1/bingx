@@ -52,7 +52,7 @@ class Motherless extends AbstractModule {
         }
 
         const isGifSearch = parserOptions.type === 'gifs';
-        const itemSelector = 'div.thumb';
+        const itemSelector = 'a.thumb-link';
 
         $(itemSelector).each((i, el) => {
             const item = $(el);

@@ -76,13 +76,11 @@ class XhamsterDriver extends BaseXhamsterClass {
    * @returns {string} The full URL for the video search.
    */
   getVideoSearchUrl(query, page) {
-    const encodedQuery = encodeURIComponent(query.trim().replace(/\s/g, '-')); // Xhamster often uses hyphens for spaces in URLs
-    const pageNumber = Math.max(0, (parseInt(page, 10) || (this.firstpage + 1)) - 1); // Ensure page is at least 0
-
-    // Example: https://www.xhamster.com/videos/search/anal-sex/3
-    const url = new URL(`${XHAMSTER_VIDEO_SEARCH_PATH}${encodedQuery}/${pageNumber}/`, this.baseUrl);
-    logger.debug(`[${this.name}] Generated video search URL: ${url.href}`);
-    return url.href;
+    const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage);
+    const searchUrl = new URL(`/search/${encodeURIComponent(query.trim())}`, this.baseUrl);
+    searchUrl.searchParams.set('page', String(pageNumber));
+    logger.debug(`[${this.name}] Generated video search URL: ${searchUrl.href}`);
+    return searchUrl.href;
   }
 
   /**
@@ -94,13 +92,11 @@ class XhamsterDriver extends BaseXhamsterClass {
    * @returns {string} The full URL for the GIF search.
    */
   getGifSearchUrl(query, page) {
-    const encodedQuery = encodeURIComponent(query.trim().replace(/\s/g, '-')); // Xhamster often uses hyphens for spaces in URLs
-    const pageNumber = Math.max(0, (parseInt(page, 10) || (this.firstpage + 1)) - 1); // Ensure page is at least 0
-
-    // Example: https://www.xhamster.com/gifs/search/cat-gif/1
-    const url = new URL(`${XHAMSTER_GIF_SEARCH_PATH}${encodedQuery}/${pageNumber}/`, this.baseUrl);
-    logger.debug(`[${this.name}] Generated GIF search URL: ${url.href}`);
-    return url.href;
+    const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage);
+    const searchUrl = new URL(`/search/gif/${encodeURIComponent(query.trim())}`, this.baseUrl);
+    searchUrl.searchParams.set('page', String(pageNumber));
+    logger.debug(`[${this.name}] Generated GIF search URL: ${searchUrl.href}`);
+    return searchUrl.href;
   }
 
   /**

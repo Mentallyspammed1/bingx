@@ -29,7 +29,7 @@ class Eporner extends AbstractModule {
             return [];
         }
 
-        const videoItems = $('div.mb');
+        const videoItems = $('div.hd-video-item');
 
         if (!videoItems || videoItems.length === 0) {
             return [];

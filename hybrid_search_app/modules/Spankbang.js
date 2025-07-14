@@ -53,6 +53,13 @@ class SpankbangDriver extends AbstractModule {
         return searchUrl.href;
     }
 
+    getCustomHeaders() {
+        return {
+            'Upgrade-Insecure-Requests': '1',
+            'Cookie': 'age_verified=1; cookies_accepted=1;'
+        };
+    }
+
     parseResults($, htmlOrJsonData, parserOptions) {
         if (!$) {
             return [];

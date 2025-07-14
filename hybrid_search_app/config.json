@@ -1,5 +1,15 @@
 {
   "defaultStrategy": "custom",
-  "siteOverrides": {},
+  "siteOverrides": {
+    "pornhub": "custom",
+    "redtube": "custom",
+    "xhamster": "custom",
+    "xvideos": "custom",
+    "youporn": "custom",
+    "motherless": "custom",
+    "sex.com": "custom",
+    "spankbang": "custom",
+    "eporner": "custom"
+  },
   "customScrapersMap": {}
 }

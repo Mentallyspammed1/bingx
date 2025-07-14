@@ -2,6 +2,8 @@
 
 const cheerio = require('cheerio');
 const chalk = require('chalk');
+const axios = require('axios');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 
 /**
  * Custom logger with colorized output and log level control.
@@ -22,6 +24,61 @@ const logger = {
     }
   }
 };
+
+/**
+ * A list of common User-Agent strings to rotate through.
+ */
+const USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
+    'Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36'
+];
+
+/**
+ * Selects a random User-Agent from the list.
+ * @returns {string} A User-Agent string.
+ */
+function getRandomUserAgent() {
+    return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
+
+/**
+ * Fetches a URL with a retry mechanism, exponential backoff, and proxy support.
+ * @param {string} url - The URL to fetch.
+ * @param {object} axiosOptions - Options to pass to axios.
+ * @param {number} retries - The maximum number of retries.
+ * @param {number} delay - The initial delay in milliseconds.
+ * @returns {Promise<object>} The axios response object.
+ */
+async function fetchWithRetry(url, axiosOptions = {}, retries = 3, delay = 1000) {
+    const proxyUrl = process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
+    if (proxyUrl) {
+        logger.debug(`Using proxy: ${proxyUrl}`);
+        axiosOptions.httpsAgent = new HttpsProxyAgent(proxyUrl);
+        axiosOptions.proxy = false; // Axios needs this to be false when using an agent
+    }
+
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await axios(url, axiosOptions);
+            return response;
+        } catch (error) {
+            const isRetryable = error.response && (error.response.status === 429 || error.response.status >= 500);
+            logger.error(`[fetchWithRetry] Attempt ${i + 1}/${retries} failed for ${url}: ${error.message}`);
+
+            if (isRetryable && i < retries - 1) {
+                logger.warn(`[fetchWithRetry] Retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2; // Exponential backoff
+            } else {
+                throw error; // Re-throw if not retryable or all retries fail
+            }
+        }
+    }
+}
+
 
 /**
  * Common video formats and HLS streams regex.
@@ -293,5 +350,7 @@ module.exports = {
   validatePreview,
   sanitizeText,
   logger,
-  handleError
+  handleError,
+  getRandomUserAgent,
+  fetchWithRetry
 };

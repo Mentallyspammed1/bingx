@@ -583,16 +583,10 @@
             mediaContainer.appendChild(staticThumbImg);
 
             if (animatedPreviewUrl) {
-                const isDirectGifPreview = animatedPreviewUrl.toLowerCase().endsWith('.gif');
-                if (isDirectGifPreview && itemActualType === 'gifs') {
-                    const gifPreviewImg = document.createElement('img');
-                    gifPreviewImg.src = animatedPreviewUrl;
-                    gifPreviewImg.alt = '';
-                    gifPreviewImg.loading = 'lazy';
-                    gifPreviewImg.className = 'preview-gif-image';
-                    gifPreviewImg.onerror = () => { log.warn(`Animated GIF preview load failed: ${animatedPreviewUrl}`); gifPreviewImg.remove(); };
-                    mediaContainer.appendChild(gifPreviewImg);
-                } else if (!isDirectGifPreview && itemActualType === 'videos') {
+                const isVideoPreview = animatedPreviewUrl.toLowerCase().endsWith('.mp4') || animatedPreviewUrl.toLowerCase().endsWith('.webm') || animatedPreviewUrl.toLowerCase().endsWith('.mov');
+                const isGifPreview = animatedPreviewUrl.toLowerCase().endsWith('.gif');
+
+                if (isVideoPreview) {
                     const videoPreviewEl = document.createElement('video');
                     videoPreviewEl.src = animatedPreviewUrl;
                     videoPreviewEl.poster = staticThumbnailUrl;
@@ -600,8 +594,16 @@
                     videoPreviewEl.className = 'preview-video';
                     videoPreviewEl.onerror = (e) => { log.warn(`Preview video load failed: ${animatedPreviewUrl}`, e); videoPreviewEl.remove(); };
                     mediaContainer.appendChild(videoPreviewEl);
+                } else if (isGifPreview) {
+                    const gifPreviewImg = document.createElement('img');
+                    gifPreviewImg.src = animatedPreviewUrl;
+                    gifPreviewImg.alt = '';
+                    gifPreviewImg.loading = 'lazy';
+                    gifPreviewImg.className = 'preview-gif-image';
+                    gifPreviewImg.onerror = () => { log.warn(`Animated GIF preview load failed: ${animatedPreviewUrl}`); gifPreviewImg.remove(); };
+                    mediaContainer.appendChild(gifPreviewImg);
                 } else {
-                     log.warn(`Preview URL ${animatedPreviewUrl} type does not match item type ${itemActualType} or is not a recognized video format. Static thumb will be shown.`);
+                     log.warn(`Preview URL ${animatedPreviewUrl} is not a recognized video or GIF format. Static thumb will be shown.`);
                 }
             }
 

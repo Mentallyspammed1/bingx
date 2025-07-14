@@ -1,18 +1,7 @@
 'use strict';
 
-let AbstractModule;
-try {
-    AbstractModule = require('../core/AbstractModule');
-} catch (e) {
-    AbstractModule = class {
-        constructor(query) { this.query = query; }
-        get name() { return 'UnnamedDriver'; }
-        get baseUrl() { return ''; }
-        get supportsVideos() { return false; }
-        get supportsGifs() { return false; }
-        get firstpage() { return 1; }
-    };
-}
+const AbstractModule = require('../core/AbstractModule');
+const { makeAbsolute, extractPreview, sanitizeText } = require('./driver-utils.js');
 
 const BASE_URL = 'https://www.sex.com';
 // Frontend driverSelect uses "sex", so orchestrator will likely map "Sex.com" to "sex" or use "sex" as key.
@@ -133,16 +122,7 @@ class SexComDriver extends AbstractModule {
             const imgElement = item.find('img.responsive_image, img.main_image, img.thumb_image').first();
             let thumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
 
-            let previewUrl;
-            if (isGifSearch) {
-                // For GIFs, the preview is often the thumbnail itself or a specific data attribute for animated version
-                previewUrl = item.find('img[data-gif_url]').attr('data-gif_url') || thumbnailUrl;
-            } else {
-                // For videos, look for data attributes or specific video tags
-                previewUrl = item.find('img[data-preview_url]').attr('data-preview_url') ||
-                             item.find('video.preview_video source').attr('src') ||
-                             item.find('video.preview_video').attr('src');
-            }
+            let previewUrl = extractPreview($, item, this.name, this.baseUrl);
 
             const durationText = isGifSearch ? undefined : item.find('span.duration, .video_duration').text()?.trim();
 
@@ -157,9 +137,9 @@ class SexComDriver extends AbstractModule {
                  if (mediaId && mediaId.includes('_')) mediaId = mediaId.split('_').pop();
             }
 
-            const absoluteUrl = this._makeAbsolute(pageUrl, this.baseUrl);
-            const absoluteThumbnail = this._makeAbsolute(thumbnailUrl, this.baseUrl);
-            const absolutePreview = this._makeAbsolute(previewUrl, this.baseUrl);
+            const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl);
+            const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl);
+            const absolutePreview = makeAbsolute(previewUrl, this.baseUrl);
 
             if (!absoluteUrl || !title) {
                  return;
@@ -179,23 +159,6 @@ class SexComDriver extends AbstractModule {
 
         // console.log(`[${this.name}] Parsed ${results.length} ${parserOptions.type} items.`);
         return results;
-    }
-
-    _makeAbsolute(urlString, baseUrl) {
-        if (!urlString || typeof urlString !== 'string' || urlString.trim() === '') return undefined;
-        if (urlString.startsWith('data:image/')) return urlString;
-        try {
-            if (urlString.startsWith('//')) {
-                return new URL(`https:${urlString}`).href;
-            }
-            if (urlString.startsWith('http:') || urlString.startsWith('https:')) {
-                return new URL(urlString).href;
-            }
-            return new URL(urlString, baseUrl).href;
-        } catch (e) {
-            // console.warn(`[${this.name}] Failed to resolve URL: "${urlString}" with base "${baseUrl}"`, e.message);
-            return undefined;
-        }
     }
 }
 

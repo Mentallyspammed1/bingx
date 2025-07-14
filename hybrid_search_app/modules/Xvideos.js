@@ -57,7 +57,7 @@ class XvideosDriver extends BaseXvideosClass {
 
         $(itemSelector).each((i, el) => {
             const item = $(el);
-            let title, pageUrl, thumbnailUrl, previewVideoUrl, durationText, videoId;
+            let title, pageUrl, thumbnailUrl, durationText, videoId;
 
             videoId = item.attr('data-id');
             if(!videoId) {
@@ -76,13 +76,6 @@ class XvideosDriver extends BaseXvideosClass {
                 pageUrl = titleLink.attr('href');
                 const imgElement = item.find('div.thumb img, div.thumb-inside img.gif_pic, img.thumb').first();
                 thumbnailUrl = imgElement.attr('src');
-                previewVideoUrl = imgElement.attr('data-src');
-                if (!previewVideoUrl && thumbnailUrl && thumbnailUrl.toLowerCase().endsWith('.gif')) {
-                    previewVideoUrl = thumbnailUrl;
-                }
-                if (previewVideoUrl && (!thumbnailUrl || thumbnailUrl.toLowerCase().endsWith('.gif'))) {
-                    thumbnailUrl = previewVideoUrl.replace(/\.gif$/i, '.jpg');
-                }
                  if (!videoId && pageUrl) {
                     const idMatch = pageUrl.match(/\/gifs\/(\d+)/);
                     if (idMatch && idMatch[1]) videoId = idMatch[1];
@@ -97,7 +90,6 @@ class XvideosDriver extends BaseXvideosClass {
                 durationText = sanitizeText(item.find('p.metadata span.duration').text()?.trim());
                 const imgElement = item.find('div.thumb-inside img').first();
                 thumbnailUrl = imgElement.attr('data-src');
-                previewVideoUrl = extractPreview($, item, this.name, this.baseUrl);
                 if (!videoId && pageUrl) {
                     const idMatch = pageUrl.match(/\/video(\d+)\//);
                     if (idMatch && idMatch[1]) videoId = idMatch[1];
@@ -109,13 +101,9 @@ class XvideosDriver extends BaseXvideosClass {
                 return;
             }
 
+            const previewVideoUrl = extractPreview($, item, this.name, this.baseUrl);
             const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl);
             const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl);
-            let finalPreview = validatePreview(previewVideoUrl) ? previewVideoUrl : undefined;
-
-            if (!finalPreview && isGifSearch && absoluteThumbnail?.toLowerCase().endsWith('.gif')) {
-                 finalPreview = absoluteThumbnail;
-            }
 
             results.push({
                 id: videoId,
@@ -123,7 +111,7 @@ class XvideosDriver extends BaseXvideosClass {
                 url: absoluteUrl,
                 thumbnail: absoluteThumbnail || '',
                 duration: isGifSearch ? undefined : (durationText || 'N/A'),
-                preview_video: validatePreview(finalPreview) ? finalPreview : '',
+                preview_video: previewVideoUrl || '',
                 source: sourceName,
                 type: type
             });

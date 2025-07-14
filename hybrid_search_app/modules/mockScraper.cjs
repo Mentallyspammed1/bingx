@@ -2,20 +2,7 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 
-let AbstractModule;
-try {
-    AbstractModule = require('../core/AbstractModule.js');
-} catch (e) {
-    console.error("Failed to load AbstractModule from ../core/, ensure path is correct for mockScraper.", e);
-    AbstractModule = class {
-        constructor(options = {}) { this.query = options.query; }
-        get name() { return 'UnnamedDriver'; }
-        get baseUrl() { return ''; }
-        get supportsVideos() { return false; }
-        get supportsGifs() { return false; }
-        get firstpage() { return 1; }
-     };
-}
+const AbstractModule = require('../core/AbstractModule.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 var _VideoMixin = require('../core/VideoMixin.js');

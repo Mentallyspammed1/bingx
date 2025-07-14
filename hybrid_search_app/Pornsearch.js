@@ -9,9 +9,9 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 const fs = require('fs').promises;
 const path = require('path');
-const axios = require('axios');
 const cheerio = require('cheerio');
 
+const { fetchWithRetry, getRandomUserAgent } = require('./modules/driver-utils.js');
 const VideoMixin = require('./core/VideoMixin.js');
 const GifMixin = require('./core/GifMixin.js');
 const DummyBaseClassForMixinCheck = class {};
@@ -86,16 +86,17 @@ var Pornsearch = function () {
             }
         } else {
             console.log(`  [${driver.name}] Fetching live content from: ${searchUrl}`);
-            const response = await axios.get(searchUrl, {
+            const options = {
                 headers: {
-                    'User-Agent': this.config.global.defaultUserAgent || 'Mozilla/5.0',
+                    'User-Agent': getRandomUserAgent(),
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8,application/json;q=0.7',
                     'Accept-Language': 'en-US,en;q=0.9',
                     'Accept-Encoding': 'gzip, deflate, br',
                     'Referer': driver.baseUrl
                 },
                 timeout: this.config.global.requestTimeout || 15000
-            });
+            };
+            const response = await fetchWithRetry(searchUrl, options);
             rawContent = response.data;
         }
         return rawContent;

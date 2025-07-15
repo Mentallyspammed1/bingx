@@ -1,168 +1,130 @@
 'use strict';
 
-const AbstractModule = require('../core/AbstractModule.js');
-const { logger, makeAbsolute, extractPreview, sanitizeText } = require('./driver-utils.js');
 
-class Pornhub extends AbstractModule {
-  constructor(options = {}) {
-    super(options);
-  }
 
-  get name() {
-    return 'Pornhub';
-  }
 
-  get baseUrl() {
-    return 'https://www.pornhub.com';
-  }
 
-  hasVideoSupport() {
-    return true;
-  }
 
-  hasGifSupport() {
-    return true;
-  }
+const _possibleConstructorReturn = require('@babel/runtime/helpers/possibleConstructorReturn');
+const _inherits = require('@babel/runtime/helpers/inherits');
+const { VideoMixin, AbstractModule } = require('../core/index');
+const config = require('../config');
+const { makeAbsolute, extractPreview, logger } = require('../core/utils');
 
-  getVideoSearchUrl(query, page) {
-    const encodedQuery = encodeURIComponent(query.trim());
-    const pageNumber = Math.max(1, page || this.firstpage);
+const BASE_URL = 'https://www.pornhub.com';
+const NAME = 'pornhub';
+const SEARCH_PATH = '/video/search';
+const VIDEO_PATTERN = '/view_video.php';
+const ID_PATTERN = /viewkey=([\w-]+)/;
 
-    const url = new URL('/video/search', this.baseUrl);
-    url.searchParams.set('search', encodedQuery);
-    url.searchParams.set('page', String(pageNumber));
-
-    return url.href;
-  }
-
-  getGifSearchUrl(query, page) {
-    const encodedQuery = encodeURIComponent(query.trim());
-    const pageNumber = Math.max(1, page || this.firstpage);
-
-    const url = new URL('/gifs/search', this.baseUrl);
-    url.searchParams.set('search', encodedQuery);
-    url.searchParams.set('page', String(pageNumber));
-
-    return url.href;
-  }
-
-  parseResults($, rawData, options) {
-    const { type, sourceName } = options;
-    const results = [];
-
-    if (!$) {
-      return [];
-    }
-
-    if ($('#videoSearchResult .no-results-found, .no-results-found-container').length > 0) {
-      return [];
-    }
-
-    if (type === 'videos') {
-      const videoItems = $('div.phimage, .video-item, .videoblock');
-
-      if (!videoItems.length) {
-        return [];
-      }
-
-      videoItems.each((index, element) => {
-        const item = $(element);
-
-        const linkElement = item.find('a[href*="/view_video.php"], a[href*="/video/"], a.link-videos').first();
-        let videoUrl = linkElement.attr('href');
-
-        let videoId = videoUrl ? videoUrl.match(/viewkey=([a-zA-Z0-9]+)/)?.[1] : null;
-        if (!videoId && videoUrl) {
-            const pathSegments = videoUrl.split('/');
-            videoId = pathSegments[pathSegments.length - 2];
-            if (videoId && !/^\d+$/.test(videoId)) videoId = null;
-        }
-        if (!videoId) videoId = item.attr('data-id');
-
-        let title = linkElement.attr('title') || item.find('img').attr('alt') || item.find('.title, .video-title').text();
-        title = sanitizeText(title);
-
-        const thumbElement = item.find('img[src], img[data-src]').first();
-        let thumbnailUrl = thumbElement.attr('data-src') || thumbElement.attr('src');
-        if (thumbnailUrl && thumbnailUrl.includes('nothumb')) thumbnailUrl = undefined;
-
-        let duration = item.find('var.duration, span.duration').text();
-        duration = sanitizeText(duration);
-
-        const previewVideoUrl = extractPreview($, item, sourceName, this.baseUrl);
-
-        if (!videoUrl || !title || !thumbnailUrl || !videoId) {
-          return;
-        }
-
-        videoUrl = makeAbsolute(videoUrl, this.baseUrl);
-        thumbnailUrl = makeAbsolute(thumbnailUrl, this.baseUrl);
-
-        if (!videoUrl || !thumbnailUrl) {
-           return;
-        }
-
-        results.push({
-          id: videoId,
-          title: title,
-          url: videoUrl,
-          duration: duration,
-          thumbnail: thumbnailUrl,
-          preview_video: previewVideoUrl,
-          source: sourceName,
-          type: 'videos'
-        });
-      });
-
-    } else if (type === 'gifs') {
-      const gifItems = $('li.gifVideoBlock, .gif-item, .gif-thumb');
-
-      if (!gifItems.length) {
-        return [];
-      }
-
-      gifItems.each((index, element) => {
-        const item = $(element);
-
-        const linkElement = item.find('a').first();
-        let gifPageUrl = linkElement.attr('href');
-
-        let gifId = gifPageUrl ? gifPageUrl.match(/\/gifs\/([a-zA-Z0-9]+)/)?.[1] : null;
-        if (!gifId) gifId = item.attr('data-id');
-
-        let title = linkElement.attr('title') || item.find('img').attr('alt') || item.find('.title, .gif-title').text();
-        title = sanitizeText(title);
-
-        const animatedGifUrl = extractPreview($, item, sourceName, this.baseUrl);
-
-        const thumbElement = item.find('img[src], img[data-src]').first();
-        let thumbnailUrl = thumbElement.attr('data-src') || thumbElement.attr('src');
-        if (thumbnailUrl && thumbnailUrl.includes('nothumb')) thumbnailUrl = undefined;
-
-        if (!gifPageUrl || !title || !animatedGifUrl || !thumbnailUrl || !gifId) {
-          return;
-        }
-
-        gifPageUrl = makeAbsolute(gifPageUrl, this.baseUrl);
-        thumbnailUrl = makeAbsolute(thumbnailUrl, this.baseUrl);
-
-        if (!gifPageUrl || !thumbnailUrl) {
-           return;
-        }
-
-        results.push({
-          id: gifId,
-          title: title,
-          url: gifPageUrl,
-          thumbnail: thumbnailUrl,
-          preview_video: animatedGifUrl,
-          source: sourceName,
-          type: 'gifs'
-        });
-      });
-    }
-    return results;
-  }
+if (!AbstractModule?.with) {
+  throw new Error('AbstractModule.with is undefined');
 }
 
-module.exports = Pornhub;
+/**
+ * @typedef {Object} MediaResult
+ * @property {string} id
+ * @property {string} title
+ * @property {string} url
+ * @property {string} [preview_video]
+ * @property {string} [thumbnail]
+ * @property {string} [duration]
+ */
+
+/**
+ * @class Pornhub
+ * @extends AbstractModule
+ * @mixes VideoMixin
+ */
+const Pornhub = (function (_AbstractModule$with) {
+  (0, _inherits)(Pornhub, _AbstractModule$with);
+
+  function Pornhub() {
+    (0, _classCallCheck)(this, Pornhub);
+    return (0, _possibleConstructorReturn)(this, (Pornhub.__proto__ || (0, _getPrototypeOf)(Pornhub)).apply(this, arguments));
+  }
+
+  (0, _createClass)(Pornhub, [{
+    key: 'videoUrl',
+    value: function videoUrl(page) {
+      if (!this.query) {
+        throw new Error(`pornhub: Search query is not set`);
+      }
+      const searchUrl = new URL(SEARCH_PATH, BASE_URL);
+      searchUrl.searchParams.set('search', encodeURIComponent(this.query.trim().replace(/\s+/g, ' ')));
+      const pageNum = page !== undefined ? page : this.firstpage;
+      searchUrl.searchParams.set(config.drivers[NAME].pageParam, String(pageNum + 1));
+      logger.info(`Forging video URL for pornhub`, { url: searchUrl.href });
+      return searchUrl.href;
+    }
+  }, {
+    key: 'videoParser',
+    value: function videoParser($) {
+      // IMPORTANT: Verify selectors using browser DevTools (Inspect Element on https://www.pornhub.com/video/search?search=test).
+      // These are speculative and may need adjustment based on live HTML structure.
+      const selectors = [
+        'li.pcVideoListItem',
+        'li.videoBox',
+        'div.videoWrapper'
+      ];
+      const videoItems = selectors.reduce((items, sel) => items.length ? items : $(sel), $([]));
+      if (!videoItems.length) {
+        logger.warn(`No videos found for pornhub`, { selectors });
+        return [];
+      }
+
+      const results = [];
+      videoItems.each((i, el) => {
+        const item = $(el);
+        const link = item.find('a[href*="/view_video.php"]').first();
+        const title = item.find('span.title a').text()?.trim() ||
+                      item.find('img').attr('alt')?.trim();
+        const url = link.attr('href');
+
+        if (!title || !url || !url.includes('/view_video.php')) {
+          logger.warn(`Skipping video ${i} for pornhub: invalid data`, { title, url });
+          return;
+        }
+
+        const duration = item.find('var.duration').text()?.trim();
+        const img = item.find('img[data-mediumthumb]').first();
+        const thumbnail = img.attr('data-mediumthumb')?.trim() || img.attr('src')?.trim();
+        const preview = extractPreview($, item, 'pornhub');
+
+        const idMatch = url.match(ID_PATTERN);
+        const id = idMatch ? idMatch[1] : url;
+
+        if (i < 1) {
+          // Uncomment for debugging: console.log(item.html());
+          logger.info(`Parsed video ${i} for pornhub`, { title, url, preview });
+        }
+
+        results.push({
+          id: id || 'N/A',
+          title: title || 'Untitled',
+          url: makeAbsolute(url, BASE_URL),
+          duration: duration || 'N/A',
+          thumbnail: makeAbsolute(thumbnail, BASE_URL),
+          preview_video: makeAbsolute(preview, BASE_URL)
+        });
+      });
+
+      logger.info(`Parsed ${results.length} videos for pornhub`);
+      return results;
+    }
+  }, {
+    key: 'name',
+    get: function get() {
+      return NAME;
+    }
+  }, {
+    key: 'firstpage',
+    get: function get() {
+      return config.drivers[NAME].firstPage;
+    }
+  }]);
+  return Pornhub;
+})(AbstractModule.with(VideoMixin));
+
+exports.default = Pornhub;
+module.exports = exports['default'];

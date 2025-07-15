@@ -1,4 +1,4 @@
-"""'use strict';
+'use strict';
 
 // Core module and mixins
 const AbstractModule = require('../core/AbstractModule.js');
@@ -86,4 +86,3 @@ class YoupornDriver extends BaseYoupornClass {
 }
 
 module.exports = YoupornDriver;
-""

@@ -9,7 +9,7 @@ const GifMixin = require('../core/GifMixin.js');
 const { logger, makeAbsolute, extractPreview, sanitizeText } = require('./driver-utils.js');
 
 // Base URL for Xhamster.com
-const XHAMSTER_BASE_URL = 'https://www.xhamster.com';
+const BASE_URL = 'https://www.xhamster.com';
 const XHAMSTER_VIDEO_SEARCH_PATH = '/videos/search/'; // Path for video search
 const XHAMSTER_GIF_SEARCH_PATH = '/gifs/search/'; // Path for GIF search
 const DRIVER_NAME = 'Xhamster';

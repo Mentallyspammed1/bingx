@@ -97,7 +97,7 @@ class SpankbangDriver extends AbstractModule {
             const durationText = isGifSearch ? undefined : sanitizeText(item.find('div.l, span.duration, div.dur').text()?.trim());
 
             let mediaId = null;
-            const idMatch = pageUrl.match(/^\/([a-zA-Z0-9]+)\/(?:video|gif)\//);
+            const idMatch = pageUrl.match(/^\/([a-zA-Z0-9]+)\/(?:video|gif)\/$/);
             if (idMatch && idMatch[1]) {
                 mediaId = idMatch[1];
             } else {

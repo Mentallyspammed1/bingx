@@ -8,22 +8,52 @@ extracts comprehensive local file metadata (size, dimensions, format, mode,
 DPI, GIF frame count, animation status),
 saves the metadata to a JSON file in the base output directory,
 and generates a master manifest JSON file for web viewing.
+Incorporates duplicate detection using perceptual hashing (pHash)
+to prevent re-downloading or storing identical images.
 """
 
-import glob  # Channeling the glob spirits for manifest generation
 import json
 import logging
 import os
+import argparse
 import sys
+import shutil # For safely moving files in deduplication
 from concurrent.futures import Future, ThreadPoolExecutor
-from datetime import datetime
-from typing import Any  # Tuple removed
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Set
 
 # Third-party Libraries
 # requests is used implicitly by bing_image_downloader
-from bing_image_downloader import downloader
-from colorama import Back, Fore, init, Style
-from tqdm import tqdm
+# It's good practice to explicitly import if you're using it directly elsewhere too
+import requests
+
+try:
+    from bing_image_downloader import downloader
+except ImportError:
+    print("Error: The 'bing-image-downloader' library is not installed.")
+    print("Please install it using: pip install bing-image-downloader")
+    sys.exit(1)
+
+try:
+    from colorama import Back, Fore, init, Style
+    COLORAMA_AVAILABLE = True
+except ImportError:
+    COLORAMA_AVAILABLE = False
+    class NoColor: # Dummy class if colorama is not available
+        def __getattr__(self, name): return ""
+    Fore = NoColor()
+    Back = NoColor()
+    Style = NoColor()
+    def init(autoreset=True): pass # Dummy init
+
+try:
+    from tqdm import tqdm
+    TQDM_AVAILABLE = True
+except ImportError:
+    TQDM_AVAILABLE = False
+    def tqdm(iterable, *args, **kwargs): return iterable # Dummy tqdm
+
 
 # Attempt to import Pillow for image metadata; provide guidance if missing
 try:
@@ -35,15 +65,34 @@ except ImportError:
     UnidentifiedImageError = None  # type: ignore
     ImageSequence = None # type: ignore
 
+# Attempt to import imagehash for perceptual hashing
+try:
+    import imagehash
+    IMAGEHASH_AVAILABLE = True
+except ImportError:
+    IMAGEHASH_AVAILABLE = False
+    imagehash = None # type: ignore
 
-# --- Constants: The Pillars of the Operation ---
-DEFAULT_OUTPUT_DIR: str = "downloads"
-MAX_FILENAME_LENGTH: int = 200  # Max length for base filename derived from query
-METADATA_FILENAME_PREFIX: str = "metadata_"
-MASTER_MANIFEST_FILENAME: str = "master_image_manifest.json" # The grand ledger of images
+
+# --- Configuration: Tuning the Arcane Constants ---
+class Config:
+    """Centralized configuration for the image downloader script."""
+    DEFAULT_OUTPUT_DIR: Path = Path("bing_images")
+    MAX_FILENAME_LENGTH: int = 128
+    METADATA_FILENAME_PREFIX: str = "metadata_query_"
+    MASTER_MANIFEST_FILENAME: str = "master_manifest.json"
+    # Increased workers for I/O bound task, capped at reasonable number
+    MAX_METADATA_WORKERS: int = min(32, (os.cpu_count() or 1) * 2 + 8)
+    RENAME_COLLISION_LIMIT: int = 500 # Increased collision limit for sequential renaming
+    PHASH_THRESHOLD: int = 5 # pHash difference threshold for duplicates (lower is stricter)
+    # File extensions to prioritize for image metadata extraction if there are multiple files
+    # with the same base name but different extensions (e.g., .webp and .jpg)
+    PREFERRED_IMAGE_EXTENSIONS: List[str] = [".png", ".jpeg", ".jpg", ".gif", ".webp", ".bmp"]
+
 
 # --- Initialize Colorama: Infusing the Terminal with Light ---
-init(autoreset=True)
+if COLORAMA_AVAILABLE:
+    init(autoreset=True)
 
 
 # --- Configure Colored Logging: Whispers from the Ether ---
@@ -55,35 +104,37 @@ class ColoredFormatter(logging.Formatter):
         "WARNING": Fore.YELLOW,
         "ERROR": Fore.RED,
         "CRITICAL": Fore.RED + Back.WHITE + Style.BRIGHT,
-    }
+    } if COLORAMA_AVAILABLE else {} # Empty if colorama not available
 
     def format(self, record: logging.LogRecord) -> str:
         """Formats the log record with appropriate colors."""
+        color_prefix = self.COLORS.get(record.levelname, "")
+        color_suffix = Style.RESET_ALL if COLORAMA_AVAILABLE else ""
         log_fmt = (
-            f"%(asctime)s - {self.COLORS.get(record.levelname, Fore.WHITE)}"
-            f"%(levelname)s{Style.RESET_ALL} - %(message)s"
+            f"%(asctime)s - {color_prefix}%(levelname)s{color_suffix} - %(message)s"
         )
         formatter = logging.Formatter(log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
         return formatter.format(record)
 
 
 # Setup Logger: The Oracle's Voice
-logger = logging.getLogger(__name__)  # Using __name__ for hierarchical wisdom
-logger.propagate = False  # Preventing echoes from the root logger
-if not logger.handlers:  # Ensuring the oracle speaks but once
-    handler = logging.StreamHandler(sys.stdout)  # Directing whispers to stdout
-    handler.setFormatter(ColoredFormatter())  # Applying Pyrmethus's color sigils
+logger = logging.getLogger(__name__)
+logger.propagate = False
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(ColoredFormatter())
     logger.addHandler(handler)
-logger.setLevel(logging.INFO)  # Setting the default level of revelation
+logger.setLevel(logging.INFO) # Default to INFO, can be overridden by args
 
 
 # --- User Feedback Functions: Guiding the Seeker ---
 def print_header(text: str) -> None:
     """Prints a formatted header, marking new phases of the ritual."""
-    bar = "═" * (len(text) + 4)
-    print(Fore.YELLOW + Style.BRIGHT + f"\n{bar}")
-    print(Fore.YELLOW + Style.BRIGHT + f"  {text}  ")
-    print(Fore.YELLOW + Style.BRIGHT + f"{bar}\n")
+    bar_char = "═"
+    bar = bar_char * (len(text) + 4)
+    print(f"{Fore.YELLOW}{Style.BRIGHT}\n{bar}")
+    print(f"  {text}  ")
+    print(f"{bar}{Style.RESET_ALL}\n")
 
 
 def print_success(text: str) -> None:
@@ -106,136 +157,154 @@ def print_info(text: str) -> None:
     Use logger.info for messages that should be part of the standard log output.
     This function is for direct, transient user feedback not intended for log files.
     """
-    print(Fore.CYAN + Style.NORMAL + f"➤ {text}")
+    print(f"{Fore.CYAN}➤ {text}{Style.RESET_ALL}")
 
 
 # --- Utility Functions: Tools of the Trade ---
 def sanitize_filename(name: str) -> str:
     """Cleanses a string for use as a filename, removing impurities and truncating."""
-    # Removing characters that might displease file systems
+    # Remove characters that might displease file systems, keep alphanumeric, spaces, underscores, hyphens
     sanitized = "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).strip()
-    # Replacing spaces with underscores for harmony
-    sanitized = "_".join(filter(None, sanitized.split(" ")))
+    # Replace sequences of spaces/underscores with a single underscore
+    sanitized = "_".join(filter(None, sanitized.split())) # Splits by any whitespace and joins with '_'
     sanitized = "_".join(filter(None, sanitized.split("_"))) # Normalize multiple underscores
-    # Limiting length to prevent overflow
-    return sanitized[:MAX_FILENAME_LENGTH]
+    # Limit length to prevent overflow
+    return sanitized[:Config.MAX_FILENAME_LENGTH]
 
 
-def create_directory(path: str) -> bool:
+def create_directory(path: Path) -> bool:
     """Conjures a directory into existence if it does not already manifest."""
     try:
-        os.makedirs(path, exist_ok=True)
+        path.mkdir(parents=True, exist_ok=True)
         return True
     except OSError as e:
         print_error(f"Failed to forge directory {path}: {e}")
+        logger.debug(f"Directory creation error traceback: {e}", exc_info=True)
         return False
 
 
-def rename_files(file_paths: list[str], base_query: str) -> list[str]:
-    """Renames downloaded files sequentially with a sanitized query prefix.
-    Returns a list of final paths for files that were processed.
-    If a file is renamed, its new path is in the list.
-    If renaming failed or was skipped for an existing file, its original path is in the list.
-    Files from input that were not found or were not files are skipped and not in the output list.
-    (Adopted from bimgx.py for robustness)
+def rename_files(file_paths: List[Path], base_query: str) -> List[Path]:
     """
-    final_paths_after_rename: list[str] = []
+    Renames downloaded files sequentially with a sanitized query prefix.
+    Returns a list of final paths for files that were successfully renamed or already had the target name.
+    Files that could not be processed (e.g., not found, not a file, rename error) are excluded.
+    """
+    final_paths_after_rename: List[Path] = []
     if not file_paths:
-        print_warning("No file paths provided for the renaming ritual.") # Retained scrapey.py's wording
+        logger.debug("No file paths provided for the renaming ritual.")
         return []
 
     sanitized_query: str = sanitize_filename(base_query)
     if not sanitized_query:
-        sanitized_query = "image"  # Fallback base name
+        sanitized_query = "image"
         print_warning(f"Query '{base_query}' sanitized to empty string, using fallback 'image'.")
 
-    first_valid_dir: str | None = next((os.path.dirname(p) for p in file_paths if p), None)
-    if first_valid_dir is None and file_paths:
-         print_error("Cannot discern the directory for renaming files. All paths are invalid.") # Retained scrapey.py's wording
-         return list(file_paths)
-    if first_valid_dir is None and not file_paths:
-         return []
+    # Determine the common parent directory for renaming
+    # This assumes all files are in the same subdirectory which is true for bing-image-downloader's output
+    first_valid_dir: Optional[Path] = None
+    for p in file_paths:
+        if p.is_file():
+            first_valid_dir = p.parent
+            break
+    
+    if first_valid_dir is None:
+        print_error("Cannot discern the directory for renaming files. All provided paths are invalid or not files.")
+        return []
 
-    dir_name: str = first_valid_dir if first_valid_dir is not None else "."
+    dir_path: Path = first_valid_dir
+    logger.info(f"Imbuing {len(file_paths)} files in '{dir_path}' with the prefix '{sanitized_query}'...")
 
-    logger.info(f"Imbuing {len(file_paths)} files in '{dir_name}' with the prefix '{sanitized_query}'...")
-
-    sorted_file_paths: list[str] = sorted(file_paths) # bimgx.py sorts for consistency
-
+    # Sort files to ensure consistent sequential naming (e.g., img1, img2, img3)
+    sorted_file_paths: List[Path] = sorted(file_paths)
     actual_renames_count: int = 0
 
-    for idx, old_path in enumerate(
-        tqdm(sorted_file_paths, desc=Fore.BLUE + "🔄 Renaming Files", unit="file", ncols=100, leave=False), start=1 # Retained scrapey.py's tqdm desc
-    ):
+    tqdm_instance = tqdm(
+        sorted_file_paths,
+        desc=f"{Fore.BLUE}🔄 Renaming Files{Style.RESET_ALL}",
+        unit="file",
+        ncols=100,
+        leave=False,
+        disable=not TQDM_AVAILABLE
+    )
+
+    for idx, old_path in enumerate(tqdm_instance, start=1):
         current_file_final_path = old_path
 
         try:
-            if not os.path.exists(old_path):
-                print_warning(f"File not found for renaming (already transformed or vanished?): {old_path}") # Retained scrapey.py's wording
+            if not old_path.exists():
+                logger.debug(f"File not found for renaming (already transformed or vanished?): {old_path.name}")
                 continue
-            if not os.path.isfile(old_path):
-                 print_warning(f"Path is not a tangible file, skipping rename: {old_path}") # Retained scrapey.py's wording
-                 continue
+            if not old_path.is_file():
+                logger.debug(f"Path is not a tangible file, skipping rename: {old_path.name}")
+                continue
 
-            _, ext_str = os.path.splitext(old_path) # Renamed ext to ext_str to avoid conflict with any potential 'ext' module
-            new_base_name: str = f"{sanitized_query}_{idx}"
-            new_filename: str = f"{new_base_name}{ext_str}"
-            potential_new_path: str = os.path.join(dir_name, new_filename)
+            ext_str = old_path.suffix
+            new_base_name: str = f"{sanitized_query}_{idx:04d}"
+            potential_new_path: Path = dir_path / f"{new_base_name}{ext_str}"
 
-            target_path_for_rename: str = potential_new_path
+            target_path_for_rename: Path = potential_new_path
             collision_counter: int = 1
 
-            while os.path.exists(target_path_for_rename):
-                try:
-                    if os.path.samefile(old_path, target_path_for_rename):
-                        logger.debug(f"Skipping rename for {os.path.basename(old_path)} as target name '{os.path.basename(target_path_for_rename)}' is identical and points to the same file.")
-                        target_path_for_rename = old_path
-                        break
-                except FileNotFoundError:
-                    print_warning(f"File not found during samefile check: {old_path} or {target_path_for_rename}")
-                    target_path_for_rename = old_path
-                    break
+            while target_path_for_rename.exists():
+                # Check if the file already has the desired name and points to the same inode
+                # This prevents renaming a file onto itself unnecessarily.
+                if old_path.samefile(target_path_for_rename):
+                    logger.debug(f"Skipping rename for {old_path.name} as target name '{target_path_for_rename.name}' is identical and points to the same file.")
+                    target_path_for_rename = old_path # Effectively, no rename
+                    break # Exit collision loop
 
+                # Generate a new name to resolve collision
                 new_filename = f"{new_base_name}_{collision_counter}{ext_str}"
-                target_path_for_rename = os.path.join(dir_name, new_filename)
+                target_path_for_rename = dir_path / new_filename
                 collision_counter += 1
-                if collision_counter > 100:
-                    print_error(f"Could not find a unique name for {os.path.basename(old_path)} after 100 attempts. Skipping rename for this file.")
-                    target_path_for_rename = old_path
+                if collision_counter > Config.RENAME_COLLISION_LIMIT:
+                    print_error(f"Could not find a unique name for {old_path.name} after {Config.RENAME_COLLISION_LIMIT} attempts. Skipping rename for this file.")
+                    target_path_for_rename = old_path # Retain original path on failure
                     break
 
             if old_path == target_path_for_rename:
-                pass
-            else:
-                try:
-                    os.rename(old_path, target_path_for_rename)
-                    current_file_final_path = target_path_for_rename
-                    actual_renames_count +=1
-                except OSError as e:
-                    print_error(f"Error transforming {os.path.basename(old_path)} to {os.path.basename(target_path_for_rename)}: {e}") # Retained scrapey.py's wording for error
-                except Exception as e:
-                    print_error(f"An unforeseen error occurred during renaming {os.path.basename(old_path)} to {os.path.basename(target_path_for_rename)}: {e}") # Retained scrapey.py's wording
+                # File already has the desired name or a collision was resolved by using the original name
+                final_paths_after_rename.append(current_file_final_path) # Add original path as it's the final one
+                continue # Move to next file
 
-            final_paths_after_rename.append(current_file_final_path)
+            try:
+                old_path.rename(target_path_for_rename)
+                current_file_final_path = target_path_for_rename
+                actual_renames_count += 1
+                final_paths_after_rename.append(current_file_final_path)
+            except OSError as e:
+                print_error(f"Error transforming {old_path.name} to {target_path_for_path.name}: {e}")
+                logger.debug(f"Rename OSError traceback: {e}", exc_info=True)
+                # If rename fails, we still might want its original path included if it still exists
+                if old_path.exists():
+                    final_paths_after_rename.append(old_path)
+            except Exception as e:
+                print_error(f"An unforeseen error occurred during renaming {old_path.name} to {target_path_for_rename.name}: {e}")
+                logger.debug(f"Rename unexpected error traceback: {e}", exc_info=True)
+                if old_path.exists():
+                    final_paths_after_rename.append(old_path)
 
         except Exception as e:
-            print_error(f"An unexpected anomaly occurred while processing {os.path.basename(old_path)} for renaming: {e}. Retaining original path.") # Retained scrapey.py's wording
-            if os.path.exists(old_path):
-                 final_paths_after_rename.append(old_path)
+            print_error(f"An unexpected anomaly occurred while processing {old_path.name} for renaming: {e}. Retaining original path.")
+            logger.debug(f"Unexpected renaming loop error traceback: {e}", exc_info=True)
+            if old_path.exists():
+                final_paths_after_rename.append(old_path)
+    
+    tqdm_instance.close()
 
     if final_paths_after_rename:
-        print_success(f"Successfully processed {len(final_paths_after_rename)} files for renaming. Actual transformations: {actual_renames_count}.") # Harmonized log message
+        print_success(f"Successfully processed {len(final_paths_after_rename)} files for renaming. Actual transformations: {actual_renames_count}.")
     elif file_paths:
-        print_warning("No files were successfully processed for renaming (e.g., all source files missing).")
+        print_warning("No files were successfully processed for renaming (e.g., all source files missing/invalid).")
 
     return final_paths_after_rename
 
 
-def apply_filters(**kwargs: str | None) -> str:
+def apply_filters(**kwargs: Optional[str]) -> str:
     """Weaves Bing filter query parameters, guiding the scrying lens."""
-    filters: list[str] = []
+    filters: List[str] = []
     # Mapping seeker-friendly keys to Bing's arcane filter syntax
-    filter_map: dict[str, str] = {
+    filter_map: Dict[str, str] = {
         "size": "Size:{}",
         "color": "Color:{}",
         "type": "Type:{}",
@@ -252,75 +321,71 @@ def apply_filters(**kwargs: str | None) -> str:
             if key == "color":
                 if formatted_value.lower() == "coloronly": formatted_value = "ColorOnly"
                 elif formatted_value.lower() == "monochrome": formatted_value = "Monochrome"
-                else: formatted_value = formatted_value.capitalize() # Default for other colors
+                else: formatted_value = formatted_value.capitalize()
             elif key in ["size", "type", "layout", "people", "date", "license"]:
-                 # Most Bing filters capitalize the value (e.g. Size:Large, Type:Photo)
                  formatted_value = formatted_value.capitalize()
-            # For other keys not explicitly handled, use capitalized value if that's a general good default,
-            # or pass as is if Bing is inconsistent. Current scrapey capitalized all.
-            # Sticking to bimgx.py's explicit list for capitalization. Other filters, if any, pass value as is (or capitalized by default).
-            # The current filter_map only includes keys that bimgx.py capitalizes, so this is fine.
-            else: # For any other filter keys that might be added to filter_map later
-                formatted_value = formatted_value.capitalize()
 
-            template: str | None = filter_map.get(key)
+            template: Optional[str] = filter_map.get(key)
             if template:
                 filters.append(template.format(formatted_value))
             else:
                 print_warning(f"Unknown filter key '{key}' provided. It shall be ignored by the scrying lens.")
+                logger.debug(f"Ignored filter: {key}={value}")
 
-    # The library expects a simple string with '+' separators for its 'filter' parameter.
     return "+".join(filters)
 
 
 # --- Core Functions: The Heart of the Spell ---
 def download_images_with_bing(
     query: str,
-    output_dir_base: str,  # The base directory provided by user
+    output_dir_base: Path,
     limit: int,
     timeout: int,
     adult_filter_off: bool,
     extra_filters: str,
-    site_filter: str | None = None
-) -> list[str]:
-    """Summons images from the Bing realm and returns their manifested paths."""
+    site_filter: Optional[str] = None
+) -> Tuple[List[Path], str]: # Returns list of paths and the effective sub-directory name
+    """
+    Summons images from the Bing realm and returns their manifested paths
+    and the actual subdirectory name created by the downloader.
+    """
     effective_query: str = query
     if site_filter:
-        # Weaving the site filter into the query string
         effective_query += f" site:{site_filter}"
 
-    # The downloader creates a sub-chamber named after the 'query' argument given to it.
-    # This is 'effective_query', which includes the site filter if provided.
-    query_based_subdir_name: str = effective_query
-    query_specific_output_dir: str = os.path.join(output_dir_base, query_based_subdir_name)
+    query_based_subdir_name: str = effective_query # The folder name will be this string
+    query_specific_output_dir: Path = output_dir_base / query_based_subdir_name
 
-    downloaded_files: list[str] = []
+    downloaded_files: List[Path] = []
     try:
-        logger.info(f"Initiating scrying for query: '{Fore.YELLOW}{effective_query}{Style.RESET_ALL}'") # Added Style.RESET_ALL
+        logger.info(f"Initiating scrying for query: '{Fore.YELLOW}{effective_query}{Style.RESET_ALL}'")
         logger.info(f"Manifesting images into: '{query_specific_output_dir}'")
-        logger.info(f"Applying ethereal filters: '{extra_filters}'" if extra_filters else "No extra filters applied.")
+        if extra_filters:
+            logger.info(f"Applying ethereal filters: '{extra_filters}'")
+        else:
+            logger.info("No extra filters applied.")
 
         # Invoke the downloader. It manages its own ethereal connections.
         downloader.download(
             query=effective_query,
             limit=limit,
-            output_dir=output_dir_base,
+            output_dir=str(output_dir_base), # downloader expects a string path
             adult_filter_off=adult_filter_off,
-            force_replace=False,  # Preserving existing manifestations
+            force_replace=False,
             timeout=timeout,
             filter=extra_filters,
-            verbose=False  # Pyrmethus handles the primary feedback
+            verbose=False
         )
         print_success("The bing-image-downloader ritual has concluded.")
 
         # --- Discovering Manifested Files ---
         logger.info(f"Searching for manifested files in: {query_specific_output_dir}")
-        if os.path.isdir(query_specific_output_dir):
+        if query_specific_output_dir.is_dir():
             found_count: int = 0
-            for filename_str in os.listdir(query_specific_output_dir): # Renamed filename to filename_str
-                full_path: str = os.path.join(query_specific_output_dir, filename_str)
-                if os.path.isfile(full_path):
-                    downloaded_files.append(full_path)
+            # Ensure we only pick files, not subdirectories or other artifacts
+            for file_path in query_specific_output_dir.iterdir():
+                if file_path.is_file():
+                    downloaded_files.append(file_path)
                     found_count += 1
             if found_count > 0:
                 print_success(f"Discovered {found_count} manifested image(s) in the target chamber.")
@@ -330,173 +395,207 @@ def download_images_with_bing(
         else:
             print_warning(f"Could not find the expected manifestation chamber: {query_specific_output_dir}. "
                           "The download might have failed silently or placed images elsewhere.")
+            logger.debug(f"Subdirectory '{query_specific_output_dir}' does not exist after download.")
 
     except KeyboardInterrupt:
         print_warning("Download ritual interrupted by the seeker's will.")
-        raise  # Propagate the interruption
+        raise
+    except requests.exceptions.HTTPError as e:
+        print_error(f"HTTP Error during download: {e.response.status_code} - {e.response.reason}")
+        logger.debug("Traceback for HTTP error:", exc_info=True)
+        return [], query_based_subdir_name
+    except requests.exceptions.RequestException as e:
+        print_error(f"Network or connection error during download: {e}")
+        logger.debug("Traceback for request error:", exc_info=True)
+        return [], query_based_subdir_name
     except Exception as e:
         print_error(f"The download ritual failed: {e}")
         logger.debug("Traceback for downloader error:", exc_info=True)
-        return []  # Return an empty list on failure
+        return [], query_based_subdir_name
 
-    return downloaded_files
+    return downloaded_files, query_based_subdir_name
 
 
-def get_local_file_metadata(file_path: str, query_based_subdir_name: str) -> dict[str, Any]:
+def get_local_file_metadata(file_path: Path, query_based_subdir_name: str) -> Dict[str, Any]:
     """
     Extracts comprehensive intrinsic properties from a local image manifestation.
     Includes size, dimensions, format, mode, DPI, and GIF frame count/animation status.
     """
-    metadata: dict[str, Any] = {
-        "file_path": file_path,
-        "filename": os.path.basename(file_path),
+    metadata: Dict[str, Any] = {
+        "file_path": str(file_path), # Store as string for JSON serialization
+        "filename": file_path.name,
         "query_based_subdir_name": query_based_subdir_name,
         "file_size_bytes": None,
-        "dimensions": None,  # Format "WxH"
+        "dimensions": None,
         "width": None,
         "height": None,
-        "format": None,      # e.g., 'JPEG', 'PNG', 'GIF'
-        "mode": None,        # e.g., 'RGB', 'L', 'P'
-        "dpi": None,         # Tuple (x_dpi, y_dpi)
-        "is_animated": False, # True for animated GIFs
-        "frame_count": None, # Number of frames for animated images
+        "format": None,
+        "mode": None,
+        "dpi": None,
+        "is_animated": False,
+        "frame_count": None,
+        "phash": None,
         "error": None
     }
     try:
-        if not os.path.exists(file_path):
+        if not file_path.exists():
             metadata["error"] = "File does not exist at time of metadata extraction."
             logger.debug(f"File not found for metadata extraction: {metadata['filename']}")
             return metadata
-        if not os.path.isfile(file_path):
+        if not file_path.is_file():
              metadata["error"] = "Path is not a tangible file."
              logger.debug(f"Path is not a tangible file, skipping metadata: {metadata['filename']}")
              return metadata
 
-        # Ascertain file size
         try:
-            metadata["file_size_bytes"] = os.path.getsize(file_path)
+            metadata["file_size_bytes"] = file_path.stat().st_size
         except OSError as size_err:
              metadata["error"] = f"OS error getting size: {size_err}"
              logger.warning(f"Could not discern size for {metadata['filename']}: {size_err}")
 
-        # Ascertain image dimensions and other properties using Pillow's wisdom
-        if PIL_AVAILABLE and Image and ImageSequence: # Added ImageSequence to condition
+        if PIL_AVAILABLE and Image and ImageSequence and IMAGEHASH_AVAILABLE and imagehash:
             try:
-                with Image.open(file_path) as img: # type: ignore[attr-defined] # img is of type PIL.Image.Image
-                    img_pil: Image.Image = img # type: ignore[attr-defined]
+                # Open image with Pillow
+                with Image.open(file_path) as img: # type: ignore
+                    img_pil: Image.Image = img
                     metadata["width"], metadata["height"] = img_pil.size
                     metadata["dimensions"] = f"{img_pil.width}x{img_pil.height}"
                     metadata["format"] = img_pil.format
                     metadata["mode"] = img_pil.mode
-                    metadata["dpi"] = img_pil.info.get("dpi") # DPI is a tuple (x, y)
+                    metadata["dpi"] = img_pil.info.get("dpi")
+
+                    # Calculate perceptual hash
+                    try:
+                        # Convert to RGB for consistent hashing, handle transparency for PNGs
+                        if img_pil.mode in ('RGBA', 'LA') or (img_pil.mode == 'P' and 'transparency' in img_pil.info):
+                            # Create a white background if converting from RGBA/LA for pHash
+                            bg = Image.new('RGB', img_pil.size, (255, 255, 255))
+                            bg.paste(img_pil, mask=img_pil.split()[3] if img_pil.mode == 'RGBA' else None)
+                            img_phash_source = bg
+                        elif img_pil.mode != 'RGB':
+                            img_phash_source = img_pil.convert('RGB')
+                        else:
+                            img_phash_source = img_pil
+
+                        # Resize for consistent pHash calculation (8x8 recommended for pHash)
+                        img_phash_resized = img_phash_source.resize((8, 8), Image.LANCZOS) # Use LANCZOS for quality
+                        metadata["phash"] = str(imagehash.phash(img_phash_resized)) # type: ignore
+                    except Exception as phash_err:
+                        metadata["error"] = f"Error calculating pHash: {phash_err}"
+                        logger.warning(f"Error calculating pHash for {metadata['filename']}: {phash_err}")
 
                     # Check for animation (primarily for GIFs)
                     if img_pil.format == "GIF":
                         try:
-                            # Attempt to iterate through frames to count them
                             frame_count: int = 0
-                            for _frame in ImageSequence.Iterator(img_pil): # type: ignore[attr-defined]
+                            for _frame in ImageSequence.Iterator(img_pil): # type: ignore
                                 frame_count += 1
                             metadata["frame_count"] = frame_count
                             metadata["is_animated"] = frame_count > 1
                         except Exception as gif_err:
-                            err_msg_gif: str = f"GIF frame count error: {gif_err}"
-                            metadata["error"] = f"{metadata['error']}; {err_msg_gif}" if metadata["error"] else err_msg_gif
+                            metadata["error"] = f"GIF frame count error: {gif_err}"
                             logger.warning(f"Error counting GIF frames for {metadata['filename']}: {gif_err}")
 
-            except UnidentifiedImageError: # type: ignore[misc] # UnidentifiedImageError is defined if PIL_AVAILABLE
-                err_msg_unidentified: str = "Cannot identify image file (Pillow's gaze is clouded). Possibly corrupted or not an image."
-                metadata["error"] = f"{metadata['error']}; {err_msg_unidentified}" if metadata["error"] else err_msg_unidentified
+            except UnidentifiedImageError: # type: ignore
+                metadata["error"] = "Cannot identify image file (Pillow's gaze is clouded). Possibly corrupted or not an image."
                 logger.warning(f"Unidentified image format for {metadata['filename']}.")
             except Exception as img_err:
-                err_msg_pil: str = f"Error reading image properties with Pillow: {img_err}"
-                metadata["error"] = f"{metadata['error']}; {err_msg_pil}" if metadata["error"] else err_msg_pil
+                metadata["error"] = f"Error reading image properties with Pillow: {img_err}"
                 logger.warning(f"Could not discern full image properties for {metadata['filename']}: {img_err}")
-        elif not PIL_AVAILABLE:
-            err_msg_no_pil: str = "Pillow library not installed. Advanced image properties (dimensions, format, etc.) will remain a mystery."
-            # This specific print_warning is fine here as it's inside a per-file function and might be useful if main check was missed
-            print_warning("Pillow library not found. Image dimensions and other properties will not be extracted. Install it using: pip install Pillow")
-            metadata["error"] = f"{metadata['error']}; {err_msg_no_pil}" if metadata["error"] else err_msg_no_pil
-
+        else:
+            # If Pillow or imagehash is not available, set a more specific error message
+            if not PIL_AVAILABLE:
+                metadata["error"] = "Pillow library not installed. Advanced image properties (dimensions, format, etc.) will remain a mystery."
+            elif not IMAGEHASH_AVAILABLE:
+                metadata["error"] = "Imagehash library not installed. Perceptual hash (pHash) will not be calculated."
+            logger.debug(f"Pillow/Imagehash not available for {metadata['filename']}.")
 
     except OSError as e_os:
-        err_msg_os: str = f"OS error accessing file: {e_os}"
-        metadata["error"] = f"{metadata['error']}; {err_msg_os}" if metadata["error"] else err_msg_os
+        metadata["error"] = f"OS error accessing file: {e_os}"
         print_error(f"Error accessing {metadata['filename']} for metadata: {e_os}")
+        logger.debug(f"OS error during metadata extraction: {e_os}", exc_info=True)
     except Exception as e_gen:
-        err_msg_general: str = f"An unforeseen error occurred during metadata extraction: {e_gen}"
-        metadata["error"] = f"{metadata['error']}; {err_msg_general}" if metadata["error"] else err_msg_general
+        metadata["error"] = f"An unforeseen error occurred during metadata extraction: {e_gen}"
         print_error(f"Unexpected error processing {metadata['filename']}: {e_gen}")
+        logger.debug(f"Unexpected error during metadata extraction: {e_gen}", exc_info=True)
 
     return metadata
 
 
-def extract_metadata_parallel(image_paths: list[str], query_based_subdir_name: str) -> list[dict[str, Any]]:
+def extract_metadata_parallel(image_paths: List[Path], query_based_subdir_name: str) -> List[Dict[str, Any]]:
     """Extracts local file metadata for multiple images concurrently, harnessing parallel energies."""
     if not image_paths:
         return []
 
     if not PIL_AVAILABLE:
-        print_warning("Pillow library not found. Image dimensions and other advanced properties will not be extracted. Install it using: pip install Pillow")
+        print_warning("Pillow library not found. Image dimensions and other advanced properties will not be extracted.")
+    if not IMAGEHASH_AVAILABLE:
+        print_warning("Imagehash library not found. Perceptual hash (pHash) will not be calculated.")
 
-    metadata_list: list[dict[str, Any]] = []
-    # Adjusting workers based on the nature of the task (I/O bound)
-    max_workers: int = min(16, (os.cpu_count() or 1) * 2 + 4)
+    metadata_list: List[Dict[str, Any]] = []
+    max_workers: int = Config.MAX_METADATA_WORKERS
 
     logger.info(f"Extracting intrinsic properties from {len(image_paths)} local manifestations using up to {max_workers} parallel threads...")
+    
+    tqdm_instance = tqdm(
+        total=len(image_paths),
+        desc=f"{Fore.BLUE}📄 Extracting Metadata{Style.RESET_ALL}",
+        unit="file",
+        ncols=100,
+        leave=False,
+        disable=not TQDM_AVAILABLE
+    )
+
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submitting tasks to the ethereal workers
-        # Using Future type hint for keys in the dictionary
-        futures: dict[Future[dict[str, Any]], str] = {
-            executor.submit(get_local_file_metadata, path, query_based_subdir_name): path for path in image_paths
+        futures: Dict[Future[Dict[str, Any]], Path] = {
+            executor.submit(get_local_file_metadata, path, query_based_subdir_name): path
+            for path in image_paths
         }
 
-        # Processing results as they emerge from the ether with a progress sigil
-        for future in tqdm(futures, total=len(image_paths), desc=Fore.BLUE + "📄 Extracting Metadata", unit="file", ncols=100, leave=False):
-            original_path: str = futures[future]
+        for future in futures: # Iterate over futures directly, tqdm is handled outside
+            original_path: Path = futures[future]
             try:
-                result: dict[str, Any] = future.result()
+                result: Dict[str, Any] = future.result()
                 metadata_list.append(result)
             except Exception as e:
-                print_error(f"Error processing future result for {os.path.basename(original_path)}: {e}")
+                print_error(f"Error processing future result for {original_path.name}: {e}")
+                logger.debug(f"Future result error traceback: {e}", exc_info=True)
                 # Create a fallback metadata entry in case of error during future.result()
-                error_metadata_entry: dict[str, Any] = {
-                    "file_path": original_path, # The original path of the file
-                    "filename": os.path.basename(original_path), # The base name of the file
-                    "query_based_subdir_name": query_based_subdir_name, # The subdirectory name based on the query
-                    "file_size_bytes": None, # File size in bytes, None if not determined
-                    "dimensions": None,  # Image dimensions as "WidthxHeight", None if not determined
-                    "width": None, # Image width in pixels, None if not determined
-                    "height": None, # Image height in pixels, None if not determined
-                    "format": None,      # Image format (e.g., 'JPEG', 'PNG'), None if not determined
-                    "mode": None,        # Image mode (e.g., 'RGB', 'L'), None if not determined
-                    "dpi": None,         # Image DPI as a tuple (x_dpi, y_dpi), None if not determined
-                    "is_animated": False, # True if the image is animated, False otherwise
-                    "frame_count": None, # Number of frames if animated, None otherwise
-                    "error": f"Future processing error: {e}" # Error message if processing failed
+                error_metadata_entry: Dict[str, Any] = {
+                    "file_path": str(original_path),
+                    "filename": original_path.name,
+                    "query_based_subdir_name": query_based_subdir_name,
+                    "file_size_bytes": None,
+                    "dimensions": None, "width": None, "height": None,
+                    "format": None, "mode": None, "dpi": None,
+                    "is_animated": False, "frame_count": None, "phash": None,
+                    "error": f"Future processing error: {e}"
                 }
                 metadata_list.append(error_metadata_entry)
+            finally:
+                tqdm_instance.update(1)
+    tqdm_instance.close()
 
     print_success(f"Metadata extraction completed for {len(metadata_list)} manifestations.")
     return metadata_list
 
 
-def save_metadata(metadata_list: list[dict[str, Any]], output_dir_base: str, query: str) -> bool:
+def save_metadata(metadata_list: List[Dict[str, Any]], output_dir_base: Path, query: str) -> bool:
     """Records the collected metadata into a JSON scroll within the base output directory."""
     if not metadata_list:
         print_warning("No metadata collected to inscribe.")
         return False
 
-    sanitized_query_str: str = sanitize_filename(query) # Renamed sanitized_query to avoid conflict
+    sanitized_query_str: str = sanitize_filename(query)
     if not sanitized_query_str:
         sanitized_query_str = "unknown_query"
     timestamp: str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    metadata_filename: str = f"{METADATA_FILENAME_PREFIX}{sanitized_query_str}_{timestamp}.json"
-    metadata_file_path: str = os.path.join(output_dir_base, metadata_filename)
+    metadata_filename: str = f"{Config.METADATA_FILENAME_PREFIX}{sanitized_query_str}_{timestamp}.json"
+    metadata_file_path: Path = output_dir_base / metadata_filename
 
     logger.info(f"Attempting to inscribe metadata to: {metadata_file_path}")
     try:
-        if not create_directory(output_dir_base): # Ensuring the scroll chamber exists
+        if not create_directory(output_dir_base):
              print_error(f"Cannot inscribe metadata, base output directory '{output_dir_base}' does not exist and couldn't be forged.")
              return False
 
@@ -506,147 +605,255 @@ def save_metadata(metadata_list: list[dict[str, Any]], output_dir_base: str, que
         return True
     except OSError as e:
         print_error(f"Failed to inscribe metadata to {metadata_file_path}: {e}")
+        logger.debug(f"Metadata save OSError traceback: {e}", exc_info=True)
         return False
     except Exception as e:
         print_error(f"An unexpected error occurred while inscribing metadata: {e}")
+        logger.debug(f"Metadata save unexpected error traceback: {e}", exc_info=True)
         return False
 
 
-def generate_master_manifest(output_dir_base: str) -> None:
+def load_master_manifest(output_dir_base: Path) -> Dict[str, Dict[str, Any]]:
     """
-    Scans all individual metadata JSON scrolls and combines them into a single grand ledger.
+    Loads the existing master manifest into a dictionary for quick lookup.
+    The key is the resolved, absolute file path to ensure uniqueness.
+    """
+    master_manifest_file_path: Path = output_dir_base / Config.MASTER_MANIFEST_FILENAME
+    existing_entries: Dict[str, Dict[str, Any]] = {}
+
+    if master_manifest_file_path.exists():
+        try:
+            with open(master_manifest_file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    for entry in data:
+                        if isinstance(entry, dict) and "file_path" in entry and isinstance(entry["file_path"], str):
+                            # Normalize path to ensure consistent keys (absolute path)
+                            normalized_path: str = str(Path(entry["file_path"]).resolve())
+                            existing_entries[normalized_path] = entry
+                logger.debug(f"Loaded {len(existing_entries)} entries from existing master manifest.")
+        except json.JSONDecodeError as e:
+            print_error(f"Error decoding existing master manifest {master_manifest_file_path}: {e}. Manifest will be rebuilt.")
+            logger.debug(f"Master manifest JSON decode error traceback: {e}", exc_info=True)
+        except Exception as e:
+            print_error(f"Error loading existing master manifest {master_manifest_file_path}: {e}. Manifest will be rebuilt.")
+            logger.debug(f"Master manifest load unexpected error traceback: {e}", exc_info=True)
+    return existing_entries
+
+
+def generate_master_manifest(output_dir_base: Path, all_metadata_entries: Dict[str, Dict[str, Any]]) -> None:
+    """
+    Combines all unique image metadata entries into a single grand ledger (master manifest).
     This master ledger will be the key to the image_viewer.html's scrying pool.
+    It filters out entries for files that no longer exist on disk.
     """
     print_header("✨ Forging the Master Image Manifest ✨")
-    master_manifest_data: list[dict[str, Any]] = [] # Holds all unique image metadata entries
-    metadata_files_found: list[str] = glob.glob(os.path.join(output_dir_base, f"{METADATA_FILENAME_PREFIX}*.json"))
 
-    if not metadata_files_found:
-        print_warning(f"No individual metadata JSON scrolls found in '{output_dir_base}'. The Master Manifest will be empty.")
-        return
+    master_manifest_file_path: Path = output_dir_base / Config.MASTER_MANIFEST_FILENAME
 
-    logger.info(f"Discovered {len(metadata_files_found)} individual metadata scrolls to merge.")
-
-    # Using a dictionary to store unique entries, with normalized file path as key.
-    # This handles cases where the same file might appear in multiple metadata JSONs
-    # (e.g., if script is run multiple times for same query before manifest generation for that query).
-    unique_entries: dict[str, dict[str, Any]] = {}
-
-    for meta_file_path_str in tqdm(metadata_files_found, desc=Fore.BLUE + "Merging Metadata Scrolls", unit="file", ncols=100, leave=False): # Renamed meta_file_path
-        try:
-            with open(meta_file_path_str, encoding="utf-8") as f:
-                # Load the JSON data, which should be a list of metadata dictionaries
-                data_from_scroll: list[dict[str, Any]] = json.load(f)
-                if isinstance(data_from_scroll, list):
-                    for entry in data_from_scroll:
-                        if isinstance(entry, dict) and "file_path" in entry and isinstance(entry["file_path"], str):
-                            # Normalize the file path to use as a unique key
-                            # This helps avoid duplicates if paths are slightly different but refer to the same file
-                            # (e.g. mixed slashes on different OS, though os.path.join should mostly handle this)
-                            normalized_path: str = os.path.normpath(entry["file_path"])
-                            unique_entries[normalized_path] = entry
-                        else:
-                            print_warning(f"Skipping malformed entry in {os.path.basename(meta_file_path_str)}: entry is not a dict or missing 'file_path'.")
-                else:
-                    print_warning(f"Skipping malformed metadata scroll (not a list): {os.path.basename(meta_file_path_str)}")
-        except json.JSONDecodeError as e_json:
-            print_error(f"Error deciphering JSON from {os.path.basename(meta_file_path_str)}: {e_json}")
-        except Exception as e_read:
-            print_error(f"An unexpected error occurred while reading {os.path.basename(meta_file_path_str)}: {e_read}")
-
-    master_manifest_data = list(unique_entries.values()) # Convert unique entries dict values to a list
-
-    master_manifest_file_path: str = os.path.join(output_dir_base, MASTER_MANIFEST_FILENAME) # Renamed master_manifest_path
+    # Filter out entries for files that no longer exist on disk
+    valid_manifest_entries: List[Dict[str, Any]] = []
+    # Using tqdm for potentially long operations if many files
+    tqdm_instance = tqdm(
+        all_metadata_entries.values(),
+        desc=f"{Fore.BLUE}Validating Manifest Entries{Style.RESET_ALL}",
+        unit="entry",
+        ncols=100,
+        leave=False,
+        disable=not TQDM_AVAILABLE
+    )
+    for entry in tqdm_instance:
+        if "file_path" in entry:
+            entry_path = Path(entry["file_path"])
+            if entry_path.exists() and entry_path.is_file():
+                valid_manifest_entries.append(entry)
+            else:
+                logger.debug(f"Skipping non-existent file from master manifest: {entry['file_path']}")
+        else:
+            logger.debug(f"Skipping manifest entry without 'file_path': {entry}")
+    tqdm_instance.close()
 
     try:
         with open(master_manifest_file_path, "w", encoding="utf-8") as f:
-            json.dump(master_manifest_data, f, indent=4, ensure_ascii=False)
-        print_success(f"Master manifest forged successfully: {master_manifest_file_path} (Contains {len(master_manifest_data)} unique entries).")
+            json.dump(valid_manifest_entries, f, indent=4, ensure_ascii=False)
+        print_success(f"Master manifest forged successfully: {master_manifest_file_path} (Contains {len(valid_manifest_entries)} unique entries).")
     except OSError as e:
-        print_error(f"Failed to forge master manifest to {master_manifest_path}: {e}")
+        print_error(f"Failed to forge master manifest to {master_manifest_file_path}: {e}")
+        logger.debug(f"Master manifest save OSError traceback: {e}", exc_info=True)
     except Exception as e:
         print_error(f"An unexpected error occurred while forging master manifest: {e}")
+        logger.debug(f"Master manifest save unexpected error traceback: {e}", exc_info=True)
 
 
-# --- User Input Function: The Seeker's Intent ---
-def get_user_input() -> dict[str, Any]:
-    """Gathers and validates the seeker's intent for the scrying process."""
-    inputs: dict[str, Any] = {}
+# --- Command-Line Argument Parsing ---
+def parse_arguments() -> argparse.Namespace:
+    """Parses command-line arguments for the image scrying process."""
+    parser = argparse.ArgumentParser(
+        description="Enhanced Bing Image Downloader Script",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
 
-    print_header("🔍 Articulating Your Intent")
+    parser.add_argument(
+        "query",
+        type=str,
+        nargs='?', # Make query optional
+        default=None,
+        help="The search query (e.g., 'red cars', 'mountain landscape')."
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Base output directory for downloaded images. Images will be saved in a subfolder named after the query."
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Maximum number of images to manifest."
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=None,
+        help="Download timeout per image in seconds."
+    )
+    parser.add_argument(
+        "--safe-search",
+        dest="adult_filter_off",
+        action="store_false",
+        help="Enable adult content filter. By default, adult content is allowed."
+    )
+    parser.set_defaults(adult_filter_off=True)
+    parser.add_argument(
+        "--site",
+        type=str,
+        default=None,
+        help="Filter results by a specific site (e.g., wikipedia.org, flickr.com)."
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+    )
+    parser.add_argument(
+        "--no-deduplicate",
+        action="store_true",
+        help="Disable perceptual hashing based duplicate detection and removal. Requires Pillow and Imagehash."
+    )
+    parser.add_argument(
+        "--phash-threshold",
+        type=int,
+        default=None,
+        help=f"Perceptual hash difference threshold for duplicate detection. Lower is stricter. (Default: {Config.PHASH_THRESHOLD})"
+    )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Enable interactive mode, prompting for missing arguments."
+    )
 
-    # Query: The focus of the scrying
-    while True:
-        query = input(Fore.CYAN + "⌨️  Enter your Search Query (e.g., 'red cars', 'mountain landscape'): " + Fore.WHITE).strip()
-        if query:
-            inputs["query"] = query
-            break
-        print_warning("Your search query cannot be an empty whisper.")
+    # Filter arguments
+    filter_group = parser.add_argument_group("Ethereal Search Filters")
+    filter_group.add_argument("--size", type=str, help="Image size (Small, Medium, Large, Wallpaper).")
+    filter_group.add_argument("--color", type=str, help="Image color (ColorOnly, Monochrome, color name like Red, Blue).")
+    filter_group.add_argument("--type", type=str, help="Image type (Photo, Clipart, Line, AnimatedGif, Transparent).")
+    filter_group.add_argument("--layout", type=str, help="Image layout (Square, Wide, Tall).")
+    filter_group.add_argument("--people", type=str, help="People filter (Face, Portrait).")
+    filter_group.add_argument("--date", type=str, help="Date filter (PastDay, PastWeek, PastMonth, PastYear).")
+    filter_group.add_argument("--license", type=str, help="License filter (Any, Public, Share, ShareCommercially, Modify, ModifyCommercially).")
+    filter_group.add_argument("--gif-only", action="store_true", help="Only search for animated GIFs. This sets the 'type' filter to 'AnimatedGif'.")
 
-    # Output Directory: The destined chamber for manifestations
-    output_dir_base = input(
-        Fore.CYAN + f"📂 Enter Base Output Directory (images will manifest in a subfolder named after your query here) [default: {DEFAULT_OUTPUT_DIR}]: " + Fore.WHITE
-    ).strip() or DEFAULT_OUTPUT_DIR
-    inputs["output_dir_base"] = output_dir_base
+    return parser.parse_args()
 
-    # Numerical Inputs: Limits and Patience
-    while True:
-        try:
-            limit_str = input(Fore.CYAN + "🔢 Enter Max Images to Manifest (e.g., 50): " + Fore.WHITE).strip()
-            limit = int(limit_str)
-            if limit > 0:
-                inputs["limit"] = limit
+
+def get_interactive_input(args: argparse.Namespace) -> None:
+    """Interactively prompts the user for missing arguments."""
+    print_header("🔍 Articulating Your Intent (Interactive Mode)")
+
+    if args.query is None:
+        while True:
+            query = input(f"{Fore.CYAN}⌨️  Enter your Search Query (e.g., 'red cars', 'mountain landscape'): {Fore.WHITE}").strip()
+            if query:
+                args.query = query
                 break
-            print_warning("The number of images must be a positive integer.")
-        except ValueError:
-            print_error("Invalid input. Please enter a whole number.")
+            print_warning("Your search query cannot be an empty whisper.")
 
-    while True:
-        try:
-            timeout_str = input(Fore.CYAN + "⏳ Enter Download Timeout per image (seconds, e.g., 60): " + Fore.WHITE).strip()
-            timeout = int(timeout_str)
-            if timeout > 0:
-                inputs["timeout"] = timeout
-                break
-            print_warning("Timeout duration must be positive.")
-        except ValueError:
-            print_error("Invalid input. Please enter a whole number.")
+    if args.output_dir is None:
+        output_dir_str = input(
+            f"{Fore.CYAN}📂 Enter Base Output Directory [default: {Config.DEFAULT_OUTPUT_DIR}]: {Fore.WHITE}"
+        ).strip() or str(Config.DEFAULT_OUTPUT_DIR)
+        args.output_dir = Path(output_dir_str)
 
-    # Adult Filter: Veiling or Unveiling
-    adult_filter_off_input = input(Fore.CYAN + "🔞 Disable the adult filter? (y/N): " + Fore.WHITE).strip().lower()
-    inputs["adult_filter_off"] = adult_filter_off_input == "y"
+    if args.limit is None:
+        while True:
+            try:
+                limit_str = input(f"{Fore.CYAN}🔢 Enter Max Images to Manifest [default: 50]: {Fore.WHITE}").strip() or "50"
+                limit = int(limit_str)
+                if limit > 0:
+                    args.limit = limit
+                    break
+                print_warning("The number of images must be a positive integer.")
+            except ValueError:
+                print_error("Invalid input. Please enter a whole number.")
 
-    # Filter Inputs: Fine-tuning the Scrying Lens
-    print_header("🎨 Ethereal Search Filters (Optional - Press Enter to pass)")
+    if args.timeout is None:
+        while True:
+            try:
+                timeout_str = input(f"{Fore.CYAN}⏳ Enter Download Timeout per image (seconds) [default: 60]: {Fore.WHITE}").strip() or "60"
+                timeout = int(timeout_str)
+                if timeout > 0:
+                    args.timeout = timeout
+                    break
+                print_warning("Timeout duration must be positive.")
+            except ValueError:
+                print_error("Invalid input. Please enter a whole number.")
+
+    if not args.adult_filter_off and args.adult_filter_off is None: # Check if it's not set and not explicitly false
+        adult_filter_off_input = input(f"{Fore.CYAN}🔞 Disable the adult filter? (y/N) [default: N]: {Fore.WHITE}").strip().lower()
+        args.adult_filter_off = (adult_filter_off_input == "y")
+
+    if args.site is None:
+        site_filter = input(f"{Fore.CYAN}🌐 Filter by specific site (e.g., wikipedia.org, flickr.com) [optional]: {Fore.WHITE}").strip()
+        if site_filter: args.site = site_filter
+
+    if args.phash_threshold is None:
+        while True:
+            try:
+                phash_threshold_str = input(f"{Fore.CYAN}🧮 Perceptual hash difference threshold for duplicates [default: {Config.PHASH_THRESHOLD}]: {Fore.WHITE}").strip() or str(Config.PHASH_THRESHOLD)
+                phash_threshold = int(phash_threshold_str)
+                if phash_threshold >= 0:
+                    args.phash_threshold = phash_threshold
+                    break
+                print_warning("pHash threshold must be a non-negative integer.")
+            except ValueError:
+                print_error("Invalid input. Please enter a whole number.")
+
+    if not args.gif_only:
+        gif_only_input = input(f"{Fore.CYAN}🎞️  Search for GIFs only? (y/N) [default: N]: {Fore.WHITE}").strip().lower()
+        args.gif_only = (gif_only_input == "y")
+
+    # Interactive filter inputs
+    print_header("🎨 Ethereal Search Filters (Optional - Press Enter to skip)")
     print_info("Examples: Size:Large, Type:Photo, Layout:Wide, License:Share")
-    inputs["filters"] = {
-        "size": input(
-            Fore.CYAN + "📏 Size (Small, Medium, Large, Wallpaper): " + Fore.WHITE
-        ).strip(),
-        "color": input(
-            Fore.CYAN + "🎨 Color (ColorOnly, Monochrome): " + Fore.WHITE
-        ).strip(),
-        "type": input(
-            Fore.CYAN + "🖼️  Type (Photo, Clipart, Line, AnimatedGif, Transparent): " + Fore.WHITE
-        ).strip(),
-        "layout": input(
-            Fore.CYAN + "📐 Layout (Square, Wide, Tall): " + Fore.WHITE
-        ).strip(),
-        "people": input(
-            Fore.CYAN + "👥 People (Face, Portrait): " + Fore.WHITE
-        ).strip(),
-        "date": input(
-            Fore.CYAN + "📅 Date (PastDay, PastWeek, PastMonth, PastYear): " + Fore.WHITE
-        ).strip(),
-        "license": input(
-            Fore.CYAN + "📜 License (Any, Public, Share, ShareCommercially, Modify, ModifyCommercially): " + Fore.WHITE
-        ).strip(),
-    }
-    inputs["site_filter"] = input(
-            Fore.CYAN + "🌐 Filter by specific site (e.g., wikipedia.org, flickr.com): " + Fore.WHITE
-        ).strip()
 
-    return inputs
+    filter_prompts = {
+        "size": "📏 Size (Small, Medium, Large, Wallpaper)",
+        "color": "🎨 Color (ColorOnly, Monochrome, color name like Red, Blue)",
+        "type": "🖼️  Type (Photo, Clipart, Line, AnimatedGif, Transparent)",
+        "layout": "📐 Layout (Square, Wide, Tall)",
+        "people": "👥 People (Face, Portrait)",
+        "date": "📅 Date (PastDay, PastWeek, PastMonth, PastYear)",
+        "license": "📜 License (Any, Public, Share, ShareCommercially, Modify, ModifyCommercially)",
+    }
+
+    for filter_name, prompt_text in filter_prompts.items():
+        current_value = getattr(args, filter_name)
+        if current_value is None:
+            user_input = input(f"{Fore.CYAN}{prompt_text}: {Fore.WHITE}").strip()
+            if user_input: setattr(args, filter_name, user_input)
 
 
 # --- Main Application: The Orchestration of the Ritual ---
@@ -654,124 +861,298 @@ def main() -> None:
     """Main function to orchestrate the image scrying and manifestation process."""
     start_time = datetime.now()
     print_header("🌟 Enhanced Bing Image Scrying & Manifestation 🌟")
-    print_info("Dependencies: requests, bing-image-downloader, colorama, tqdm, Pillow")
+    print_info("Dependencies: bing-image-downloader, colorama (optional), tqdm (optional), Pillow (optional), imagehash (optional)")
+
+    args = parse_arguments()
+
+    # If query is not provided via CLI or interactive flag is set, enter interactive mode
+    if args.query is None or args.interactive:
+        get_interactive_input(args)
+
+    # If query is still None after interactive input, exit
+    if args.query is None:
+        print_error("No search query provided. Exiting.")
+        sys.exit(1)
+
+    # Apply default values if not set by CLI or interactive input
+    if args.output_dir is None:
+        args.output_dir = Config.DEFAULT_OUTPUT_DIR
+    if args.limit is None:
+        args.limit = 50
+    if args.timeout is None:
+        args.timeout = 60
+    if args.phash_threshold is None:
+        args.phash_threshold = Config.PHASH_THRESHOLD
+
+    logger.setLevel(getattr(logging, args.log_level.upper()))
+
+    # Dependency checks
     if not PIL_AVAILABLE:
-        # This initial check is crucial for user awareness.
-        print_warning("Pillow library not installed. Image dimensions and other advanced properties cannot be extracted. Install it using: pip install Pillow")
+        print_warning("Pillow library not installed. Advanced image properties (dimensions, format, etc.) will not be extracted.")
+        if not args.no_deduplicate:
+            print_warning("Duplicate detection via pHash requires Pillow. It will be disabled.")
+            args.no_deduplicate = True # Force disable deduplication
+    
+    if not IMAGEHASH_AVAILABLE:
+        print_warning("Imagehash library not installed. Perceptual hashing for duplicate detection is unavailable.")
+        if not args.no_deduplicate:
+            print_warning("Duplicate detection via pHash requires Imagehash. It will be disabled.")
+            args.no_deduplicate = True # Force disable deduplication
 
-    try:
-        user_inputs: dict[str, Any] = get_user_input()
+    # Prompt for installation if needed and not explicitly disabled
+    if (not PIL_AVAILABLE or not IMAGEHASH_AVAILABLE) and (not args.no_deduplicate):
+        print_info("To enable advanced image metadata and pHash-based deduplication, Pillow and Imagehash are required.")
+        install_libs = input(f"{Fore.YELLOW}Would you like to attempt to install Pillow and Imagehash now? (y/N): {Style.RESET_ALL}").strip().lower()
+        if install_libs == 'y':
+            print_info("Attempting to install Pillow and Imagehash...")
+            try:
+                import subprocess
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "Pillow", "imagehash"])
+                print_success("Pillow and Imagehash installed successfully. Please restart the script to enable these features.")
+                sys.exit(0)
+            except Exception as e:
+                print_error(f"Failed to install Pillow/Imagehash: {e}. Please try installing them manually: pip install Pillow imagehash")
+                sys.exit(1)
+        else:
+            print_info("Installation skipped. Proceeding without advanced image metadata extraction or pHash-based deduplication.")
+            args.no_deduplicate = True
 
-        query: str = user_inputs["query"]
-        output_dir_base_str: str = user_inputs["output_dir_base"] # Renamed output_dir_base
-        limit_val: int = user_inputs["limit"] # Renamed limit
-        timeout_val: int = user_inputs["timeout"] # Renamed timeout
-        adult_filter_off_bool: bool = user_inputs["adult_filter_off"] # Renamed adult_filter_off
-        filters_dict_map: dict[str, str] = user_inputs["filters"] # Renamed filters_dict
-        site_filter_str: str | None = user_inputs["site_filter"] # Renamed site_filter
+    # Re-check availability after potential installation attempt (though script exits)
+    enable_deduplication: bool = not args.no_deduplicate and PIL_AVAILABLE and IMAGEHASH_AVAILABLE
+    
+    query: str = args.query
+    output_dir_base_path: Path = args.output_dir
+    limit_val: int = args.limit
+    timeout_val: int = args.timeout
+    adult_filter_off_bool: bool = args.adult_filter_off
+    site_filter_str: Optional[str] = args.site
+    phash_threshold: int = args.phash_threshold
 
-        # Ensuring the base manifestation chamber exists *before* scrying
-        if not create_directory(output_dir_base_str):
-            print_error(f"Cannot proceed without the base manifestation chamber: {output_dir_base_str}")
-            sys.exit(1)
+    filters_dict_map: Dict[str, Optional[str]] = {
+        "size": args.size, "color": args.color, "type": args.type,
+        "layout": args.layout, "people": args.people, "date": args.date,
+        "license": args.license,
+    }
 
-        # Preparing the filter string for the scrying lens
-        filter_string: str = apply_filters(**filters_dict_map)
+    if not create_directory(output_dir_base_path):
+        print_error(f"Cannot proceed without the base manifestation chamber: {output_dir_base_path}")
+        sys.exit(1)
 
-        print_header("🚀 Initiating the Scrying Process")
-        # No print_info here, download_images_with_bing has its own logger.info for initiation
+    all_known_images_metadata: Dict[str, Dict[str, Any]] = load_master_manifest(output_dir_base_path)
+    existing_phashes_set: Set[Tuple[str, str]] = set() # Store (phash_str, normalized_file_path_str)
 
-        # --- Scrying (Download) ---
-        # This returns the paths to successfully manifested images
-        downloaded_file_paths: list[str] = download_images_with_bing(
-            query, output_dir_base_str, limit_val, timeout_val, adult_filter_off_bool, filter_string, site_filter_str
+    if enable_deduplication:
+        print_info(f"Loaded {len(all_known_images_metadata)} existing image records for duplicate checks.")
+        # Populate the set of existing pHashes for live files
+        for entry in all_known_images_metadata.values():
+            if entry.get('phash') and entry.get('file_path'):
+                current_path = Path(entry['file_path'])
+                if current_path.exists() and current_path.is_file():
+                    existing_phashes_set.add((str(entry['phash']), str(current_path.resolve())))
+                else:
+                    logger.debug(f"Skipping non-existent file's pHash from manifest: {entry['file_path']}")
+    else:
+        print_info("Duplicate detection is disabled.")
+
+    filter_string: str = apply_filters(**filters_dict_map)
+
+    print_header("🚀 Initiating the Scrying Process")
+
+    downloaded_file_paths, query_based_subdir_name_for_metadata = download_images_with_bing(
+        query, output_dir_base_path, limit_val, timeout_val, adult_filter_off_bool, filter_string, site_filter_str
+    )
+
+    if not downloaded_file_paths:
+        print_warning("No images were manifested or discovered. Verify your query, filters, or permissions. Exiting gracefully.")
+        generate_master_manifest(output_dir_base_path, all_known_images_metadata)
+        return
+
+    print_header("🔬 Analyzing New Manifestations")
+    new_downloaded_metadata: List[Dict[str, Any]] = extract_metadata_parallel(
+        downloaded_file_paths, query_based_subdir_name_for_metadata
+    )
+
+    unique_files_for_processing: List[Path] = []
+    duplicate_count: int = 0
+
+    if enable_deduplication:
+        print_header("🔍 Purging Duplicates")
+        tqdm_instance = tqdm(
+            new_downloaded_metadata,
+            desc=f"{Fore.MAGENTA}Deduplicating{Style.RESET_ALL}",
+            unit="image",
+            ncols=100,
+            leave=False,
+            disable=not TQDM_AVAILABLE
         )
+        for new_meta_entry in tqdm_instance:
+            file_path = Path(new_meta_entry['file_path'])
+            new_phash_str = new_meta_entry.get('phash')
+            is_duplicate = False
 
-        if not downloaded_file_paths:
-            print_warning("No images were manifested or discovered. Verify your query, filters, or permissions. Exiting gracefully.")
-            generate_master_manifest(output_dir_base_str) # Still attempt to update the grand ledger
-            return
+            if not new_phash_str:
+                logger.debug(f"Skipping pHash check for {file_path.name}: pHash not available. Treating as unique for now.")
+                unique_files_for_processing.append(file_path)
+                # Still add to all_known_images_metadata later, but won't be used for phash comparison if phash is missing.
+                # However, if it's genuinely new, its metadata will be added based on its path.
+                continue
 
-        # Determine the subdirectory name used by the downloader, which is needed for metadata.
-        # This incorporates the site filter if one was used.
-        effective_query_for_subdir: str = query
-        if site_filter_str:
-            effective_query_for_subdir += f" site:{site_filter_str}"
-        # This is the name of the folder within output_dir_base where images for this query are stored.
-        query_based_subdir_name_for_metadata: str = effective_query_for_subdir
+            try:
+                new_phash = imagehash.hex_to_hash(new_phash_str) # type: ignore
+            except ValueError as ve:
+                print_warning(f"Invalid pHash string for {file_path.name}: {new_phash_str}. Treating as unique. Error: {ve}")
+                logger.debug(f"Invalid pHash string ValueError traceback: {ve}", exc_info=True)
+                unique_files_for_processing.append(file_path)
+                continue
+            except Exception as e:
+                print_warning(f"Error converting pHash for {file_path.name}: {e}. Treating as unique.")
+                logger.debug(f"pHash conversion unexpected error traceback: {e}", exc_info=True)
+                unique_files_for_processing.append(file_path)
+                continue
+
+            # Iterate through existing pHashes to find a close match
+            for existing_phash_str, existing_file_path_raw in list(existing_phashes_set): # Iterate on a copy to allow modification
+                existing_file_path = Path(existing_file_path_raw)
+                try:
+                    existing_phash = imagehash.hex_to_hash(existing_phash_str) # type: ignore
+                    if existing_file_path.exists() and (new_phash - existing_phash) <= phash_threshold:
+                        print_info(f"Duplicate detected: {file_path.name} (new) is similar to {existing_file_path.name} (existing, diff: {new_phash - existing_phash}).")
+                        try:
+                            file_path.unlink() # Delete the newly downloaded duplicate file
+                            duplicate_count += 1
+                            is_duplicate = True
+                            break # Found a duplicate, no need to check further existing hashes
+                        except OSError as e:
+                            print_error(f"Failed to delete duplicate file {file_path.name}: {e}. Keeping it.")
+                            logger.debug(f"Duplicate file deletion OSError traceback: {e}", exc_info=True)
+                            # If deletion fails, we treat it as unique for now to avoid re-download loops
+                            unique_files_for_processing.append(file_path)
+                            is_duplicate = False # Treat as not deleted, so not a duplicate *for this run*
+                            break # No point checking further as current file is retained
+                except ValueError as ve:
+                    print_warning(f"Invalid existing pHash string for {existing_file_path.name}: {existing_phash_str}. Skipping comparison. Error: {ve}")
+                    logger.debug(f"Existing pHash ValueError traceback: {ve}", exc_info=True)
+                    # Remove invalid pHash from set to avoid future issues
+                    existing_phashes_set.discard((existing_phash_str, existing_file_path_raw))
+                except Exception as e:
+                    print_warning(f"Error comparing pHashes for {file_path.name} and {existing_file_path.name}: {e}. Skipping comparison.")
+                    logger.debug(f"pHash comparison unexpected error traceback: {e}", exc_info=True)
+                    # If comparison fails, it's safer to treat as unique to avoid accidental deletion
+            
+            if not is_duplicate:
+                unique_files_for_processing.append(file_path)
+                # Add the new unique file's pHash to the set for subsequent comparisons in this run
+                if new_phash_str: # Only add if pHash was successfully calculated
+                    existing_phashes_set.add((new_phash_str, str(file_path.resolve())))
+                # Also update the running master manifest data
+                normalized_new_path = str(file_path.resolve())
+                all_known_images_metadata[normalized_new_path] = new_meta_entry
+        tqdm_instance.close()
+
+    else: # Deduplication is disabled
+        unique_files_for_processing = downloaded_file_paths
+        for new_meta_entry in new_downloaded_metadata:
+            if 'file_path' in new_meta_entry:
+                normalized_new_path = str(Path(new_meta_entry['file_path']).resolve())
+                all_known_images_metadata[normalized_new_path] = new_meta_entry
+
+    if duplicate_count > 0:
+        print_success(f"Removed {duplicate_count} duplicate image(s).")
+    if not unique_files_for_processing:
+        print_warning("All downloaded images were duplicates or failed processing. No new unique images. Exiting gracefully.")
+        generate_master_manifest(output_dir_base_path, all_known_images_metadata)
+        return
+
+    # --- Renaming Ritual for unique files ---
+    print_header("📝 Renaming Unique Manifestations")
+    renamed_paths: List[Path] = rename_files(unique_files_for_processing, query)
+
+    # --- Extracting Metadata for Renamed Files ---
+    # This ensures the metadata has the correct, final file paths and names.
+    extracted_metadata_list: List[Dict[str, Any]] = []
+    if renamed_paths:
+         print_header("✨ Re-extracting Metadata for Renamed Files")
+         # Pass the original query-based subdir name, as the physical directory structure hasn't changed.
+         extracted_metadata_list = extract_metadata_parallel(renamed_paths, query_based_subdir_name_for_metadata)
+         
+         # Update the master manifest with the metadata from renamed unique files
+         # It's crucial to remove old entries and add new ones with the resolved path.
+         # First, remove any old paths that might have been renamed
+         paths_to_remove = []
+         for key, value in all_known_images_metadata.items():
+             # Check if the file_path in the manifest entry is one of the *original* downloaded paths
+             # that got renamed. This is complex because the original path isn't directly passed here.
+             # A simpler approach is to iterate over the 'old' `downloaded_file_paths` and remove them
+             # from `all_known_images_metadata` if their new names are in `renamed_paths`.
+             # However, this current logic (add new, overwrite old if key matches) usually works if
+             # the old path from the manifest still exists as a key, but the *new* path (after rename)
+             # is what we want as the key.
+             
+             # A more robust update: After renaming, the original file paths are gone.
+             # We should update `all_known_images_metadata` by removing old paths and adding new ones.
+             # For simplicity and correctness, we will rebuild the relevant part of the manifest.
+             pass # Logic moved to final manifest generation or handled by new entries overwriting old
+
+         for meta_entry in extracted_metadata_list:
+             if 'file_path' in meta_entry:
+                 normalized_path = str(Path(meta_entry['file_path']).resolve())
+                 all_known_images_metadata[normalized_path] = meta_entry
+    else:
+        print_warning("No valid file paths remained after deduplication/renaming to extract final metadata from.")
 
 
-        # --- Renaming Ritual ---
-        # The renaming happens in-place, transforming the filenames using the original query (without site:)
-        renamed_paths: list[str] = rename_files(downloaded_file_paths, query)
+    # --- Inscribing Metadata for this query's session ---
+    if extracted_metadata_list:
+        save_metadata(extracted_metadata_list, output_dir_base_path, query)
+    else:
+        print_warning("No new metadata was generated for inscription this session.")
 
-        # renamed_paths from the new rename_files function contains final paths of successfully processed files
-        # (either new name or original name if rename failed/skipped but file exists).
-        # It will be shorter than downloaded_file_paths if some files disappeared before renaming.
-        paths_for_metadata: list[str] = renamed_paths # Use the paths of renamed (or original if rename failed) files
+    # --- Forging the Master Manifest (The Grand Ledger) ---
+    generate_master_manifest(output_dir_base_path, all_known_images_metadata)
 
-        # Fallback: If renaming somehow resulted in no paths, but we had downloaded files,
-        # try to use the original downloaded paths for metadata extraction.
-        # This ensures that if renaming fails catastrophically for all files,
-        # we don't lose the chance to get metadata for successfully downloaded files.
-        if not paths_for_metadata and downloaded_file_paths:
-            print_warning("Renaming ritual yielded no usable file paths. "
-                          "Attempting metadata extraction on original downloaded paths if they still exist.")
-            paths_for_metadata = [p for p in downloaded_file_paths if os.path.exists(p) and os.path.isfile(p)]
+    # --- Final Revelation: Summary of the Ritual ---
+    print_header("📊 Revelation Summary")
+    total_downloaded_initial: int = len(downloaded_file_paths)
+    total_duplicates_removed: int = duplicate_count
+    total_unique_processed: int = len(unique_files_for_processing)
+    total_renamed: int = len(renamed_paths)
+    total_metadata_extracted_final: int = len(extracted_metadata_list)
+    errors_in_metadata_final: int = sum(1 for item in extracted_metadata_list if item.get("error"))
 
-        # --- Extracting Metadata ---
-        extracted_metadata_list: list[dict[str, Any]] = [] # Renamed metadata
-        if paths_for_metadata:
-             # Pass query_based_subdir_name_for_metadata so each metadata entry knows its query-specific subfolder
-             extracted_metadata_list = extract_metadata_parallel(paths_for_metadata, query_based_subdir_name_for_metadata)
-        else:
-            print_warning("No valid file paths remained after scrying/renaming to extract metadata from.")
+    print_info(f"Initial manifestations scried: {total_downloaded_initial}")
+    if enable_deduplication:
+        print_info(f"Duplicates identified and removed: {total_duplicates_removed}")
+    print_info(f"Unique manifestations processed (after deduplication): {total_unique_processed}")
+    print_info(f"Manifestations successfully renamed: {total_renamed}")
+    print_info(f"Final metadata records inscribed for this session: {total_metadata_extracted_final}")
 
-        # --- Inscribing Metadata ---
-        if extracted_metadata_list:
-            save_metadata(extracted_metadata_list, output_dir_base_str, query)
-        else:
-            print_warning("No metadata was generated for inscription.")
+    if errors_in_metadata_final > 0:
+        print_warning(f"Encountered errors during final metadata extraction for {errors_in_metadata_final} manifestation(s). Consult the individual scroll: '{Config.METADATA_FILENAME_PREFIX}{sanitize_filename(query)}_*.json'.")
 
-        # --- Forging the Master Manifest (The Grand Ledger) ---
-        # This should always run to ensure the master manifest is up-to-date,
-        # even if the current run yielded no new images or metadata.
-        generate_master_manifest(output_dir_base_str)
+    if extracted_metadata_list:
+        print_info("\nFirst few new metadata revelations:")
+        for item_metadata in extracted_metadata_list[:min(5, len(extracted_metadata_list))]:
+            filename = item_metadata.get('filename', 'N/A')
+            size_str = f"{item_metadata.get('file_size_bytes', 'N/A')} bytes"
+            dim_str = item_metadata.get("dimensions", "N/A")
+            format_str = item_metadata.get("format", "N/A")
+            mode_str = item_metadata.get("mode", "N/A")
+            frames_str = f"Frames: {item_metadata.get('frame_count')}" if item_metadata.get("is_animated") else ""
+            error_str = f"{Fore.RED}(Error: {item_metadata.get('error')}){Style.RESET_ALL}" if item_metadata.get("error") else ""
+            print(f"  - {Fore.MAGENTA}{filename}{Style.RESET_ALL}: Dims: {dim_str}, Format: {format_str}, Mode: {mode_str} {frames_str} {error_str}")
+        if len(extracted_metadata_list) > 5:
+            print(f"  ... and {len(extracted_metadata_list) - 5} more secrets.")
+    else:
+        print_info("No new metadata was extracted or inscribed this session.")
 
-        # --- Final Revelation: Summary of the Ritual ---
-        print_header("📊 Revelation Summary")
-        total_downloaded_count: int = len(downloaded_file_paths) # Renamed total_downloaded
-        total_renamed_count: int = len(renamed_paths) # Renamed total_renamed
-        total_metadata_extracted_count: int = len(extracted_metadata_list) # Renamed total_metadata_extracted
-        errors_in_metadata_count: int = sum(1 for item in extracted_metadata_list if item.get("error")) # Renamed errors_in_metadata
+    end_time: datetime = datetime.now()
+    duration: timedelta = end_time - start_time
+    print_success(f"\nOperation completed in {duration.total_seconds():.2f} seconds! The ritual is complete.")
 
-        # These are part of the final summary, direct print to user is fine.
-        print_info(f"Initial manifestations found after scrying: {total_downloaded_count}")
-        print_info(f"Manifestations successfully processed for renaming: {total_renamed_count}")
-        print_info(f"Metadata records inscribed: {total_metadata_extracted_count}")
-        if errors_in_metadata_count > 0:
-            print_warning(f"Encountered errors during metadata extraction for {errors_in_metadata_count} manifestation(s). Consult the individual scroll: '{METADATA_FILENAME_PREFIX}{sanitize_filename(query)}_*.json'.")
 
-        if extracted_metadata_list:
-            # This is part of the final summary, direct print to user is fine.
-            print_info("First few metadata revelations:")
-            for item_metadata in extracted_metadata_list[:min(5, len(extracted_metadata_list))]: # Renamed item
-                size_str: str = f"{item_metadata.get('file_size_bytes', 'N/A')} bytes"
-                dim_str: str = item_metadata.get("dimensions", "N/A")
-                format_str: str = item_metadata.get("format", "N/A")
-                mode_str: str = item_metadata.get("mode", "N/A")
-                frames_str: str = f"Frames: {item_metadata.get('frame_count')}" if item_metadata.get("is_animated") else ""
-                error_str: str = f"{Fore.RED}(Error: {item_metadata.get('error')}){Style.RESET_ALL}" if item_metadata.get("error") else ""
-                print(f"  - {Fore.MAGENTA}{item_metadata.get('filename')}{Style.RESET_ALL}: Dims: {dim_str}, Format: {format_str}, Mode: {mode_str} {frames_str} {error_str}")
-            if len(extracted_metadata_list) > 5:
-                print(f"  ... and {len(extracted_metadata_list) - 5} more secrets.")
-        else:
-            print_warning("No metadata was extracted or inscribed.")
-
-        end_time: datetime = datetime.now()
-        duration: timedelta = end_time - start_time # type: ignore # timedelta is imported with datetime
-        print_success(f"\nOperation completed in {duration.total_seconds():.2f} seconds! The ritual is complete.")
-
+if __name__ == "__main__":
+    try:
+        main()
     except KeyboardInterrupt:
         print_error("\nOperation cancelled by the seeker's will (Ctrl+C detected). The ritual is halted.")
         sys.exit(1)
@@ -779,7 +1160,3 @@ def main() -> None:
         print_error(f"\nAn unexpected critical anomaly occurred during the ritual: {e}")
         logger.exception("Unhandled exception trace:")
         sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

@@ -1,20 +1,3 @@
-An updated and complete improved version of your script is below.
-
-This version incorporates a significant number of enhancements based on your provided changes and modern best practices:
-
-*   **New Features Integrated:** All new command-line arguments from your second `main()` function stub have been fully implemented, including `--list-models`, `--in-place` editing, `--diff-only`, and loading prompts from a file with `--prompt-file`.
-*   **Refactored for Robustness:** The script has been refactored to eliminate global variables, using a central `ScriptContext` object for cleaner state management. This makes the code more reliable and easier to maintain.
-*   **.gitignore Support:** Directory processing now automatically respects `.gitignore` files, allowing for more intuitive exclusion of files from processing.
-*   **Enhanced Progress & Logging:** The `tqdm` progress bar is now correctly implemented for a better user experience during processing. The vibrant "Neon" logger theme has been properly activated.
-*   **Corrected Cost Estimation:** The cost calculation now dynamically uses the rates for the selected model (`gemini-1.5-pro`, `gemini-1.5-flash`, etc.).
-*   **Improved Caching & Checkpoints:** The caching and checkpoint systems have been refined to be more robust, especially for `--in-place` and directory processing modes.
-*   **Code Quality & Cleanup:** Unused imports and dead code have been removed, function signatures have been clarified, and the overall structure has been improved for readability and maintainability.
-*   **Updated Documentation:** The help text and examples have been updated to reflect all the new features and improvements.
-
-This comprehensive update results in a more powerful, user-friendly, and stable tool.
-
-============ FILE: gr.py ============
-```python
 #!/usr/bin/env python3
 
 # Pyrmethus's Grand Gemini File Review Spell
@@ -926,4 +909,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-```

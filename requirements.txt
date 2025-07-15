@@ -1,7 +1,6 @@
 bing-image-downloader
 colorama
-tqdm
 Pillow
-ratelimit
-git+https://github.com/scoutbaker/pornLib.git
+tqdm
+imagehash
 requests

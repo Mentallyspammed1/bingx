@@ -49,6 +49,9 @@ from colorama import Fore, init, Style
 from dotenv import load_dotenv
 
 from colorama import init
+
+
+from colorama import init
 init(autoreset=True)
 
 DEFAULT_MODEL = 'gemini-1.5-flash'
@@ -71,7 +74,11 @@ API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 from pathlib import Path
 
+from pathlib import Path
+
 SCRIPT_NAME = Path(__file__).name
+
+from pathlib import Path
 
 from pathlib import Path
 
@@ -98,6 +105,14 @@ CHARS_PER_TOKEN = 4
 logger = logging.getLogger('gemini_review')
 
 log_level_map = {'DEBUG': logging.DEBUG, 'INFO': logging.INFO, 'WARNING': logging.WARNING, 'ERROR': logging.ERROR, 'CRITICAL': logging.CRITICAL}
+
+from dataclasses import dataclass, field
+
+import argparse
+
+import configparser
+
+from pathlib import Path
 
 from dataclasses import dataclass, field
 import argparse
@@ -139,6 +154,7 @@ class NeonFormatter(logging.Formatter):
 
 
 import logging
+
 import sys
 
 def setup_logger(level: int):
@@ -150,6 +166,7 @@ def setup_logger(level: int):
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(NeonFormatter())
     logger.addHandler(handler)
+
 
 def log_info(message: str):
     logger.info(message)

@@ -122,8 +122,7 @@ class XhamsterDriver extends BaseXhamsterClass {
     logger.info(`[${sourceName}] Parsing ${type} results...`);
 
     if (type === 'videos') {
-      // --- UPDATED VIDEO CSS SELECTORS ---
-      const videoItems = $('div.video-thumb-info__container');
+      const videoItems = $('div.video-thumb');
 
       if (!videoItems.length) {
         logger.warn(`[${sourceName}] No video items found with current selectors. Page structure may have changed.`);
@@ -133,19 +132,19 @@ class XhamsterDriver extends BaseXhamsterClass {
       videoItems.each((index, element) => {
         const item = $(element);
 
-        const linkElement = item.find('a.video-thumb-info__name').first();
+        const linkElement = item.find('a.video-thumb__image-container').first();
         let videoUrl = linkElement.attr('href');
-        let title = linkElement.text();
+        let title = item.find('a.video-thumb__name').text();
 
-        let videoId = item.closest('.video-thumb__image-container').attr('data-vr-id');
+        let videoId = item.attr('data-video-id');
         
         const thumbElement = item.find('img.video-thumb__image').first();
-        let thumbnailUrl = thumbElement.attr('data-src') || thumbElement.attr('src');
+        let thumbnailUrl = thumbElement.attr('src');
 
-        let duration = item.find('.video-thumb-info__duration').text();
+        let duration = item.find('.video-thumb__duration').text();
         duration = sanitizeText(duration);
 
-        const previewVideoUrl = extractPreview($, item.closest('.video-thumb-container'), sourceName, this.baseUrl);
+        const previewVideoUrl = extractPreview($, item, sourceName, this.baseUrl);
 
         if (!videoUrl || !title || !thumbnailUrl || !videoId) {
           logger.warn(`[${sourceName}] Skipping malformed video item (missing essential data):`, { title, videoUrl, thumbnailUrl, videoId, index });

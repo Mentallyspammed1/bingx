@@ -52,17 +52,16 @@ class Motherless extends AbstractModule {
         }
 
         const isGifSearch = parserOptions.type === 'gifs';
-        const itemSelector = 'a.thumb-link';
+        const itemSelector = 'div.content-item'; // More generic selector for content items
 
         $(itemSelector).each((i, el) => {
             const item = $(el);
-            const linkElement = item.find('a[href*="/"]').first();
-            let pageUrl = linkElement.attr('href');
+            let pageUrl = item.find('a.img-action').attr('href'); // Assuming a common link for the item
 
             let title = sanitizeText(
                 item.find('img').attr('alt')?.trim() ||
-                linkElement.attr('title')?.trim() ||
-                item.find('div.caption, .thumb-title').text()?.trim()
+                item.find('a.img-action').attr('title')?.trim() ||
+                item.find('div.title, h5.title').text()?.trim() // Common title selectors
             );
 
             if (!pageUrl) {
@@ -75,10 +74,10 @@ class Motherless extends AbstractModule {
             }
             if (!title) title = `Motherless Content ${i+1}`;
 
-            const imgElement = item.find('img').first();
+            const imgElement = item.find('img.img-responsive').first(); // Common image class
             let thumbnailUrl = imgElement.attr('src') || imgElement.attr('data-src');
             const previewUrl = extractPreview($, item, this.name, this.baseUrl);
-            const durationText = isGifSearch ? undefined : sanitizeText(item.find('.video_length').text()?.trim());
+            const durationText = isGifSearch ? undefined : sanitizeText(item.find('.duration, .time').text()?.trim()); // Common duration selectors
 
             let mediaId = null;
             const idMatch = pageUrl.match(/\/([A-Z0-9]{6,})/);

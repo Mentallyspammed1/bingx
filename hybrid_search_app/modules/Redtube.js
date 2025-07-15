@@ -35,8 +35,10 @@ class RedtubeDriver extends BaseRedtubeClass {
     getVideoSearchUrl(query, page) {
         const encodedQuery = encodeURIComponent(query.trim());
         const pageParam = Math.max(1, page || this.firstpage);
-        // This is the new, undocumented API endpoint
-        const url = new URL(`/redtube/search/videos?search=${encodedQuery}&page=${pageParam}`, this.baseUrl);
+        const url = new URL(REDTUBE_API_BASE_URL);
+        url.searchParams.set('data', 'redtube.videos.search');
+        url.searchParams.set('search', encodedQuery);
+        url.searchParams.set('page', pageParam);
         logger.debug(`[${this.name}] Generated video search URL: ${url.href}`);
         return url.href;
     }

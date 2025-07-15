@@ -1,10 +1,10 @@
-'use strict';
+"""'use strict';
 
 // Core module and mixins
 const AbstractModule = require('../core/AbstractModule.js');
 const VideoMixin = require('../core/VideoMixin.js');
 
-const { logger, makeAbsolute, extractPreview, validatePreview, sanitizeText } = require('./driver-utils.js');
+const { logger, makeAbsolute, extractPreview, sanitizeText } = require('./driver-utils.js');
 
 const BASE_URL_CONST = 'https://www.youporn.com';
 const DRIVER_NAME_CONST = 'Youporn';
@@ -29,61 +29,61 @@ class YoupornDriver extends BaseYoupornClass {
       throw new Error('YoupornDriver: Search query is not set or is empty for video search.');
     }
     const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage);
-    // This is the new API endpoint
-    const searchUrl = new URL('/api/v4/search/video', this.baseUrl);
+    const searchUrl = new URL('/search/', this.baseUrl);
     searchUrl.searchParams.set('query', sanitizeText(currentQuery));
-    searchUrl.searchParams.set('page', String(pageNumber));
-    searchUrl.searchParams.set('size', '42'); // Default size, can be adjusted
-    logger.debug(`[${this.name}] Generated API videoUrl: ${searchUrl.href}`);
+    if (pageNumber > 1) {
+        searchUrl.searchParams.set('page', String(pageNumber));
+    }
+    logger.debug(`[${this.name}] Generated video URL: ${searchUrl.href}`);
     return searchUrl.href;
   }
 
-  getCustomHeaders() {
-    return {
-      'Cookie': 'age_verified=1',
-      'Accept': 'application/json' // Important for API requests
-    };
-  }
+  parseResults($, htmlOrJsonData, parserOptions) {
+    if (!$) {
+        logger.error(`[${this.name}] Cheerio object ($) is null. Expecting HTML.`);
+        return [];
+    }
 
-  parseResults($, rawData, parserOptions) {
-    const { type, sourceName } = parserOptions;
     const results = [];
+    const { type, sourceName } = parserOptions;
 
-    if (!rawData || typeof rawData !== 'object') {
-      logger.error(`[${this.name} Parser] Expected rawData to be an object (JSON), but got:`, typeof rawData);
-      return [];
-    }
+    const itemSelector = 'div.video-box';
 
-    const videoItems = rawData.videos;
+    $(itemSelector).each((i, el) => {
+        const item = $(el);
+        const videoId = item.attr('data-video-id');
+        const titleLink = item.find('a.video-box-image');
+        const title = sanitizeText(titleLink.attr('title'));
+        const pageUrl = titleLink.attr('href');
+        const durationText = sanitizeText(item.find('div.duration').text());
+        const imgElement = item.find('img.video-box-image__image');
+        const thumbnailUrl = imgElement.attr('src');
 
-    if (!videoItems || !Array.isArray(videoItems) || videoItems.length === 0) {
-      logger.warn(`[${this.name} Parser] No video items found in the JSON response.`);
-      return [];
-    }
+        if (!pageUrl || !title || !videoId) {
+            logger.warn(`[${this.name}] Item ${i} (${type}): Skipping. Missing: ${!pageUrl?'URL ':''}${!title?'Title ':''}${!videoId?'ID ':''}`);
+            return;
+        }
 
-    videoItems.forEach((item, i) => {
-      if (!item || !item.url || !item.title) {
-        logger.warn(`[${this.name} Parser] Skipping item ${i} due to missing URL or title.`);
-        return;
-      }
+        const previewVideoUrl = extractPreview($, item, this.name, this.baseUrl);
+        const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl);
+        const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl);
 
-      const absoluteUrl = makeAbsolute(item.url, this.baseUrl);
-
-      results.push({
-        id: item.video_id || item.id,
-        title: sanitizeText(item.title),
-        url: absoluteUrl,
-        duration: item.duration || 'N/A',
-        thumbnail: item.default_thumb || item.thumb,
-        preview_video: item.preview_url || '',
-        source: sourceName,
-        type: type
-      });
+        results.push({
+            id: videoId,
+            title: title,
+            url: absoluteUrl,
+            thumbnail: absoluteThumbnail || '',
+            duration: durationText || 'N/A',
+            preview_video: previewVideoUrl || '',
+            source: sourceName,
+            type: type
+        });
     });
 
-    logger.debug(`[${this.name} Parser] Parsed ${results.length} items from JSON for type '${type}'.`);
+    logger.debug(`[${this.name}] Parsed ${results.length} ${type} items.`);
     return results;
   }
 }
 
 module.exports = YoupornDriver;
+""

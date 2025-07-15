@@ -1,4 +1,4 @@
-name: Gemini AI Code Review and Auto-Fix (Batch Mode)
+name: Gemini AI Code Review and Auto-Fix
 
 on:
   pull_request:
@@ -88,7 +88,7 @@ jobs:
             exit 1
           fi
 
-      # Install Python and dependencies for Gemini API
+      # Install Python and dependencies
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -96,47 +96,9 @@ jobs:
       - name: Install Gemini SDK
         run: pip install google-generativeai
 
-      # Submit batch job to Gemini API
-      - name: Submit Gemini Batch Job
-        id: submit_batch
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          python - <<EOF
-          import google.generativeai as genai
-          import json
-          import os
-
-          genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-          model = genai.GenerativeModel('gemini-1.5-flash-latest')
-
-          # Read diff from file
-          with open('diff.txt', 'r') as f:
-              diff_content = f.read()
-
-          # Prepare batch request
-          prompt = '''Review the provided code diff and suggest improvements for correctness, efficiency, maintainability, and security. Provide specific, actionable code changes in the following format:
-          File: <path>
-          Suggested Improvement: <description>
-          Code:
-          ```language
-          <improved code>
-          ```
-          Ensure suggestions are clear and ready to apply.'''
-          request = [{'contents': [{'parts': [{'text': prompt + '\n\n' + diff_content}]}]}]
-
-          # Submit batch job
-          batch_response = model.batch_generate_content(request)
-          batch_id = batch_response.name  # Get batch job ID
-          with open('batch_id.txt', 'w') as f:
-              f.write(batch_id)
-          print(f"Batch job submitted with ID: {batch_id}")
-          print(f"batch_id={batch_id}" >> $GITHUB_OUTPUT)
-          EOF
-
-      # Wait for batch job completion (poll for results)
-      - name: Poll for Batch Job Results
-        id: poll_batch
+      # Run Gemini AI Code Review (synchronous with retry)
+      - name: Gemini AI Code Review
+        id: review
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -145,60 +107,62 @@ jobs:
           import time
           import json
           import os
+          from google.api_core import retry
 
-          genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-          batch_id = open('batch_id.txt', 'r').read().strip()
+          genai.configure(api_key="${{ secrets.GEMINI_API_KEY }}")
+          model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
-          # Poll for results (up to 24 hours, checking every 60 seconds)
-          max_wait = 24 * 3600  # 24 hours in seconds
-          interval = 60  # Check every 60 seconds
-          elapsed = 0
-          while elapsed < max_wait:
-              try:
-                  response = genai.get_batch_job(batch_id)
-                  if response.state == 'COMPLETED':
-                      with open('batch_results.json', 'w') as f:
-                          json.dump([r.to_dict() for r in response.results], f)
-                      print("Batch job completed")
-                      print(f"results_file=batch_results.json" >> os.environ['GITHUB_OUTPUT'])
-                      break
-                  elif response.state == 'FAILED':
-                      print("Batch job failed")
-                      exit(1)
-              except Exception as e:
-                  print(f"An error occurred while polling: {e}")
-                  # Decide if to continue or fail based on the error
-                  # For simplicity, we'll just log and continue polling
+          # Read diff
+          with open('diff.txt', 'r') as f:
+              diff_content = f.read()
 
-              time.sleep(interval)
-              elapsed += interval
-          else:
-              print("Batch job did not complete within 24 hours")
+          # Define prompt
+          prompt = """Review the provided code diff and suggest improvements for correctness, efficiency, maintainability, and security. Provide specific, actionable code changes in the following format:
+          File: <path>
+          Suggested Improvement: <description>
+          Code:
+          ```
+          <improved code>
+          ```
+          Ensure suggestions are clear and ready to apply."""
+
+          # Retry logic for quota errors
+          @retry.Retry(predicate=retry.if_exception_type(google.api_core.exceptions.ResourceExhausted), initial=2, maximum=60, multiplier=2)
+          def generate_content():
+              return model.generate_content(prompt + "\\n\\n" + diff_content)
+
+          try:
+              response = generate_content()
+              review_comments = response.text
+              with open('review_comments.txt', 'w') as f:
+                  f.write(review_comments)
+              print("Review completed successfully")
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write(f"review_comments=review_comments.txt\\n")
+          except Exception as e:
+              print(f"Error: {str(e)}")
               exit(1)
           EOF
 
       # Apply suggested improvements
       - name: Apply Gemini Suggested Improvements
-        if: steps.poll_batch.outcome == 'success'
+        if: steps.review.outcome == 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python - <<EOF
-          import json
           import re
           import os
 
-          # Parse batch results
-          with open('${{ steps.poll_batch.outputs.results_file }}', 'r') as f:
-              results = json.load(f)
+          # Parse review comments
+          with open('${{ steps.review.outputs.review_comments }}', 'r') as f:
+              text = f.read()
 
-          for result in results:
-              text = result['candidates'][0]['content']['parts'][0]['text']
-              # Parse improvements using regex
-              pattern = r'File: (.*?)\nSuggested Improvement: .*?\nCode:\n```.*?\n(.*?)```'
-              for match in re.finditer(pattern, text, re.DOTALL):
-                  file = match.group(1).strip()
-                  code = match.group(2).strip()
+          pattern = r'File: (.*?)\\nSuggested Improvement: .*?\\nCode:\\n```(?:.*?\\n)?(.*?)```'
+          for match in re.finditer(pattern, text, re.DOTALL):
+              file = match.group(1).strip()
+              code = match.group(2).strip()
+              if file and code:
                   with open(file, 'w') as f:
                       f.write(code)
                   print(f"Applied improvement to {file}")
@@ -216,14 +180,13 @@ jobs:
 
       # Post review summary as a comment
       - name: Post Review Summary
-        if: steps.poll_batch.outcome == 'success'
+        if: steps.review.outcome == 'success'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const results = JSON.parse(fs.readFileSync('${{ steps.poll_batch.outputs.results_file }}'));
-            const reviewComments = results.map(r => r.candidates[0].content.parts[0].text).join('\n');
+            const reviewComments = fs.readFileSync('${{ steps.review.outputs.review_comments }}', 'utf8');
             const pullRequestNumber = ${{ github.event.pull_request.number || inputs.pull_request_number }};
             const files = "${{ github.event.inputs.files }}";
             const commentBody = files
@@ -237,5 +200,5 @@ jobs:
                 body: commentBody
               });
             } else {
-              console.log("No pull request number provided, skipping comment.");
+                console.log("No pull request number provided, skipping comment.")
             }

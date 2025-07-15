@@ -830,7 +830,6 @@
         }
 
         function setSearchState(isLoading) {
-            appState.isLoading = isLoading;
             [searchInput, typeSelect, driverSelect, searchBtn, toggleFavoritesBtn].forEach(el => { if(el) el.disabled = isLoading; });
 
             if (isLoading) {

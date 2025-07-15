@@ -23,9 +23,18 @@ from concurrent.futures import as_completed, ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
+from pydantic import BaseModel, Field # Requires: pip install pydantic
+from typing import List, Optional
+
 import requests
 from colorama import Fore, init, Style
 from dotenv import load_dotenv  # For .env file support
+import pathspec # Add this import
+
+import ast
+import astor # external library: pip install astor
+
+import tqdm # Requires: pip install tqdm
 
 # Summon the colors of the terminal for vibrant enchantment
 init(autoreset=True)  # Autoreset is enabled to prevent color bleed
@@ -55,15 +64,16 @@ BACKUP_SUFFIX = ".bak"
 # Heed the official scrolls from Google for the latest rates.
 # Input: ~$3.50 / 1M tokens | Output: ~$10.50 / 1M tokens
 # A rough heuristic of 4 chars/token is used. A true tokenizer is more precise but heavier.
-COST_PER_MILLION_INPUT_TOKENS = 3.50
-COST_PER_MILLION_OUTPUT_TOKENS = 10.50
+COST_DATA = {
+    "gemini-1.5-pro": {"input": 3.50, "output": 10.50},
+    "gemini-1.5-flash": {"input": 0.35, "output": 1.05}, # Example rates
+    "default": {"input": 3.50, "output": 10.50} # Fallback
+}
 CHARS_PER_TOKEN = 4
 
-# --- Global State Runes ---
-temp_dir: Path | None = None
-gemini_api_key: str = ""
-raw_api_output_mode: bool = False  # Controls if raw API response is used or code block extracted
+from dataclasses import dataclass, field
 
+# --- Global State Runes ---
 # Using standard logging for better control and integration
 logger = logging.getLogger("gemini_review")
 log_level_map = {
@@ -83,26 +93,40 @@ formatter = logging.Formatter("%(message)s")  # We'll handle colorization in cus
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-total_input_tokens: int = 0
-total_output_tokens: int = 0
+@dataclass
+class ScriptContext:
+    """A container for script configuration and runtime state."""
+    args: argparse.Namespace
+    config: configparser.ConfigParser
+    temp_dir: Path | None = None
+    api_key: str = ""
+    raw_api_output_mode: bool = False
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    # Use a list to be mutable within the dataclass instance
+    files_to_process: list[tuple[Path, Path]] = field(default_factory=list)
 
 # --- Ethereal Logging Functions (Neon Themed) ---
+class NeonFormatter(logging.Formatter):
+    """A logging formatter with a vibrant neon theme."""
+    FORMATS = {
+        logging.DEBUG: f"{Fore.LIGHTMAGENTA_EX}[DEBUG]{Style.RESET_ALL} %(message)s",
+        logging.INFO: f"{Fore.LIGHTCYAN_EX}[INFO]{Style.RESET_ALL} {Fore.LIGHTBLUE_EX}%(message)s{Style.RESET_ALL}",
+        logging.WARNING: f"{Fore.LIGHTYELLOW_EX}{Style.BRIGHT}[WARNING]{Style.RESET_ALL} {Fore.LIGHTYELLOW_EX}%(message)s{Style.RESET_ALL}",
+        logging.ERROR: f"{Fore.LIGHTRED_EX}{Style.BRIGHT}[ERROR]{Style.RESET_ALL} {Fore.LIGHTRED_EX}%(message)s{Style.RESET_ALL}",
+        logging.CRITICAL: f"{Fore.LIGHTWHITE_EX}{Style.BRIGHT}[CRITICAL]{Style.RESET_ALL} {Fore.LIGHTRED_EX}%(message)s{Style.RESET_ALL}",
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
 def log_message(level: int, message: str, color: str = Fore.RESET, style: str = Style.RESET_ALL):
     """Logs a message with specified level and color."""
-    level_name = logging.getLevelName(level)
-    # Using LIGHT variants for a brighter, more "neon" feel
-    if level == logging.INFO:
-        prefix = f"{Fore.LIGHTCYAN_EX}[INFO]{Style.RESET_ALL}"
-    elif level == logging.WARNING:
-        prefix = f"{Fore.LIGHTYELLOW_EX}{Style.BRIGHT}[WARNING]{Style.RESET_ALL}"
-    elif level == logging.ERROR:
-        prefix = f"{Fore.LIGHTRED_EX}{Style.BRIGHT}[ERROR]{Style.RESET_ALL}"
-    elif level == logging.DEBUG:
-        prefix = f"{Fore.LIGHTMAGENTA_EX}[DEBUG]{Style.RESET_ALL}"
-    else:  # For CRITICAL and others, use a default bright white/magenta
-        prefix = f"{Fore.LIGHTWHITE_EX}{Style.BRIGHT}[{level_name}]{Style.RESET_ALL}"
-
-    logger.log(level, f"{prefix} {color}{message}{style}")
+    # With NeonFormatter, direct color application in log_message is less critical
+    # but we keep it for consistency or if NeonFormatter is not used.
+    logger.log(level, message)
 
 def log_info(message: str):
     """Logs an informational message."""
@@ -310,6 +334,118 @@ def get_file_type_from_extension(file_path: Path) -> str | None:
     }
     return ext_map.get(file_path.suffix.lower())
 
+def _split_python(content: str) -> list[str]:
+    """Splits Python code into chunks based on top-level AST nodes."""
+    chunks_raw = []
+    try:
+        tree = ast.parse(content)
+        for node in tree.body:
+            # astor.to_source correctly reconstructs the source from the node
+            chunk_content = astor.to_source(node)
+            chunks_raw.append(chunk_content)
+        if not chunks_raw and content.strip(): # Fallback for non-node content
+            chunks_raw = [content]
+    except SyntaxError as e:
+        log_warning(f"Could not parse Python with AST due to syntax error: {e}. Falling back to default split.")
+        # Fallback to line-based splitting if AST parsing fails
+        lines = content.splitlines(keepends=True)
+        current_chunk_lines = []
+        for line in lines:
+            stripped_line = line.lstrip()
+            if stripped_line and not stripped_line.startswith("#") and (len(line) - len(stripped_line)) == 0:
+                if current_chunk_lines:
+                    chunks_raw.append("".join(current_chunk_lines))
+                    current_chunk_lines = [line]
+                else:
+                    current_chunk_lines.append(line)
+            else:
+                current_chunk_lines.append(line)
+        if current_chunk_lines:
+            chunks_raw.append("".join(current_chunk_lines))
+
+    if len(chunks_raw) > 1:
+        chunks_raw = [c for c in chunks_raw if c.strip()]
+    if not chunks_raw and content.strip():
+        chunks_raw = [content]
+    return chunks_raw
+
+def _split_shell(content: str) -> list[str]:
+    """Splits shell script into chunks based on functions, control blocks, and line continuations."""
+    chunks_raw = []
+    lines = content.splitlines(keepends=True)
+    current_chunk_lines = []
+    in_multi_line_command = False
+
+    for line in lines:
+        stripped_line = line.strip()
+
+        if line.rstrip().endswith("\\"):
+            in_multi_line_command = True
+            current_chunk_lines.append(line)
+            continue
+
+        if in_multi_line_command:
+            current_chunk_lines.append(line)
+            in_multi_line_command = False
+            continue
+
+        is_new_block_start = re.match(
+            r"^\s*(?:function\s+\w+\s*\{|\w+\s*\(\s*\)\s*\{|"  # function definitions
+            r"if\s|for\s|while\s|case\s|"  # control flow
+            r"#+\s*\S.*|"  # significant comments
+            r"[a-zA-Z_][a-zA-Z0-9_]*\s+.*?"  # simple command start (e.g., `echo "hi"`)
+            r")", stripped_line
+        )
+
+        if is_new_block_start and current_chunk_lines:
+            chunks_raw.append("".join(current_chunk_lines))
+            current_chunk_lines = [line]
+        else:
+            current_chunk_lines.append(line)
+
+    if current_chunk_lines:
+        chunks_raw.append("".join(current_chunk_lines))
+
+    if len(chunks_raw) > 1:
+        chunks_raw = [c for c in chunks_raw if c.strip()]
+    if not chunks_raw and content.strip():
+        chunks_raw = [content]
+    return chunks_raw
+
+def _split_default(content: str) -> list[str]:
+    """Splits content into chunks based on paragraph-like breaks (two or more newlines)."""
+    chunks_raw = []
+    # Split by two or more newlines, keeping the newlines as delimiters to ensure they're not lost.
+    # This creates chunks like: [text, \n\n, text, \n\n, ...]
+    chunks_raw = re.split(r"(\n{2,})", content)
+    # Recombine text and their following newlines
+    temp_recombined_chunks = []
+    i = 0
+    while i < len(chunks_raw):
+        current_piece = chunks_raw[i]
+        if current_piece.strip():  # If it's actual content
+            if i + 1 < len(chunks_raw) and re.match(r"\n{2,}", chunks_raw[i + 1]):
+                temp_recombined_chunks.append(current_piece + chunks_raw[i + 1])
+                i += 2
+            else:
+                temp_recombined_chunks.append(current_piece)
+                i += 1
+        else:  # If it's just newlines at the start or consecutive newlines
+            i += 1
+    chunks_raw = [c for c in temp_recombined_chunks if c.strip()]  # Filter out any remaining empty strings
+
+    if not chunks_raw:
+        log_warning("No logical fragments created. Using entire file as one chunk.")
+        chunks_raw = [content]
+    return chunks_raw
+
+SPLITTING_STRATEGIES = {
+    "python": _split_python,
+    "bash": _split_shell,
+    "sh": _split_shell,
+    "zsh": _split_shell,
+}
+
 def split_file_into_chunks(input_path: Path, temp_dir_path: Path, lang_hint: str | None = None, max_chunk_tokens: int | None = None) -> list[Path]:
     """
     Divides the input tome into content-aware fragments.
@@ -325,7 +461,7 @@ def split_file_into_chunks(input_path: Path, temp_dir_path: Path, lang_hint: str
 
     if not content.strip():
         log_warning(f"Input tome '{input_path.name}' is empty. Treating as a single void chunk.")
-        chunk_path = temp_dir_path / f"{CHUNK_PREFIX}0000"
+        chunk_path = temp_dir_dir / f"{CHUNK_PREFIX}0000"
         try:
             chunk_path.write_text("", encoding="utf-8")
         except OSError as e:
@@ -333,107 +469,9 @@ def split_file_into_chunks(input_path: Path, temp_dir_path: Path, lang_hint: str
             return []
         return [chunk_path]
 
-    chunks_raw = []
-    lines = content.splitlines(keepends=True)  # Keepends=True preserves newlines for reassembly
-
-    if lang_hint == "python":
-        log_debug("Using Python-aware splitting strategy (zero-indentation blocks).")
-        current_chunk_lines = []
-        for line in lines:
-            stripped_line = line.lstrip()
-            # If line is not empty and not a comment, and starts at column 0 (top-level)
-            if stripped_line and not stripped_line.startswith("#") and (len(line) - len(stripped_line)) == 0:
-                # If we have accumulated lines, this marks the start of a new block
-                if current_chunk_lines:
-                    chunks_raw.append("".join(current_chunk_lines))
-                    current_chunk_lines = [line]
-                else:  # First line of the file or first top-level statement
-                    current_chunk_lines.append(line)
-            else:
-                current_chunk_lines.append(line)
-        if current_chunk_lines:  # Add the last accumulated chunk
-            chunks_raw.append("".join(current_chunk_lines))
-
-        # Filter out any chunks that are purely whitespace or comments, unless it's the only chunk
-        if len(chunks_raw) > 1:
-            chunks_raw = [c for c in chunks_raw if c.strip()]
-        if not chunks_raw and content.strip():  # If all chunks were filtered but content exists, keep original
-            chunks_raw = [content]
-
-    elif lang_hint in ["bash", "sh", "zsh"]:
-        log_debug("Using shell-aware splitting strategy (functions, control blocks, line continuations).")
-        current_chunk_lines = []
-        in_multi_line_command = False
-
-        for line in lines:
-            stripped_line = line.strip()
-
-            # Check for line continuation (backslash at end of line, not just whitespace)
-            if line.rstrip().endswith("\\"):
-                in_multi_line_command = True
-                current_chunk_lines.append(line)
-                continue
-
-            # If we were in a multi-line command, continue adding lines until it ends
-            if in_multi_line_command:
-                current_chunk_lines.append(line)
-                in_multi_line_command = False  # Assume it ends unless another backslash is found
-                continue
-
-            # Check for new logical blocks (functions, if/for/while/case, or significant commands)
-            # This regex looks for:
-            # - function definitions: `func_name() {` or `function func_name {`
-            # - control flow: `if`, `for`, `while`, `case` at line start
-            # - comments that might delineate sections (e.g., `### SECTION ###`)
-            # - a new command starting at the beginning of the line (not indented, not blank, not comment)
-            is_new_block_start = re.match(
-                r"^\s*(?:function\s+\w+\s*\{|\w+\s*\(\s*\)\s*\{|"  # function definitions
-                r"if\s|for\s|while\s|case\s|"  # control flow
-                r"#+\s*\S.*|"  # significant comments
-                r"[a-zA-Z_][a-zA-Z0-9_]*\s+.*?"  # simple command start (e.g., `echo "hi"`)
-                r")", stripped_line
-            )
-
-            # If a new block starts and we have accumulated lines, save the current chunk
-            if is_new_block_start and current_chunk_lines:
-                chunks_raw.append("".join(current_chunk_lines))
-                current_chunk_lines = [line]
-            else:
-                current_chunk_lines.append(line)
-
-        if current_chunk_lines:  # Add the last accumulated chunk
-            chunks_raw.append("".join(current_chunk_lines))
-
-        # Filter out any chunks that are purely whitespace or comments, unless it's the only chunk
-        if len(chunks_raw) > 1:
-            chunks_raw = [c for c in chunks_raw if c.strip()]
-        if not chunks_raw and content.strip():  # If all chunks were filtered but content exists, keep original
-            chunks_raw = [content]
-
-    else:
-        log_debug("Using default paragraph-like splitting strategy (2+ newlines).")
-        # Split by two or more newlines, keeping the newlines as delimiters to ensure they're not lost.
-        # This creates chunks like: [text, \n\n, text, \n\n, ...]
-        chunks_raw = re.split(r"(\n{2,})", content)
-        # Recombine text and their following newlines
-        temp_recombined_chunks = []
-        i = 0
-        while i < len(chunks_raw):
-            current_piece = chunks_raw[i]
-            if current_piece.strip():  # If it's actual content
-                if i + 1 < len(chunks_raw) and re.match(r"\n{2,}", chunks_raw[i + 1]):
-                    temp_recombined_chunks.append(current_piece + chunks_raw[i + 1])
-                    i += 2
-                else:
-                    temp_recombined_chunks.append(current_piece)
-                    i += 1
-            else:  # If it's just newlines at the start or consecutive newlines
-                i += 1
-        chunks_raw = [c for c in temp_recombined_chunks if c.strip()]  # Filter out any remaining empty strings
-
-    if not chunks_raw:
-        log_warning("No logical fragments created. Using entire file as one chunk.")
-        chunks_raw = [content]
+    log_debug(f"Looking for splitter for lang_hint: {lang_hint}")
+    splitter_func = SPLITTING_STRATEGIES.get(lang_hint, _split_default)
+    chunks_raw = splitter_func(content)
 
     final_chunks_content = []
     for chunk_content in chunks_raw:
@@ -572,6 +610,8 @@ def run_pre_check(content: str, lang_hint: str) -> bool:
     log_debug(f"No pre-check defined for language '{lang_hint}'. Skipping.")
     return True
 
+import hashlib # Add this import
+
 def process_chunk_with_api(original_chunk_path: Path, output_chunk_path: Path, model_url: str, args: argparse.Namespace, file_info: str) -> tuple[str, str, Path, int, int]:
     """Channels a single fragment through the Gemini API for enhancement."""
     global total_input_tokens, total_output_tokens
@@ -622,6 +662,23 @@ def process_chunk_with_api(original_chunk_path: Path, output_chunk_path: Path, m
             f"Original Code Chunk:\n```{current_lang_hint or ''}\n{original_content}\n```"
         )
 
+    # Caching logic
+    cache_dir = temp_dir.parent / "pyrmethus_cache"
+    cache_dir.mkdir(exist_ok=True)
+    cache_key = hashlib.sha256((prompt_text + original_content).encode('utf-8')).hexdigest()
+    cache_file = cache_dir / cache_key
+
+    if not args.force and cache_file.exists():
+        log_debug(f"Found cached response for chunk {chunk_name}")
+        final_content = cache_file.read_text(encoding='utf-8')
+        output_tokens = len(final_content) // CHARS_PER_TOKEN # Estimate tokens for cached content
+        try:
+            output_chunk_path.write_text(final_content, encoding="utf-8")
+        except OSError as e:
+            log_error(f"Could not write cached content to output fragment '{output_chunk_path.name}': {e}")
+            return original_content, original_content, original_chunk_path, 0, 0
+        return final_content, original_content, original_chunk_path, 0, output_tokens # Return 0 input tokens for cached
+
     json_payload = {
         "contents": [{"parts": [{"text": prompt_text}]}],
         "generationConfig": {"temperature": args.temperature, "maxOutputTokens": 8192}
@@ -654,6 +711,9 @@ def process_chunk_with_api(original_chunk_path: Path, output_chunk_path: Path, m
             # Estimate output tokens based on the extracted content. A real tokenizer would be more accurate.
             output_tokens = len(final_content) // CHARS_PER_TOKEN
 
+            # Save to cache
+            cache_file.write_text(final_content, encoding='utf-8')
+
             # Post-API check only if content changed, if pre-check is enabled, and if a language hint is available
             if args.pre_check and final_content.strip() != original_content.strip() and current_lang_hint:
                 log_info(f"Running post-API check for '{chunk_name}'...")
@@ -679,14 +739,19 @@ def process_chunk_with_api(original_chunk_path: Path, output_chunk_path: Path, m
             time.sleep(args.retry_delay)
         except requests.exceptions.HTTPError as e:
             error_details = e.response.text if e.response else "No response text"
-            if e.response and e.response.status_code == 429:
-                log_warning(f"Rate limit reached for '{chunk_name}'. Waiting {API_RATE_LIMIT_WAIT}s before next attempt...")
-                time.sleep(API_RATE_LIMIT_WAIT)
-            elif e.response and e.response.status_code in [400, 401, 403]:  # Added 403 for Forbidden
-                log_error(f"API Error {e.response.status_code} for '{chunk_name}'. This is not retryable. Check prompt, API key, or permissions. Details: {error_details[:200]}")
-                return None, original_content, original_chunk_path, input_tokens, 0  # Indicate failure by returning None for processed_content
+            if e.response:
+                status = e.response.status_code
+                if status == 429:
+                    log_warning(f"Rate limit reached for '{chunk_name}'. Waiting {API_RATE_LIMIT_WAIT}s before next attempt...")
+                    time.sleep(API_RATE_LIMIT_WAIT)
+                elif status >= 500: # Is it a server error?
+                    log_warning(f"API server error ({status}). Retrying... Details: {error_details[:200]}")
+                    time.sleep(args.retry_delay)
+                elif status in [400, 401, 403]: # Unrecoverable client error
+                    log_error(f"API Error {status} for '{chunk_name}'. This is not retryable. Check prompt, API key, or permissions. Details: {error_details[:200]}")
+                    return None, original_content, original_chunk_path, input_tokens, 0
             else:
-                log_error(f"API failed for '{chunk_name}' with code {e.response.status_code if e.response else 'N/A'}. Retrying... Details: {error_details[:200]}")
+                log_error(f"API failed for '{chunk_name}'. Retrying... Details: {error_details[:200]}")
                 time.sleep(args.retry_delay)
         except (ValueError, json.JSONDecodeError, IndexError) as e:
             log_error(f"Error parsing API response for '{chunk_name}': {e}. Retrying...")
@@ -701,6 +766,7 @@ def process_chunk_with_api(original_chunk_path: Path, output_chunk_path: Path, m
     except OSError as e:
         log_error(f"Could not write original content to output fragment '{output_chunk_path.name}' after failures: {e}")
     return original_content, original_content, original_chunk_path, input_tokens, len(original_content) // CHARS_PER_TOKEN # Return original content and its token count
+
 
 def display_diff(original_content: str, new_content: str, file_path_for_display: str):
     """Displays a colorized diff between original and new content."""
@@ -998,16 +1064,37 @@ def process_single_file_workflow(original_file_path: Path, output_file_path: Pat
                 except Exception as exc:
                     log_error(f"Fragment '{chunk_basename}' failed unexpectedly during execution: {exc}")
 
-                # Update progress bar
-                progress = int(100 * completed_count / total_chunks) if total_chunks > 0 else 100
-                bar_length = 50
-                filled_length = int(bar_length * progress / 100)
-                bar = "█" * filled_length + "-" * (bar_length - filled_length)
-                # Display current file name in progress bar for directory processing
-                current_file_display = original_file_path.name if args.input_dir else ""
-                # Use stderr for progress bar to avoid interfering with stdout output redirection
-                sys.stderr.write(f"\r{Fore.LIGHTBLUE_EX}{Style.BRIGHT}[PROGRESS]{Style.RESET_ALL} [{bar}] {progress}% ({completed_count}/{total_chunks} chunks for {current_file_display}) ")
-                sys.stderr.flush()
+                # Use tqdm to wrap the as_completed iterator
+            progress_bar = tqdm.tqdm(as_completed(future_to_chunk_info), total=len(chunks_to_process_info), desc=f"Processing {original_file_path.name}", unit="chunk", file=sys.stderr)
+            for future in progress_bar:
+                original_c_path, _ = future_to_chunk_info[future]
+                chunk_basename = original_c_path.name
+                try:
+                    result_tuple = future.result()
+                    if result_tuple:
+                        _, _, _, in_tokens, out_tokens = result_tuple
+                        # Accumulate tokens even if reverted or skipped due to pre-check for cost estimation
+                        total_input_tokens += in_tokens
+                        total_output_tokens += out_tokens
+                        
+                        # Only mark as completed if processing was actually done (not skipped or failed early)
+                        if result_tuple[0] is not None: # Check if processed_content is not None
+                            completed_count += 1
+
+                        if checkpoint_file and result_tuple[0] is not None: # Only write to checkpoint if not in dry-run and processing was successful
+                            try:
+                                with open(checkpoint_file, "a", encoding="utf-8") as cf:
+                                    cf.write(f"{chunk_basename}\n")
+                            except OSError as e:
+                                log_error(f"Failed to write to checkpoint file '{checkpoint_file.name}': {e}")
+                    else:
+                        log_error(f"Fragment '{chunk_basename}' processing yielded no valid result. Check logs.")
+
+                except Exception as exc:
+                    log_error(f"Fragment '{chunk_basename}' failed unexpectedly during execution: {exc}")
+
+                # The progress bar updates automatically
+                pass
         sys.stderr.write("\n") # Newline after progress bar for clean output
     else:
         log_info(f"No new chunks needed processing for '{original_file_path.name}'.")
@@ -1040,6 +1127,7 @@ def main():
 {Fore.LIGHTYELLOW_EX}{Style.BRIGHT}Examples:{Style.RESET_ALL}
   {SCRIPT_NAME} -i script.py -o enhanced.py --interactive
   cat script.sh | {SCRIPT_NAME} -l bash --pre-check -o enhanced.sh
+  {SCRIPT_NAME} --input-dir ./project --output-dir ./project-fixed --lang python -j 8
   {SCRIPT_NAME} --input-dir ./project --output-dir ./project-fixed --lang python -j 8
   {SCRIPT_NAME} -i document.md --max-chunk-tokens 2000 --custom-prompt "Fix grammar: {{original_code}} For language: {{lang_hint}}"
   {SCRIPT_NAME} -i myscript.js -o myscript_fixed.js --log-level DEBUG # Enable detailed debugging
@@ -1095,14 +1183,220 @@ def main():
     config = load_config()
     raw_api_output_mode = args.raw  # Set the global flag
 
-    # Priority: CLI > Env (including .env) > Config > Default
-    args.model = args.model if args.model is not None else os.getenv("GEMINI_MODEL") or config.get("Gemini", "model", fallback=DEFAULT_MODEL)
-    args.temperature = args.temperature if args.temperature is not None else float(os.getenv("GEMINI_TEMPERATURE", config.get("Gemini", "temperature", fallback=str(DEFAULT_TEMPERATURE))))
-    args.jobs = args.jobs if args.jobs is not None else int(os.getenv("PYRMETHUS_JOBS", config.get("Pyrmethus", "jobs", fallback=str(DEFAULT_MAX_JOBS))))
-    args.connect_timeout = args.connect_timeout if args.connect_timeout is not None else int(os.getenv("PYRMETHUS_CONNECT_TIMEOUT", config.get("Pyrmethus", "connect_timeout", fallback=str(DEFAULT_CONNECT_TIMEOUT))))
-    args.read_timeout = args.read_timeout if args.read_timeout is not None else int(os.getenv("PYRMETHUS_READ_TIMEOUT", config.get("Pyrmethus", "read_timeout", fallback=str(DEFAULT_READ_TIMEOUT))))
-    args.retries = args.retries if args.retries is not None else int(os.getenv("PYRMETHUS_RETRIES", config.get("Pyrmethus", "retries", fallback=str(MAX_RETRIES))))
-    args.retry_delay = args.retry_delay if args.retry_delay is not None else int(os.getenv("PYRMETHUS_RETRY_DELAY", config.get("Pyrmethus", "retry_delay", fallback=str(RETRY_DELAY_SECONDS))))
+
+    args.skip_ext = [ext.lower() for ext in args.skip_ext]  # Ensure extensions are lowercase for consistent checking
+
+    # If --stdout is used, it takes precedence for output destination.
+    if args.stdout:
+        args.output_file = Path("-")
+        args.output_dir = None  # Clear output_dir if stdout is forced
+        log_debug("Output redirected to stdout.")
+
+    # --- Setup ---
+    signal.signal(signal.SIGINT, handle_exit)
+    signal.signal(signal.SIGTERM, handle_exit)
+
+    check_dependencies()
+    get_api_key(args.key, config)
+    if not gemini_api_key:  # Re-check after attempting all methods to get key
+        log_error("Gemini API key is required to proceed.")
+        sys.exit(1)
+
+    if not create_temp_dir(args):
+        sys.exit(1)
+
+    files_to_process: list[tuple[Path, Path]] = []  # List of (input_path, output_path) tuples
+
+    if args.input_file:
+        is_stdin = str(args.input_file) == "-"
+        if is_stdin:
+            if sys.stdin.isatty():
+                log_error("Cannot read from a TTY. Please pipe input to the script (e.g., `cat file.txt | python script.py`) or use `-i <file_path>`.")
+                sys.exit(1)
+            log_info(f"{Fore.LIGHTBLUE_EX}Reading from stdin...{Style.RESET_ALL}")
+            stdin_content = sys.stdin.read()
+            if not stdin_content.strip():
+                log_warning("Input from stdin is empty. Nothing to process.")
+                sys.exit(0) # Exit gracefully if stdin is empty
+
+            stdin_tmp_path = temp_dir / "stdin.tmp"
+            try:
+                stdin_tmp_path.write_text(stdin_content, encoding="utf-8")
+            except OSError as e:
+                log_error(f"Failed to write stdin content to temporary file: {e}")
+                sys.exit(1)
+            
+            # Determine the output path for stdin processing
+            output_path_for_stdin = Path("-") if args.output_file is None and args.output_dir is None and not args.stdout else args.output_file
+            if args.stdout:
+                output_path_for_stdin = Path("-")
+            
+            files_to_process.append((stdin_tmp_path, output_path_for_stdin))
+        else:
+            if not args.input_file.is_file():
+                log_error(f"Input file '{args.input_file}' not found or is not a file.")
+                sys.exit(1)
+
+            output_path_for_file = args.output_file
+            # If no output file or dir is specified, and stdout is not forced, default to stdout.
+            if output_path_for_file is None and args.output_dir is None and not args.stdout:
+                log_warning(f"No output file specified for '{args.input_file}'. Output will be printed to stdout by default. Use -o to specify a file.")
+                output_path_for_file = Path("-") # Force stdout
+
+            # If an output file is specified (even if it's stdout), check for backup if it exists and not a dry run
+            if output_path_for_file and str(output_path_for_file) != "-":
+                if not backup_output_file(output_path_for_file, args.force, args.dry_run):
+                    sys.exit(1) # Aborted by user during backup prompt
+            
+            files_to_process.append((args.input_file, output_path_for_file if output_path_for_file else Path("-")))
+
+        if not args.lang and not is_stdin:
+            inferred_lang = get_file_type_from_extension(args.input_file)
+            if inferred_lang:
+                args.lang = inferred_lang
+                log_info(f"Inferred language '{args.input_file.name}' from file extension for '{args.input_file.name}'.")
+            else:
+                log_warning(f"Could not infer language for '{args.input_file.name}'. Specify with -l for better results.")
+
+    elif args.input_dir:
+        if not args.input_dir.is_dir():
+            log_error(f"Input directory '{args.input_dir}' not found or is not a directory.")
+            sys.exit(1)
+        if not args.output_dir:
+            log_error("--output-dir is required when using --input-dir.")
+            sys.exit(1)
+        if args.output_dir.resolve() == args.input_dir.resolve():
+            log_error(f"{Fore.LIGHTRED_EX}{Style.BRIGHT}Input and output directories cannot be the same to prevent data loss!{Style.RESET_ALL}")
+            sys.exit(1)
+
+        if not args.dry_run:  # Only create output dir if not in dry-run mode
+            try:
+                args.output_dir.mkdir(parents=True, exist_ok=True)
+                log_debug(f"Ensured output directory exists: {args.output_dir}")
+            except OSError as e:
+                log_error(f"Failed to create output directory '{args.output_dir}': {e}")
+                sys.exit(1)
+        
+        files_to_process = get_files_from_input_dir(args.input_dir, args.output_dir, args.force, args.skip_ext)
+        if not files_to_process:
+            # Log a warning only if no files were found or all were skipped
+            log_warning(f"No processable files found in '{args.input_dir}' that match the criteria.")
+            sys.exit(0)
+
+    api_url = f"{API_BASE_URL}/{args.model}:generateContent?key={gemini_api_key}"
+    files_processed_count = 0
+
+    try:
+        for original_file_path, output_file_path in files_to_process:
+            process_single_file_workflow(original_file_path, output_file_path, api_url, args)
+            files_processed_count += 1
+
+    finally:
+        cleanup_temp_dir()
+        # Display summary only if at least one file was attempted
+        if files_processed_count > 0 or (args.input_file and str(args.input_file) == "-"):
+            display_final_summary(files_processed_count, args.dry_run)
+        elif args.input_dir and not files_to_process:
+             # If input_dir was used but no files were found, the summary is implicitly handled by the warning above.
+             pass 
+        else:
+            log_warning("No files were processed in this ritual.")
+
+
+if __name__ == "__main__":
+    main()
+        sys.stderr.write("\n") # Newline after progress bar for clean output
+    else:
+        log_info(f"No new chunks needed processing for '{original_file_path.name}'.")
+
+    # After all processing (or if no chunks needed processing), reassemble
+    reassemble_output(all_chunks_raw_paths, output_file_path, temp_dir, str(output_file_path) == "-", args.interactive, args.dry_run)
+
+    # Banish the checkpoint file only if the file processing was fully completed without critical errors
+    # and it's not a dry run.
+    if checkpoint_file and checkpoint_file.exists() and not args.dry_run:
+        # Verify if all chunks were processed or skipped successfully. A simple check for existence is done earlier.
+        # A more robust check would compare the number of entries in the checkpoint with total_chunks.
+        try:
+            checkpoint_file.unlink() # Banish the checkpoint upon successful completion of the file
+            log_debug(f"Checkpoint '{checkpoint_file.name}' banished.")
+        except OSError as e:
+            log_warning(f"Could not banish checkpoint '{checkpoint_file.name}': {e}")
+
+def main():
+    """Orchestrates the grand ritual of text enhancement."""
+    global total_input_tokens, total_output_tokens, raw_api_output_mode
+
+    parser = argparse.ArgumentParser(
+        description=f"{Fore.LIGHTCYAN_EX}{Style.BRIGHT}Pyrmethus's Grand Gemini File Review Spell{Style.RESET_ALL}",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog=f"""
+{Fore.LIGHTYELLOW_EX}{Style.BRIGHT}Configuration Priority:{Style.RESET_ALL}
+  Command-line arguments > .env file (in current directory) > Environment variables > Config File ({CONFIG_FILE}) > Defaults.
+
+{Fore.LIGHTYELLOW_EX}{Style.BRIGHT}Examples:{Style.RESET_ALL}
+  {SCRIPT_NAME} -i script.py -o enhanced.py --interactive
+  cat script.sh | {SCRIPT_NAME} -l bash --pre-check -o enhanced.sh
+  {SCRIPT_NAME} --input-dir ./project --output-dir ./project-fixed --lang python -j 8
+  {SCRIPT_NAME} -i document.md --max-chunk-tokens 2000 --custom-prompt "Fix grammar: {{original_code}} For language: {{lang_hint}}"
+  {SCRIPT_NAME} -i myscript.js -o myscript_fixed.js --log-level DEBUG # Enable detailed debugging
+  {SCRIPT_NAME} --input-dir code --output-dir processed --skip-ext .log .txt # Skip specific file types
+  {SCRIPT_NAME} -i my_code.py --dry-run # Preview changes without writing files
+  {SCRIPT_NAME} -i empty_file.txt # Process an empty file (will result in an empty output)
+
+{Fore.LIGHTYELLOW_EX}{Style.BRIGHT}Dependencies:{Style.RESET_ALL}
+  Install Python packages: `pip install colorama requests python-dotenv`
+  Optional pre-check tools: `pip install ruff` (for Python), `apt install shellcheck` (for Termux/Debian)
+"""
+    )
+    parser.add_argument("--list-models", action="store_true", help="List available Gemini models and exit.")
+    input_group = parser.add_mutually_exclusive_group(required=not any(x in sys.argv for x in ['--list-models', '-h', '--help']))
+    input_group.add_argument("-i", "--input-file", type=Path, help="Input file path or '-' for stdin.")
+    input_group.add_argument("--input-dir", type=Path, help="Input directory to process all files within.")
+
+    output_group = parser.add_mutually_exclusive_group()
+    output_group.add_argument("-o", "--output-file", type=Path, help="Output file path. If omitted for a single input file, output goes to stdout.")
+    output_group.add_argument("--output-dir", type=Path, help="Output directory for processed files. Required when using --input-dir.")
+    parser.add_argument("--in-place", action="store_true", help="Modify files in-place (creates backups).")
+    parser.add_argument("--stdout", action="store_true", help="Print output to stdout (overrides -o and --output-dir for the main output).")
+
+    parser.add_argument("-k", "--key", help="Gemini API Key. If not provided, it will be prompted or read from environment/config.")
+    parser.add_argument("-m", "--model", help=f"Gemini model to use (default: {DEFAULT_MODEL}).")
+    parser.add_argument("-t", "--temperature", type=float, help=f"API temperature for generation (default: {DEFAULT_TEMPERATURE}). Controls randomness.")
+    parser.add_argument("-l", "--lang", help="Language hint for the prompt (e.g., python, javascript, bash). Overrides auto-detection.")
+    parser.add_argument("--custom-prompt-template", help="Custom prompt template string...")
+    parser.add_argument("--prompt-file", type=Path, help="Path to a file containing the prompt template.")
+    parser.add_argument("-j", "--jobs", type=int, help=f"Maximum number of parallel API requests (default: {DEFAULT_MAX_JOBS}). Adjust based on your network and API rate limits.")
+    parser.add_argument("-f", "--force", action="store_true", help="Force overwrite of existing output file(s) without prompting.")
+    parser.add_argument("--raw", action="store_true", help="Output raw API response text directly, bypassing code block extraction. Useful for debugging prompt engineering.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging (alias for --log-level DEBUG).")
+    parser.add_argument("--log-level", choices=log_level_map.keys(), default="INFO",
+                        help=f"Set the logging level (default: INFO). Choices: {', '.join(log_level_map.keys())}.")
+    parser.add_argument("--interactive", action="store_true", help="Interactively review changes for each chunk before applying. Requires user input.")
+    parser.add_argument("--pre-check", action="store_true", help="Perform pre-API lint/style checks (requires tools like black/flake8/shellcheck). If pre-check passes on the original code, API call is skipped for that chunk.")
+    parser.add_argument("--max-chunk-tokens", type=int, help="Maximum estimated tokens per chunk. Larger files will be split into smaller fragments to stay within this limit.")
+    parser.add_argument("--connect-timeout", type=int, help=f"Connection timeout for API requests in seconds (default: {DEFAULT_CONNECT_TIMEOUT}).")
+    parser.add_argument("--read-timeout", type=int, help=f"Read timeout for API responses in seconds (default: {DEFAULT_READ_TIMEOUT}).")
+    parser.add_argument("--retries", type=int, help=f"Number of API retry attempts on transient errors (default: {MAX_RETRIES}).")
+    parser.add_argument("--retry-delay", type=int, help=f"Seconds to wait between API retries (default: {RETRY_DELAY_SECONDS}).")
+    parser.add_argument("--skip-ext", nargs="*", default=[], help="List of file extensions to skip when processing directories (e.g., .log .txt .bak). Case-insensitive.")
+    parser.add_argument("--dry-run", action="store_true", help="Perform all operations but do not write any files; shows what would change. Useful for previewing.")
+    parser.add_argument("--diff-only", action="store_true", help="Show a diff of changes and exit with a status code. Implies --dry-run.")
+    parser.add_argument("--temp-dir", type=Path, help="Specify a custom directory for temporary files (e.g., for chunk splitting).")
+
+    args = parser.parse_args()
+
+    # Set logger level based on verbose or log-level argument
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(log_level_map.get(args.log_level.upper(), logging.INFO)) # Use .get for safety
+
+    # --- Resolve Settings ---
+    config = load_config()
+    raw_api_output_mode = args.raw  # Set the global flag
+
+
     args.skip_ext = [ext.lower() for ext in args.skip_ext]  # Ensure extensions are lowercase for consistent checking
 
     # If --stdout is used, it takes precedence for output destination.

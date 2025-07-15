@@ -1,0 +1,241 @@
+name: Gemini AI Code Review and Auto-Fix (Batch Mode)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pull_request_number:
+        description: 'Pull Request Number to Review (optional)'
+        required: false
+        type: number
+      files:
+        description: 'Comma-separated list of files to review (e.g., src/main.py,src/utils.py)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  review-and-fix:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+
+      # Fetch all remote branches
+      - name: Fetch All Remote Branches
+        run: |
+          git fetch origin +refs/heads/*:refs/remotes/origin/*
+          git branch -r
+
+      # Get the pull request or file-specific diff
+      - name: Get Diff
+        id: get_diff
+        env:
+          PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          PULL_REQUEST_BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+          FILES: ${{ github.event.inputs.files }}
+        run: |
+          if [ -z "$PULL_REQUEST_BASE_REF" ]; then
+            echo "PULL_REQUEST_BASE_REF is empty. Defaulting to 'main'."
+            PULL_REQUEST_BASE_REF="main"
+          fi
+          if ! git show-ref --verify --quiet "refs/remotes/origin/$PULL_REQUEST_BASE_REF"; then
+            echo "Error: Base branch 'origin/$PULL_REQUEST_BASE_REF' does not exist."
+            exit 1
+          fi
+          git checkout "$PULL_REQUEST_HEAD_REF"
+          if [ -n "$FILES" ]; then
+            echo "Generating diff for specified files: $FILES"
+            FILE_LIST=$(echo "$FILES" | tr ',' ' ')
+            git diff "origin/$PULL_REQUEST_BASE_REF" -- $FILE_LIST > diff.txt
+          else
+            echo "Generating diff for pull request"
+            git diff "origin/$PULL_REQUEST_BASE_REF" > diff.txt
+          fi
+          echo "pull_request_diff<<EOF" >> $GITHUB_OUTPUT
+          cat diff.txt >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
+      # Validate input files
+      - name: Validate Input Files
+        if: github.event.inputs.files
+        run: |
+          for file in $(echo "${{ github.event.inputs.files }}" | tr ',' ' '); do
+            if [ ! -f "$file" ]; then
+              echo "Error: File $file does not exist."
+              exit 1
+            fi
+          done
+
+      # Estimate token usage
+      - name: Estimate Token Usage
+        id: estimate_tokens
+        run: |
+          DIFF_SIZE=$(wc -c < diff.txt)
+          ESTIMATED_TOKENS=$((DIFF_SIZE / 4))
+          echo "Estimated tokens: $ESTIMATED_TOKENS"
+          echo "estimated_tokens=$ESTIMATED_TOKENS" >> $GITHUB_OUTPUT
+          if [ "$ESTIMATED_TOKENS" -gt 1000000 ]; then
+            echo "Error: Estimated tokens ($ESTIMATED_TOKENS) exceed 1M token limit for free tier."
+            exit 1
+          fi
+
+      # Install Python and dependencies for Gemini API
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install Gemini SDK
+        run: pip install google-generativeai
+
+      # Submit batch job to Gemini API
+      - name: Submit Gemini Batch Job
+        id: submit_batch
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python - <<EOF
+          import google.generativeai as genai
+          import json
+          import os
+
+          genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+          model = genai.GenerativeModel('gemini-1.5-flash-latest')
+
+          # Read diff from file
+          with open('diff.txt', 'r') as f:
+              diff_content = f.read()
+
+          # Prepare batch request
+          prompt = '''Review the provided code diff and suggest improvements for correctness, efficiency, maintainability, and security. Provide specific, actionable code changes in the following format:
+          File: <path>
+          Suggested Improvement: <description>
+          Code:
+          ```language
+          <improved code>
+          ```
+          Ensure suggestions are clear and ready to apply.'''
+          request = [{'contents': [{'parts': [{'text': prompt + '\n\n' + diff_content}]}]}]
+
+          # Submit batch job
+          batch_response = model.batch_generate_content(request)
+          batch_id = batch_response.name  # Get batch job ID
+          with open('batch_id.txt', 'w') as f:
+              f.write(batch_id)
+          print(f"Batch job submitted with ID: {batch_id}")
+          print(f"batch_id={batch_id}" >> $GITHUB_OUTPUT)
+          EOF
+
+      # Wait for batch job completion (poll for results)
+      - name: Poll for Batch Job Results
+        id: poll_batch
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python - <<EOF
+          import google.generativeai as genai
+          import time
+          import json
+          import os
+
+          genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+          batch_id = open('batch_id.txt', 'r').read().strip()
+
+          # Poll for results (up to 24 hours, checking every 60 seconds)
+          max_wait = 24 * 3600  # 24 hours in seconds
+          interval = 60  # Check every 60 seconds
+          elapsed = 0
+          while elapsed < max_wait:
+              try:
+                  response = genai.get_batch_job(batch_id)
+                  if response.state == 'COMPLETED':
+                      with open('batch_results.json', 'w') as f:
+                          json.dump([r.to_dict() for r in response.results], f)
+                      print("Batch job completed")
+                      print(f"results_file=batch_results.json" >> os.environ['GITHUB_OUTPUT'])
+                      break
+                  elif response.state == 'FAILED':
+                      print("Batch job failed")
+                      exit(1)
+              except Exception as e:
+                  print(f"An error occurred while polling: {e}")
+                  # Decide if to continue or fail based on the error
+                  # For simplicity, we'll just log and continue polling
+
+              time.sleep(interval)
+              elapsed += interval
+          else:
+              print("Batch job did not complete within 24 hours")
+              exit(1)
+          EOF
+
+      # Apply suggested improvements
+      - name: Apply Gemini Suggested Improvements
+        if: steps.poll_batch.outcome == 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<EOF
+          import json
+          import re
+          import os
+
+          # Parse batch results
+          with open('${{ steps.poll_batch.outputs.results_file }}', 'r') as f:
+              results = json.load(f)
+
+          for result in results:
+              text = result['candidates'][0]['content']['parts'][0]['text']
+              # Parse improvements using regex
+              pattern = r'File: (.*?)\nSuggested Improvement: .*?\nCode:\n```.*?\n(.*?)```'
+              for match in re.finditer(pattern, text, re.DOTALL):
+                  file = match.group(1).strip()
+                  code = match.group(2).strip()
+                  with open(file, 'w') as f:
+                      f.write(code)
+                  print(f"Applied improvement to {file}")
+
+          # Commit changes
+          os.system('git config --global user.name "Gemini Code Assist"')
+          os.system('git config --global user.email "gemini-code-assist@users.noreply.github.com"')
+          os.system('git add .')
+          if os.system('git status --porcelain | grep .') == 0:
+              os.system('git commit -m "Apply Gemini AI suggested improvements"')
+              os.system('git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}')
+          else:
+              print("No improvements applied")
+          EOF
+
+      # Post review summary as a comment
+      - name: Post Review Summary
+        if: steps.poll_batch.outcome == 'success'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const results = JSON.parse(fs.readFileSync('${{ steps.poll_batch.outputs.results_file }}'));
+            const reviewComments = results.map(r => r.candidates[0].content.parts[0].text).join('\n');
+            const pullRequestNumber = ${{ github.event.pull_request.number || inputs.pull_request_number }};
+            const files = "${{ github.event.inputs.files }}";
+            const commentBody = files
+              ? `Gemini AI Code Review Summary for files: ${files}\n\n${reviewComments || 'No issues found.'}`
+              : `Gemini AI Code Review Summary:\n\n${reviewComments || 'No issues found.'}`;
+            if (pullRequestNumber) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pullRequestNumber,
+                body: commentBody
+              });
+            } else {
+              console.log("No pull request number provided, skipping comment.");
+            }

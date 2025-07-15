@@ -24,83 +24,64 @@ class YoupornDriver extends BaseYoupornClass {
   hasGifSupport() { return false; } // Explicitly false
 
   getVideoSearchUrl(query, page) {
-    let currentQuery = query || this.query;
+    const currentQuery = query || this.query;
     if (!currentQuery || typeof currentQuery !== 'string' || currentQuery.trim() === '') {
-          throw new Error('YoupornDriver: Search query is not set or is empty for video search.');
+      throw new Error('YoupornDriver: Search query is not set or is empty for video search.');
     }
     const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage);
-    const searchUrl = new URL('/search/', this.baseUrl);
+    // This is the new API endpoint
+    const searchUrl = new URL('/api/v4/search/video', this.baseUrl);
     searchUrl.searchParams.set('query', sanitizeText(currentQuery));
     searchUrl.searchParams.set('page', String(pageNumber));
-    logger.debug(`[${this.name}] Generated videoUrl: ${searchUrl.href}`);
+    searchUrl.searchParams.set('size', '42'); // Default size, can be adjusted
+    logger.debug(`[${this.name}] Generated API videoUrl: ${searchUrl.href}`);
     return searchUrl.href;
   }
 
   getCustomHeaders() {
     return {
-      'Cookie': 'age_verified=1'
+      'Cookie': 'age_verified=1',
+      'Accept': 'application/json' // Important for API requests
     };
   }
 
-  parseResults($, htmlOrJsonData, parserOptions) {
+  parseResults($, rawData, parserOptions) {
     const { type, sourceName } = parserOptions;
     const results = [];
-    if (!$) {
-      logger.error(`[${this.name} Parser] Cheerio instance is null or undefined.`);
+
+    if (!rawData || typeof rawData !== 'object') {
+      logger.error(`[${this.name} Parser] Expected rawData to be an object (JSON), but got:`, typeof rawData);
       return [];
     }
 
-    const videoItems = $('div[data-segment="video"]');
+    const videoItems = rawData.videos;
 
-    if (!videoItems || videoItems.length === 0) {
-      logger.warn(`[${this.name} Parser] No video items found with selectors for type '${type}'.`);
+    if (!videoItems || !Array.isArray(videoItems) || videoItems.length === 0) {
+      logger.warn(`[${this.name} Parser] No video items found in the JSON response.`);
       return [];
     }
 
-    videoItems.each((i, el) => {
-      const item = $(el);
-      // Assume the main link is the primary element within the item
-      const linkElement = item.find('a').first();
-      if (!linkElement.length) return; // Skip if no link found
-
-      let relativeUrl = linkElement.attr('href');
-      // Try to find title from a specific element, or fall back to the link's title attribute
-      let titleText = sanitizeText(item.find('[class*="video-title"]').text()?.trim() || linkElement.attr('title') || '');
-
-      let id = item.attr('data-id');
-      if (!id && relativeUrl) {
-          const idMatch = relativeUrl.match(/\/watch\/(\d+)\//);
-          if (idMatch && idMatch[1]) id = idMatch[1];
-      }
-
-      const imgElement = item.find('img').first();
-      let staticThumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
-
-      const durationText = sanitizeText(item.find('[class*="duration"]').first().text()?.trim());
-
-      let animatedPreviewUrl = extractPreview($, item, this.name, this.baseUrl);
-
-      if (!titleText || !relativeUrl || !id) {
-        logger.warn(`[${this.name} Parser] Item ${i}: Skipping due to missing title, URL, or ID. Title: ${titleText}, URL: ${relativeUrl}, ID: ${id}`);
+    videoItems.forEach((item, i) => {
+      if (!item || !item.url || !item.title) {
+        logger.warn(`[${this.name} Parser] Skipping item ${i} due to missing URL or title.`);
         return;
       }
 
-      const absoluteUrl = makeAbsolute(relativeUrl, this.baseUrl);
-      const absoluteThumbnailUrl = makeAbsolute(staticThumbnailUrl, this.baseUrl);
-      const finalPreviewVideoUrl = validatePreview(animatedPreviewUrl) ? animatedPreviewUrl : undefined;
+      const absoluteUrl = makeAbsolute(item.url, this.baseUrl);
 
       results.push({
-        id: id,
-        title: titleText,
+        id: item.video_id || item.id,
+        title: sanitizeText(item.title),
         url: absoluteUrl,
-        duration: durationText || 'N/A',
-        thumbnail: absoluteThumbnailUrl || '',
-        preview_video: finalPreviewVideoUrl || '',
+        duration: item.duration || 'N/A',
+        thumbnail: item.default_thumb || item.thumb,
+        preview_video: item.preview_url || '',
         source: sourceName,
         type: type
       });
     });
-    logger.debug(`[${this.name} Parser] Parsed ${results.length} items for type '${type}'.`);
+
+    logger.debug(`[${this.name} Parser] Parsed ${results.length} items from JSON for type '${type}'.`);
     return results;
   }
 }

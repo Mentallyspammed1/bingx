@@ -27,11 +27,7 @@ class XvideosDriver extends BaseXvideosClass {
         }
         const xvideosPage = Math.max(0, (parseInt(page, 10) || (this.firstpage + 1)) - 1);
         const searchUrl = new URL(this.baseUrl);
-        searchUrl.pathname = '/';
-        searchUrl.searchParams.set('k', sanitizeText(query));
-        if (xvideosPage > 0) {
-            searchUrl.searchParams.set('p', xvideosPage);
-        }
+        searchUrl.pathname = `/c/${encodeURIComponent(sanitizeText(query))}/${xvideosPage}`;
         logger.debug(`[${this.name}] Generated video URL: ${searchUrl.href}`);
         return searchUrl.href;
     }
@@ -42,12 +38,7 @@ class XvideosDriver extends BaseXvideosClass {
         }
         const xvideosPage = Math.max(0, (parseInt(page, 10) || (this.firstpage + 1)) - 1);
         const searchUrl = new URL(this.baseUrl);
-        searchUrl.pathname = '/';
-        searchUrl.searchParams.set('k', sanitizeText(query));
-        searchUrl.searchParams.set('type', 'gif');
-        if (xvideosPage > 0) {
-            searchUrl.searchParams.set('p', xvideosPage);
-        }
+        searchUrl.pathname = `/gifs/${encodeURIComponent(sanitizeText(query))}/${xvideosPage}`;
         logger.debug(`[${this.name}] Generated GIF URL: ${searchUrl.href}`);
         return searchUrl.href;
     }

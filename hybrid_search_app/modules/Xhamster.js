@@ -122,10 +122,8 @@ class XhamsterDriver extends BaseXhamsterClass {
     logger.info(`[${sourceName}] Parsing ${type} results...`);
 
     if (type === 'videos') {
-      // --- SPECULATIVE VIDEO CSS SELECTORS - VERIFY THESE! ---
-      // Common selectors for video items on Xhamster search results.
-      // Look for common patterns like `div.video-item`, `li.video-thumb`, `div.video-box`.
-      const videoItems = $('div.video-item, li.video-thumb, div.video-box');
+      // --- UPDATED VIDEO CSS SELECTORS ---
+      const videoItems = $('div.video-thumb-info__container');
 
       if (!videoItems.length) {
         logger.warn(`[${sourceName}] No video items found with current selectors. Page structure may have changed.`);
@@ -135,37 +133,25 @@ class XhamsterDriver extends BaseXhamsterClass {
       videoItems.each((index, element) => {
         const item = $(element);
 
-        // Video URL: often found in an `<a>` tag wrapping the thumbnail.
-        // Example: `<a href="/videos/some-video-title-123456789">...</a>`
-        const linkElement = item.find('a.video-link, a[href*="/videos/"]').first();
+        const linkElement = item.find('a.video-thumb-info__name').first();
         let videoUrl = linkElement.attr('href');
+        let title = linkElement.text();
 
-        // Video ID: often part of the URL path (e.g., last segment of /videos/title-ID) or a data attribute.
-        let videoId = videoUrl ? videoUrl.match(/-(\d+)$/)?.[1] || videoUrl.split('/').pop() : null;
-        if (!videoId) videoId = item.attr('data-id'); // Fallback to data-id if available
-
-        // Video Title: often in `alt` or `title` of image, or a dedicated `<span>` or `<h3>`.
-        let title = item.find('img').attr('alt') || linkElement.attr('title') || item.find('.title, h3 a').text();
-        title = sanitizeText(title);
-
-        // Thumbnail URL: `src` or `data-src` of an `<img>` tag.
-        const thumbElement = item.find('img[src], img[data-src]').first();
+        let videoId = item.closest('.video-thumb__image-container').attr('data-vr-id');
+        
+        const thumbElement = item.find('img.video-thumb__image').first();
         let thumbnailUrl = thumbElement.attr('data-src') || thumbElement.attr('src');
 
-        // Duration: often in a `<span>` with class like `duration` or `time`.
-        let duration = item.find('.duration, .time').text();
+        let duration = item.find('.video-thumb-info__duration').text();
         duration = sanitizeText(duration);
 
-        // Preview Video URL: Use `extractPreview` utility for robustness.
-        const previewVideoUrl = extractPreview($, item, sourceName, this.baseUrl);
+        const previewVideoUrl = extractPreview($, item.closest('.video-thumb-container'), sourceName, this.baseUrl);
 
-        // --- Data validation and normalization ---
         if (!videoUrl || !title || !thumbnailUrl || !videoId) {
           logger.warn(`[${sourceName}] Skipping malformed video item (missing essential data):`, { title, videoUrl, thumbnailUrl, videoId, index });
-          return; // Skip this item if essential data is missing
+          return;
         }
 
-        // Make URLs absolute using the driver's base URL
         videoUrl = makeAbsolute(videoUrl, this.baseUrl);
         thumbnailUrl = makeAbsolute(thumbnailUrl, this.baseUrl);
 

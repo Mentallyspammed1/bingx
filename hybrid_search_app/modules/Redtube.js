@@ -35,13 +35,8 @@ class RedtubeDriver extends BaseRedtubeClass {
     getVideoSearchUrl(query, page) {
         const encodedQuery = encodeURIComponent(query.trim());
         const pageParam = Math.max(1, page || this.firstpage);
-
-        const url = new URL(REDTUBE_API_BASE_URL);
-        url.searchParams.set('data', 'redtube.videos.searchVideos');
-        url.searchParams.set('output', 'json');
-        url.searchParams.set('search', encodedQuery);
-        url.searchParams.set('page', pageParam);
-
+        // This is the new, undocumented API endpoint
+        const url = new URL(`/redtube/search/videos?search=${encodedQuery}&page=${pageParam}`, this.baseUrl);
         logger.debug(`[${this.name}] Generated video search URL: ${url.href}`);
         return url.href;
     }
@@ -52,7 +47,7 @@ class RedtubeDriver extends BaseRedtubeClass {
     }
 
     /**
-     * Parses the JSON response from the Redtube API for video search.
+     * Parses the JSON response from the new Redtube API endpoint.
      * @param {null} $ - Cheerio instance (null for API responses).
      * @param {object} rawData - The raw JSON response object from Redtube API.
      * @param {object} options - Options containing search context.
@@ -67,26 +62,29 @@ class RedtubeDriver extends BaseRedtubeClass {
             return [];
         }
 
-        if (!rawData || !rawData.videos || !Array.isArray(rawData.videos)) {
-            logger.warn(`[${sourceName}] Invalid or empty API response. Expected a 'videos' array.`, rawData);
+        // The new endpoint nests the videos inside a 'videos' property on the 'data' object
+        const videoItems = rawData && rawData.data ? rawData.data.videos : [];
+
+        if (!videoItems || !Array.isArray(videoItems) || videoItems.length === 0) {
+            logger.warn(`[${sourceName}] Invalid or empty API response. Expected a 'data.videos' array.`, rawData);
             return [];
         }
 
-        logger.info(`[${sourceName}] Parsing ${rawData.videos.length} video results from API...`);
+        logger.info(`[${sourceName}] Parsing ${videoItems.length} video results from API...`);
 
-        rawData.videos.forEach(videoWrapper => {
-            const apiVideoData = videoWrapper.video;
-            if (!apiVideoData || !apiVideoData.video_id) {
-                logger.warn(`[${sourceName}] Skipping malformed video item from API:`, videoWrapper);
+        videoItems.forEach(apiVideoData => {
+            if (!apiVideoData || !apiVideoData.id) {
+                logger.warn(`[${sourceName}] Skipping malformed video item from API:`, apiVideoData);
                 return;
             }
 
-            const id = apiVideoData.video_id;
+            const id = apiVideoData.id;
             const title = sanitizeText(apiVideoData.title);
-            const url = makeAbsolute(apiVideoData.url, this.baseUrl);
+            // The new API provides a full URL in the 'url' field
+            const url = apiVideoData.url;
             const duration = sanitizeText(apiVideoData.duration);
-            const thumbnail = makeAbsolute(apiVideoData.default_thumb, this.baseUrl);
-            const preview_video = makeAbsolute(apiVideoData.thumb, this.baseUrl); // API 'thumb' is often animated
+            const thumbnail = apiVideoData.media_definitions?.[0]?.default_url; // A more reliable thumbnail source
+            const preview_video = apiVideoData.media_definitions?.[0]?.video_url;
 
             if (!id || !title || !url || !thumbnail) {
                 logger.warn(`[${sourceName}] Skipping API video item due to missing essential data:`, { id, title, url, thumbnail });

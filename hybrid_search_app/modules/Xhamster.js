@@ -48,7 +48,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    * @readonly
    */
   get baseUrl() {
-    return XHAMSTER_BASE_URL;
+    return BASE_URL;
   }
 
   /**

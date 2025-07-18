@@ -93,16 +93,13 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - name: Install Gemini SDK
-        run: pip install google-generativeai
-
       # Run Gemini AI Code Review (synchronous with retry)
       - name: Gemini AI Code Review
         id: review
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python - <<EOF
+          pip install google-generativeai && python - <<EOF
           import google.generativeai as genai
           import time
           import json
@@ -129,7 +126,7 @@ jobs:
           # Retry logic for quota errors
           @retry.Retry(predicate=retry.if_exception_type(google.api_core.exceptions.ResourceExhausted), initial=2, maximum=60, multiplier=2)
           def generate_content():
-              return model.generate_content(prompt + "\\n\\n" + diff_content)
+              return model.generate_content(prompt + "\n\n" + diff_content)
 
           try:
               response = generate_content()
@@ -138,7 +135,7 @@ jobs:
                   f.write(review_comments)
               print("Review completed successfully")
               with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                  f.write(f"review_comments=review_comments.txt\\n")
+                  f.write(f"review_comments=review_comments.txt\n")
           except Exception as e:
               print(f"Error: {str(e)}")
               exit(1)

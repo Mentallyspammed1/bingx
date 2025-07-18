@@ -1,123 +1,56 @@
 import argparse
-
 import ast
-
 import configparser
-
 import difflib
-
 import hashlib
-
 import json
-
 import logging
-
 import os
-
 import re
-
 import shutil
-
 import signal
-
 import subprocess
-
 import sys
-
 import tempfile
-
 import time
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from dataclasses import dataclass, field
-
 from datetime import datetime
-
 from pathlib import Path
-
 import astor
-
 import pathspec
-
 import requests
-
 import tqdm
-
 from colorama import Fore, init, Style
-
 from dotenv import load_dotenv
 
-from colorama import init
-
-
-from colorama import init
 init(autoreset=True)
 
 DEFAULT_MODEL = 'gemini-1.5-flash'
-
 DEFAULT_TEMPERATURE = 0.2
-
 DEFAULT_MAX_JOBS = 5
-
 DEFAULT_CONNECT_TIMEOUT = 20
-
 DEFAULT_READ_TIMEOUT = 180
-
-MAX_RETRIES = 3
-
-RETRY_DELAY_SECONDS = 5
-
+MAX_RETRIES = 5
+RETRY_DELAY_SECONDS = 10
 API_RATE_LIMIT_WAIT = 61
-
 API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 
-from pathlib import Path
-
-from pathlib import Path
-
 SCRIPT_NAME = Path(__file__).name
-
-from pathlib import Path
-
-from pathlib import Path
-
 CONFIG_DIR = Path.home() / '.config' / 'pyrmethus'
-
 CONFIG_FILE = CONFIG_DIR / 'config.ini'
-
 TIMESTAMP_FORMAT = '%Y%m%d_%H%M%S'
-
 CHUNK_PREFIX = 'chunk_'
-
 OUTPUT_CHUNK_PREFIX = 'output_chunk_'
-
 CHECKPOINT_SUFFIX = '.gr.checkpoint'
-
 BACKUP_SUFFIX = '.bak'
-
 COST_DATA = {'gemini-1.5-pro': {'input': 3.5, 'output': 10.5},
              'gemini-1.5-flash': {'input': 0.35, 'output': 1.05}, 'default': {
                  'input': 3.5, 'output': 10.5}}
-
 CHARS_PER_TOKEN = 4
 
 logger = logging.getLogger('gemini_review')
-
 log_level_map = {'DEBUG': logging.DEBUG, 'INFO': logging.INFO, 'WARNING': logging.WARNING, 'ERROR': logging.ERROR, 'CRITICAL': logging.CRITICAL}
-
-from dataclasses import dataclass, field
-
-import argparse
-
-import configparser
-
-from pathlib import Path
-
-from dataclasses import dataclass, field
-import argparse
-import configparser
-from pathlib import Path
 
 @dataclass
 class ScriptContext:
@@ -154,7 +87,6 @@ class NeonFormatter(logging.Formatter):
 
 
 import logging
-
 import sys
 
 def setup_logger(level: int):

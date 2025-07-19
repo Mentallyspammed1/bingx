@@ -1,130 +1,97 @@
 'use strict';
 
-
-
-
-
-
-const _possibleConstructorReturn = require('@babel/runtime/helpers/possibleConstructorReturn');
-const _inherits = require('@babel/runtime/helpers/inherits');
-const { VideoMixin, AbstractModule } = require('../core/index');
-const config = require('../config');
-const { makeAbsolute, extractPreview, logger } = require('../core/utils');
+const AbstractModule = require('../core/AbstractModule.js');
+const VideoMixin = require('../core/VideoMixin.js');
+const { makeAbsolute, extractPreview, logger } = require('./driver-utils.js');
 
 const BASE_URL = 'https://www.pornhub.com';
-const NAME = 'pornhub';
+const NAME = 'Pornhub'; // Consistent naming
 const SEARCH_PATH = '/video/search';
-const VIDEO_PATTERN = '/view_video.php';
 const ID_PATTERN = /viewkey=([\w-]+)/;
 
-if (!AbstractModule?.with) {
-  throw new Error('AbstractModule.with is undefined');
-}
+const BasePornhubClass = AbstractModule.with(VideoMixin);
 
-/**
- * @typedef {Object} MediaResult
- * @property {string} id
- * @property {string} title
- * @property {string} url
- * @property {string} [preview_video]
- * @property {string} [thumbnail]
- * @property {string} [duration]
- */
-
-/**
- * @class Pornhub
- * @extends AbstractModule
- * @mixes VideoMixin
- */
-const Pornhub = (function (_AbstractModule$with) {
-  (0, _inherits)(Pornhub, _AbstractModule$with);
-
-  function Pornhub() {
-    (0, _classCallCheck)(this, Pornhub);
-    return (0, _possibleConstructorReturn)(this, (Pornhub.__proto__ || (0, _getPrototypeOf)(Pornhub)).apply(this, arguments));
+class PornhubDriver extends BasePornhubClass {
+  constructor(options = {}) {
+    super(options);
   }
 
-  (0, _createClass)(Pornhub, [{
-    key: 'videoUrl',
-    value: function videoUrl(page) {
-      if (!this.query) {
-        throw new Error(`pornhub: Search query is not set`);
-      }
-      const searchUrl = new URL(SEARCH_PATH, BASE_URL);
-      searchUrl.searchParams.set('search', encodeURIComponent(this.query.trim().replace(/\s+/g, ' ')));
-      const pageNum = page !== undefined ? page : this.firstpage;
-      searchUrl.searchParams.set(config.drivers[NAME].pageParam, String(pageNum + 1));
-      logger.info(`Forging video URL for pornhub`, { url: searchUrl.href });
-      return searchUrl.href;
+  get name() {
+    return NAME;
+  }
+
+  get baseUrl() {
+    return BASE_URL;
+  }
+
+  get supportsVideos() {
+    return true;
+  }
+
+  get supportsGifs() {
+    return false; // Update if GIF support is added
+  }
+
+  getVideoSearchUrl(query, page) {
+    const pageNum = Math.max(1, page || 1);
+    const searchQuery = encodeURIComponent(query.trim().replace(/\s+/g, '+'));
+    const searchUrl = new URL(SEARCH_PATH, this.baseUrl);
+    searchUrl.searchParams.set('search', searchQuery);
+    searchUrl.searchParams.set('page', String(pageNum));
+    logger.info(`[${this.name}] Forging video URL: ${searchUrl.href}`);
+    return searchUrl.href;
+  }
+
+  parseResults($, htmlData, options) {
+    const results = [];
+    const videoItems = $('li.pcVideoListItem, li.videoBox, div.videoWrapper');
+    console.log(`[${this.name}] Found ${videoItems.length} video items.`);
+
+    if (!videoItems.length) {
+      logger.warn(`[${this.name}] No videos found for query: ${options.query}`);
+      return [];
     }
-  }, {
-    key: 'videoParser',
-    value: function videoParser($) {
-      // IMPORTANT: Verify selectors using browser DevTools (Inspect Element on https://www.pornhub.com/video/search?search=test).
-      // These are speculative and may need adjustment based on live HTML structure.
-      const selectors = [
-        'li.pcVideoListItem',
-        'li.videoBox',
-        'div.videoWrapper'
-      ];
-      const videoItems = selectors.reduce((items, sel) => items.length ? items : $(sel), $([]));
-      if (!videoItems.length) {
-        logger.warn(`No videos found for pornhub`, { selectors });
-        return [];
+
+    videoItems.each((i, el) => {
+      const item = $(el);
+      const link = item.find('a[href*="/view_video.php"]').first();
+      const url = link.attr('href');
+      const title = item.find('span.title a').text()?.trim() || item.find('img').attr('alt')?.trim();
+      console.log(`[${this.name}] Item ${i}: url=${url}, title=${title}`);
+
+      if (!title || !url) {
+        logger.warn(`[${this.name}] Skipping item ${i}: missing title or URL.`);
+        return;
       }
 
-      const results = [];
-      videoItems.each((i, el) => {
-        const item = $(el);
-        const link = item.find('a[href*="/view_video.php"]').first();
-        const title = item.find('span.title a').text()?.trim() ||
-                      item.find('img').attr('alt')?.trim();
-        const url = link.attr('href');
+      const duration = item.find('var.duration').text()?.trim();
+      const img = item.find('img[data-mediumthumb]').first();
+      const thumbnail = img.attr('data-mediumthumb')?.trim() || img.attr('src')?.trim();
+      const preview = extractPreview($, item, this.name, this.baseUrl);
 
-        if (!title || !url || !url.includes('/view_video.php')) {
-          logger.warn(`Skipping video ${i} for pornhub: invalid data`, { title, url });
-          return;
-        }
+      const idMatch = url.match(ID_PATTERN);
+      const id = idMatch ? idMatch[1] : null;
 
-        const duration = item.find('var.duration').text()?.trim();
-        const img = item.find('img[data-mediumthumb]').first();
-        const thumbnail = img.attr('data-mediumthumb')?.trim() || img.attr('src')?.trim();
-        const preview = extractPreview($, item, 'pornhub');
+      if (!id) {
+        logger.warn(`[${this.name}] Skipping item ${i}: could not extract ID from URL: ${url}`);
+        return;
+      }
 
-        const idMatch = url.match(ID_PATTERN);
-        const id = idMatch ? idMatch[1] : url;
-
-        if (i < 1) {
-          // Uncomment for debugging: console.log(item.html());
-          logger.info(`Parsed video ${i} for pornhub`, { title, url, preview });
-        }
-
-        results.push({
-          id: id || 'N/A',
-          title: title || 'Untitled',
-          url: makeAbsolute(url, BASE_URL),
-          duration: duration || 'N/A',
-          thumbnail: makeAbsolute(thumbnail, BASE_URL),
-          preview_video: makeAbsolute(preview, BASE_URL)
-        });
+      results.push({
+        id,
+        title,
+        url: makeAbsolute(url, this.baseUrl),
+        duration: duration || undefined,
+        thumbnail: makeAbsolute(thumbnail, this.baseUrl),
+        preview_video: preview, // extractPreview already makes it absolute
+        source: this.name,
+        type: 'videos'
       });
+    });
 
-      logger.info(`Parsed ${results.length} videos for pornhub`);
-      return results;
-    }
-  }, {
-    key: 'name',
-    get: function get() {
-      return NAME;
-    }
-  }, {
-    key: 'firstpage',
-    get: function get() {
-      return config.drivers[NAME].firstPage;
-    }
-  }]);
-  return Pornhub;
-})(AbstractModule.with(VideoMixin));
+    logger.info(`[${this.name}] Parsed ${results.length} videos for query: ${options.query}`);
+    return results;
+  }
+}
 
-exports.default = Pornhub;
-module.exports = exports['default'];
+module.exports = PornhubDriver;

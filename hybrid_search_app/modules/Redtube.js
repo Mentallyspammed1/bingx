@@ -31,7 +31,7 @@ class RedtubeDriver {
     }
     const results = [];
     // Selectors for Redtube's 2025 layout
-    const videoItems = $('div.video, li.video, div[class*="video-item"], article[class*="video"]');
+    const videoItems = $('div.video_bloc, li.video_item, div.video-tile, div.videoBlock');
     logger.debug(chalk.cyan(`// [${this.name}] Discovered ${videoItems.length} video artifacts.`));
 
     videoItems.each((i, elem) => {
@@ -181,6 +181,8 @@ class RedtubeDriver {
         thumbnail: makeAbsolute(thumbnail, this.baseUrl) || '',
         duration: duration || undefined,
         preview_video: finalPreview,
+        source: this.name,
+        type: 'videos'
       });
     } else {
       logger.warn(chalk.red(`// [${this.name}] Skipping item: missing URL or title.`));

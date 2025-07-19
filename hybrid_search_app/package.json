@@ -20,6 +20,7 @@
   "author": "AI Developer",
   "license": "MIT",
   "dependencies": {
+    "@babel/runtime": "^7.27.6",
     "abort-controller": "^3.0.0",
     "axios": "^1.7.2",
     "babel-runtime": "^6.26.0",

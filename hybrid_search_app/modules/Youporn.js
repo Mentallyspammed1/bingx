@@ -20,8 +20,8 @@ class YoupornDriver extends BaseYoupornClass {
 
   get name() { return DRIVER_NAME_CONST; }
   get baseUrl() { return BASE_URL_CONST; }
-  hasVideoSupport() { return true; }
-  hasGifSupport() { return false; } // Explicitly false
+  get supportsVideos() { return true; }
+  get supportsGifs() { return false; } // Explicitly false
 
   getVideoSearchUrl(query, page) {
     const currentQuery = query || this.query;
@@ -53,7 +53,7 @@ class YoupornDriver extends BaseYoupornClass {
         const item = $(el);
         const videoId = item.attr('data-video-id');
         const titleLink = item.find('a.video-box-image');
-        const title = sanitizeText(titleLink.attr('title'));
+        const title = sanitizeText(item.find('div.video-title-wrapper span').text());
         const pageUrl = titleLink.attr('href');
         const durationText = sanitizeText(item.find('div.duration').text());
         const imgElement = item.find('img.video-box-image__image');

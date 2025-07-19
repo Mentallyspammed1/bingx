@@ -18,19 +18,16 @@ class XvideosDriver extends BaseXvideosClass {
 
     get name() { return DRIVER_NAME_CONST; }
     get baseUrl() { return BASE_URL_CONST; }
-    hasVideoSupport() { return true; }
-    hasGifSupport() { return true; }
+    get supportsVideos() { return true; }
+    get supportsGifs() { return true; }
 
     getVideoSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
             throw new Error(`[${this.name}] Search query is not set for video search.`);
         }
-        const xvideosPage = Math.max(0, (parseInt(page, 10) || (this.firstpage + 1)) - 1);
-        const searchUrl = new URL(this.baseUrl);
-        searchUrl.searchParams.set('k', query);
-        if (xvideosPage > 0) {
-            searchUrl.searchParams.set('p', xvideosPage);
-        }
+        const xvideosPage = Math.max(0, (parseInt(page, 10) || 1) - 1);
+        const searchQuery = encodeURIComponent(query.trim().replace(/\s+/g, '+'));
+        const searchUrl = new URL(`/q/${searchQuery}/${xvideosPage}`, this.baseUrl);
         logger.debug(`[${this.name}] Generated video URL: ${searchUrl.href}`);
         return searchUrl.href;
     }
@@ -39,13 +36,9 @@ class XvideosDriver extends BaseXvideosClass {
         if (!query || typeof query !== 'string' || query.trim() === '') {
             throw new Error(`[${this.name}] Search query is not set for GIF search.`);
         }
-        const xvideosPage = Math.max(0, (parseInt(page, 10) || (this.firstpage + 1)) - 1);
-        const searchUrl = new URL(this.baseUrl);
-        searchUrl.pathname = '/gifs';
-        searchUrl.searchParams.set('k', query);
-        if (xvideosPage > 0) {
-            searchUrl.searchParams.set('p', xvideosPage);
-        }
+        const xvideosPage = Math.max(0, (parseInt(page, 10) || 1) - 1);
+        const searchQuery = encodeURIComponent(query.trim().replace(/\s+/g, '+'));
+        const searchUrl = new URL(`/gifs/${searchQuery}/${xvideosPage}`, this.baseUrl);
         logger.debug(`[${this.name}] Generated GIF URL: ${searchUrl.href}`);
         return searchUrl.href;
     }

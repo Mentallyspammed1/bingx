@@ -10,8 +10,8 @@ class Eporner extends AbstractModule {
 
     get name() { return 'Eporner'; }
     get baseUrl() { return 'https://www.eporner.com'; }
-    hasVideoSupport() { return true; }
-    hasGifSupport() { return false; }
+    get supportsVideos() { return true; }
+    get supportsGifs() { return false; }
 
     getVideoSearchUrl(query, page) {
         const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage);
@@ -29,7 +29,7 @@ class Eporner extends AbstractModule {
             return [];
         }
 
-        const videoItems = $('div.hd-video-item');
+        const videoItems = $('div.mb');
 
         if (!videoItems || videoItems.length === 0) {
             return [];

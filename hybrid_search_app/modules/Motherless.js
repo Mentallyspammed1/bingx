@@ -6,11 +6,11 @@ class Motherless extends AbstractModule {
         super(options);
     }
 
-    hasVideoSupport() {
+    get supportsVideos() {
         return true;
     }
 
-    hasGifSupport() {
+    get supportsGifs() {
         return true; // Motherless has distinct sections for images/GIFs
     }
 
@@ -52,7 +52,7 @@ class Motherless extends AbstractModule {
         }
 
         const isGifSearch = parserOptions.type === 'gifs';
-        const itemSelector = 'div.content-item'; // More generic selector for content items
+        const itemSelector = isGifSearch ? 'div.thumb.image > a' : 'div.thumb.video > a';
 
         $(itemSelector).each((i, el) => {
             const item = $(el);

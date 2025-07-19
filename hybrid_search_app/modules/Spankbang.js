@@ -15,11 +15,11 @@ class SpankbangDriver extends AbstractModule {
         super(options);
     }
 
-    hasVideoSupport() {
+    get supportsVideos() {
         return true;
     }
 
-    hasGifSupport() {
+    get supportsGifs() {
         return true;
     }
 

@@ -182,9 +182,9 @@ var Pornsearch = function () {
           const parserOptions = { type: searchType, sourceName: driver.name, query: query, page: page };
 
           let getUrlMethod;
-          if (searchType === 'videos' && typeof driver.hasVideoSupport === 'function' && driver.hasVideoSupport() && typeof driver.getVideoSearchUrl === 'function') {
+          if (searchType === 'videos' && driver.supportsVideos && typeof driver.getVideoSearchUrl === 'function') {
             getUrlMethod = driver.getVideoSearchUrl;
-          } else if (searchType === 'gifs' && typeof driver.hasGifSupport === 'function' && driver.hasGifSupport() && typeof driver.getGifSearchUrl === 'function') {
+          } else if (searchType === 'gifs' && driver.supportsGifs && typeof driver.getGifSearchUrl === 'function') {
             getUrlMethod = driver.getGifSearchUrl;
           } else {
             console.warn(`  [${driver.name}] Driver does not support '${searchType}' or missing URL method. Skipping.`);

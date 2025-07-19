@@ -55,7 +55,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    * Indicates if this driver supports video searches.
    * @returns {boolean}
    */
-  hasVideoSupport() {
+  get supportsVideos() {
     return true;
   }
 
@@ -63,7 +63,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    * Indicates if this driver supports GIF searches.
    * @returns {boolean}
    */
-  hasGifSupport() {
+  get supportsGifs() {
     return true;
   }
 
@@ -145,6 +145,7 @@ class XhamsterDriver extends BaseXhamsterClass {
         duration = sanitizeText(duration);
 
         const previewVideoUrl = extractPreview($, item, sourceName, this.baseUrl);
+        console.log(`[${sourceName}] Item ${index}: videoId=${videoId}, title=${title}, videoUrl=${videoUrl}, thumbnailUrl=${thumbnailUrl}`);
 
         if (!videoUrl || !title || !thumbnailUrl || !videoId) {
           logger.warn(`[${sourceName}] Skipping malformed video item (missing essential data):`, { title, videoUrl, thumbnailUrl, videoId, index });

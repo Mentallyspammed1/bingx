@@ -1,28 +1,27 @@
 const fs = require('fs');
 const path = require('path');
-const Youporn = require('../modules/Youporn'); // Adjust path as needed
+const cheerio = require('cheerio');
+const YoupornDriver = require('../modules/Youporn.js');
 
 describe('Youporn Driver', () => {
-    let youporn;
-    let mockVideoJson;
+    let driver;
+    let mockHtml;
 
     beforeAll(() => {
-        const mockVideoPath = path.join(__dirname, '../modules/mock_html_data/youporn_videos_page1.json');
-        if (fs.existsSync(mockVideoPath)) {
-            mockVideoJson = JSON.parse(fs.readFileSync(mockVideoPath, 'utf8'));
+        driver = new YoupornDriver();
+        const mockHtmlPath = path.join(__dirname, '..', 'modules', 'mock_html_data', 'youporn_videos_page1.html');
+        if (fs.existsSync(mockHtmlPath)) {
+            mockHtml = fs.readFileSync(mockHtmlPath, 'utf8');
         }
     });
 
-    beforeEach(() => {
-        youporn = new Youporn();
-    });
-
-    test('should correctly parse video results from mock JSON', () => {
-        if (!mockVideoJson) {
-            console.warn('Skipping Youporn parse test: mock JSON not found.');
+    test('should correctly parse video results from mock HTML', () => {
+        if (!mockHtml) {
+            console.warn('Skipping Youporn parse test: mock HTML not found.');
             return;
         }
-        const results = youporn.parseResults(null, mockVideoJson, { type: 'videos', sourceName: 'Youporn' });
+        const $ = cheerio.load(mockHtml);
+        const results = driver.parseResults($, mockHtml, { type: 'videos', sourceName: 'Youporn', query: 'test' });
 
         expect(results).toBeInstanceOf(Array);
         expect(results.length).toBeGreaterThan(0);
@@ -36,7 +35,7 @@ describe('Youporn Driver', () => {
     });
 
     test('should generate a valid video search URL', () => {
-        const url = youporn.getVideoSearchUrl('test', 1);
-        expect(url).toBe('https://www.youporn.com/api/v4/search/video?query=test&page=1&size=42');
+        const url = driver.getVideoSearchUrl('test', 1);
+        expect(url).toBe('https://www.youporn.com/search/?query=test');
     });
 });

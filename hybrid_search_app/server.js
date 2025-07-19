@@ -180,7 +180,7 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/scrapers', (req, res) => {
     if (pornsearchOrchestrator) {
-        const driverNames = pornsearchOrchestrator.listActiveDrivers();
+        const driverNames = pornsearchOrchestrator.getAvailablePlatforms();
         res.status(200).json({ scrapers: driverNames });
     } else {
         res.status(503).json({ error: 'Scraper orchestrator not yet available.' });

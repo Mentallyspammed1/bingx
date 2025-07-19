@@ -219,8 +219,8 @@ var Pornsearch = function () {
       return [].concat(...allResults);
     }
   }, {
-    key: 'listActiveDrivers',
-    value: function listActiveDrivers() {
+    key: 'getAvailablePlatforms',
+    value: function getAvailablePlatforms() {
       return this.activeDrivers.map(driver => driver.name);
     }
   }], [{

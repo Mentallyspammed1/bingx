@@ -77,8 +77,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    */
   getVideoSearchUrl(query, page) {
     const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage);
-    const searchUrl = new URL(`/search/${encodeURIComponent(query.trim())}`, this.baseUrl);
-    searchUrl.searchParams.set('page', String(pageNumber));
+    const searchUrl = new URL(`${XHAMSTER_VIDEO_SEARCH_PATH}${encodeURIComponent(query.trim())}/${pageNumber}/`, this.baseUrl);
     logger.debug(`[${this.name}] Generated video search URL: ${searchUrl.href}`);
     return searchUrl.href;
   }
@@ -93,8 +92,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    */
   getGifSearchUrl(query, page) {
     const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage);
-    const searchUrl = new URL(`/search/gif/${encodeURIComponent(query.trim())}`, this.baseUrl);
-    searchUrl.searchParams.set('page', String(pageNumber));
+    const searchUrl = new URL(`${XHAMSTER_GIF_SEARCH_PATH}${encodeURIComponent(query.trim())}/${pageNumber}/`, this.baseUrl);
     logger.debug(`[${this.name}] Generated GIF search URL: ${searchUrl.href}`);
     return searchUrl.href;
   }
@@ -134,7 +132,7 @@ class XhamsterDriver extends BaseXhamsterClass {
 
         const linkElement = item.find('a.video-thumb__image-container').first();
         let videoUrl = linkElement.attr('href');
-        let title = item.find('a.video-thumb__name').text();
+        let title = item.find('a.video-thumb__name').text() || linkElement.attr('title');
 
         let videoId = item.attr('data-video-id');
         
@@ -145,7 +143,7 @@ class XhamsterDriver extends BaseXhamsterClass {
         duration = sanitizeText(duration);
 
         const previewVideoUrl = extractPreview($, item, sourceName, this.baseUrl);
-        console.log(`[${sourceName}] Item ${index}: videoId=${videoId}, title=${title}, videoUrl=${videoUrl}, thumbnailUrl=${thumbnailUrl}`);
+        logger.debug(`[${sourceName}] Raw video data - Item ${index}: videoId=${videoId}, title=${title}, videoUrl=${videoUrl}, thumbnailUrl=${thumbnailUrl}`);
 
         if (!videoUrl || !title || !thumbnailUrl || !videoId) {
           logger.warn(`[${sourceName}] Skipping malformed video item (missing essential data):`, { title, videoUrl, thumbnailUrl, videoId, index });
@@ -210,6 +208,8 @@ class XhamsterDriver extends BaseXhamsterClass {
         let thumbnailUrl = thumbElement.attr('data-src') || thumbElement.attr('src') || item.attr('data-poster');
 
         // --- Data validation and normalization ---
+        logger.debug(`[${sourceName}] Raw GIF data - Item ${index}: gifId=${gifId}, title=${title}, gifPageUrl=${gifPageUrl}, animatedGifUrl=${animatedGifUrl}, thumbnailUrl=${thumbnailUrl}`);
+
         if (!gifPageUrl || !title || !animatedGifUrl || !thumbnailUrl || !gifId) {
           logger.warn(`[${sourceName}] Skipping malformed GIF item (missing essential data):`, { title, gifPageUrl, animatedGifUrl, thumbnailUrl, gifId, index });
           return;

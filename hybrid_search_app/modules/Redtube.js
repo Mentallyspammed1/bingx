@@ -1,6 +1,6 @@
 'use strict';
 
-const { makeAbsolute, logger, validatePreview } = require('./driver-utils');
+const { makeAbsolute, logger, validatePreview, extractPreview } = require('./driver-utils');
 const cheerio = require('cheerio');
 const chalk = require('chalk');
 
@@ -60,97 +60,7 @@ class RedtubeDriver {
     let duration = $item.find('[class*="duration"], .duration, time').first().text()?.trim();
 
     // --- Preview Video ---
-    let previewVideo;
-    logger.debug(chalk.cyan(`// [${this.name}] Seeking preview for item: ${title || 'unknown'}`));
-
-    // 1. Check data attributes on image and container
-    if (imgElement.length) {
-      previewVideo = imgElement.attr('data-preview') ||
-                     imgElement.attr('data-video-preview') ||
-                     imgElement.attr('data-video-url') ||
-                     imgElement.attr('data-media-url') ||
-                     imgElement.attr('data-video');
-      logger.debug(chalk.blue(`// [${this.name}] Image data attributes checked: ${previewVideo || 'none'}`));
-    }
-
-    if (!previewVideo) {
-      previewVideo = $item.attr('data-preview') ||
-                     $item.attr('data-video-preview') ||
-                     $item.attr('data-video-url') ||
-                     $item.attr('data-media-url') ||
-                     $item.attr('data-video');
-      logger.debug(chalk.blue(`// [${this.name}] Container data attributes checked: ${previewVideo || 'none'}`));
-    }
-
-    // 2. Check nested <video> tags
-    if (!previewVideo) {
-      const nestedVideoTag = $item.find('video[class*="preview"], video[loop], video').first();
-      if (nestedVideoTag.length) {
-        previewVideo = nestedVideoTag.attr('src') ||
-                       nestedVideoTag.find('source').first().attr('src') ||
-                       nestedVideoTag.attr('data-src');
-        logger.debug(chalk.blue(`// [${this.name}] Video tag checked: ${previewVideo || 'none'}`));
-      }
-    }
-
-    // 3. Parse data-previewhtml
-    if (!previewVideo) {
-      const previewHtmlAttr = $item.attr('data-previewhtml') || $item.attr('data-html');
-      if (previewHtmlAttr) {
-        try {
-          const $previewHtml = cheerio.load(previewHtmlAttr);
-          const videoInHtml = $previewHtml('video').first();
-          if (videoInHtml.length) {
-            previewVideo = videoInHtml.attr('src') || videoInHtml.find('source').first().attr('src') || videoInHtml.attr('data-src');
-            logger.debug(chalk.blue(`// [${this.name}] data-previewhtml parsed: ${previewVideo || 'none'}`));
-          }
-        } catch (e) {
-          logger.warn(chalk.yellow(`// [${this.name}] Failed to parse data-preview Gahtml: ${e.message}`));
-        }
-      }
-    }
-
-    // 4. Extract from JSON-LD or inline scripts
-    if (!previewVideo) {
-      const scripts = $item.find('script[type="application/ld+json"], script').toArray();
-      for (const script of scripts) {
-        const scriptData = $(script).html();
-        if (scriptData) {
-          try {
-            // Try parsing as JSON
-            let jsonData;
-            try {
-              jsonData = JSON.parse(scriptData);
-              if (jsonData.contentUrl) {
-                previewVideo = jsonData.contentUrl;
-              } else if (jsonData.video) {
-                previewVideo = jsonData.video.url || jsonData.video.contentUrl;
-              } else if (jsonData.preview) {
-                previewVideo = jsonData.preview;
-              }
-            } catch (e) {
-              // Fallback to regex
-              const jsonMatch = scriptData.match(/"(?:contentUrl|video|preview|videoUrl)":\s*"([^"]+\.(?:mp4|webm|m3u8))"/i);
-              if (jsonMatch && jsonMatch[1]) {
-                previewVideo = jsonMatch[1];
-              }
-            }
-            if (previewVideo) {
-              logger.debug(chalk.blue(`// [${this.name}] Script JSON parsed: ${previewVideo}`));
-              break;
-            }
-          } catch (e) {
-            logger.debug(chalk.yellow(`// [${this.name}] Script parsing error: ${e.message}`));
-          }
-        }
-      }
-    }
-
-    // 5. Fallback to thumbnail if it’s a video
-    if (!previewVideo && thumbnail && thumbnail.match(/\.(mp4|webm|m3u8)$/i)) {
-      previewVideo = thumbnail;
-      logger.debug(chalk.blue(`// [${this.name}] Using thumbnail as preview fallback: ${previewVideo}`));
-    }
+    const previewVideo = extractPreview($, $item, this.name, this.baseUrl);
 
     // --- ID ---
     let idFromAttr = $item.attr('data-id') || $item.attr('id') || $item.attr('data-video-id') || $item.attr('data-video');

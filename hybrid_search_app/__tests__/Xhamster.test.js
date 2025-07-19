@@ -39,6 +39,6 @@ describe('Xhamster Driver', () => {
 
     test('should generate a valid video search URL', () => {
         const url = xhamster.getVideoSearchUrl('test', 1);
-        expect(url).toBe('https://www.xhamster.com/search/test?page=1');
+        expect(url).toBe('https://www.xhamster.com/videos/search/test/1/');
     });
 });

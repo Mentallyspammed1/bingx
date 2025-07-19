@@ -1,15 +1,12 @@
 {
   "defaultStrategy": "custom",
   "siteOverrides": {
-    "pornhub": "custom",
-    "redtube": "custom",
-    "xhamster": "custom",
     "xvideos": "custom",
-    "youporn": "custom",
-    "motherless": "custom",
-    "sex.com": "custom",
-    "spankbang": "custom",
-    "eporner": "custom"
+    "pornhub": "custom"
+    // Add more site-specific strategies here if needed
   },
-  "customScrapersMap": {}
+  "customScrapersMap": {
+    "xvideos": "./scrapers/xvideosScraper.js",
+    "pornhub": "./scrapers/pornhubScraper.js"
+  }
 }

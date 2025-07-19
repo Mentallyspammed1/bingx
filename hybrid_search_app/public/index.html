@@ -472,18 +472,7 @@
         const FAVORITES_STORAGE_KEY = 'neonSearchFavorites';
         const THEME_STORAGE_KEY = 'neonSearchTheme';
 
-        const driverCapabilities = {
-            'eporner': { videos: true, gifs: false },
-            'motherless': { videos: true, gifs: true },
-            'pornhub': { videos: true, gifs: false },
-            'redtube': { videos: true, gifs: false },
-            'sex.com': { videos: true, gifs: true },
-            'spankbang': { videos: true, gifs: true },
-            'xhamster': { videos: true, gifs: true },
-            'xvideos': { videos: true, gifs: true },
-            'youporn': { videos: true, gifs: false },
-            'mock': { videos: true, gifs: true }
-        };
+        let allDriverCapabilities = {};
 
         const searchInput = document.getElementById('searchInput');
         const clearSearchBtn = document.getElementById('clearSearchBtn');
@@ -577,21 +566,28 @@
         
             try {
                 const response = await axios.get('/api/scrapers');
-                log.info('API response for /api/scrapers:', response.data);
+                log.info('[FE INFO] API response for /api/scrapers:', response.data);
         
                 const scrapers = response.data.scrapers;
                 if (!Array.isArray(scrapers)) {
-                    log.error('Scrapers data is not an array:', scrapers);
+                    log.error('[FE ERROR] Scrapers data is not an array:', scrapers);
                     if (retries > 0) {
-                        log.warn(`Invalid data received, retrying in ${delay}ms...`);
+                        log.warn(`[FE WARN] Invalid data received, retrying in ${delay}ms...`);
                         setTimeout(() => loadScrapers(retries - 1, delay), delay);
                     }
                     return;
                 }
-                log.info('Scrapers array received:', scrapers);
+                log.info('[FE INFO] Scrapers array received:', scrapers);
+        
+                // Populate allDriverCapabilities
+                allDriverCapabilities = {};
+                scrapers.forEach(s => {
+                    allDriverCapabilities[s.name.toLowerCase()] = { videos: s.supportsVideos, gifs: s.supportsGifs };
+                });
+                log.info('[FE INFO] Populated allDriverCapabilities:', allDriverCapabilities);
         
                 driverSelect.innerHTML = '';
-                log.info('driverSelect innerHTML cleared.');
+                log.info('[FE INFO] driverSelect innerHTML cleared.');
         
                 const allOption = document.createElement('option');
                 allOption.value = 'all';
@@ -599,34 +595,35 @@
                 driverSelect.appendChild(allOption);
         
                 if (scrapers.length === 0) {
-                    log.warn('No scrapers received from API. This might be a loading issue.');
+                    log.warn('[FE WARN] No scrapers received from API. This might be a loading issue.');
                      if (retries > 0) {
-                        log.warn(`Scrapers list is empty, retrying in ${delay}ms...`);
+                        log.warn(`[FE WARN] Scrapers list is empty, retrying in ${delay}ms...`);
                         setTimeout(() => loadScrapers(retries - 1, delay), delay);
                     }
                     return;
                 }
         
                 scrapers.forEach(scraper => {
-                    log.info('Adding scraper option:', scraper);
+                    log.info('[FE INFO] Adding scraper option:', scraper);
                     const option = document.createElement('option');
-                    option.value = scraper.toLowerCase(); // Ensure value is lowercase
-                    option.textContent = scraper;
+                    option.value = scraper.name.toLowerCase(); // Ensure value is lowercase
+                    option.textContent = scraper.name;
                     driverSelect.appendChild(option);
                 });
         
                 driverSelect.disabled = false;
                 driverSelect.value = appState.currentDriver || 'all';
-                log.info('Successfully populated scrapers.');
-                log.info('driverSelect innerHTML after population:', driverSelect.innerHTML);
+                updateTypeSelectOptions(); // Call this after populating drivers
+                log.info('[FE INFO] Successfully populated scrapers.');
+                log.info('[FE INFO] driverSelect innerHTML after population:', driverSelect.innerHTML);
         
             } catch (error) {
-                log.error(`Failed to load scrapers (attempt left: ${retries-1}):`, error.message);
+                log.error(`[FE ERROR] Failed to load scrapers (attempt left: ${retries-1}):`, error.message);
                 if (retries > 0) {
-                    log.warn(`Retrying in ${delay}ms...`);
+                    log.warn(`[FE WARN] Retrying in ${delay}ms...`);
                     setTimeout(() => loadScrapers(retries - 1, delay), delay);
                 } else {
-                    log.error('All retries failed. Populating with error message.');
+                    log.error('[FE ERROR] All retries failed. Populating with error message.');
                     driverSelect.innerHTML = '';
                     const allOption = document.createElement('option');
                     allOption.value = 'all';
@@ -639,6 +636,51 @@
                     driverSelect.appendChild(errorOption);
                 }
             }
+        }
+
+        function updateTypeSelectOptions() {
+            log.info('[FE INFO] Entering updateTypeSelectOptions.');
+            const selectedDriver = driverSelect.value;
+            log.info('[FE INFO] Selected driver:', selectedDriver);
+            const videosOption = typeSelect.querySelector('option[value="videos"]');
+            const gifsOption = typeSelect.querySelector('option[value="gifs"]');
+
+            if (selectedDriver === 'all') {
+                log.info('[FE INFO] Selected driver is "all". Enabling both video and GIF options.');
+                videosOption.disabled = false;
+                gifsOption.disabled = false;
+            } else {
+                const capabilities = allDriverCapabilities[selectedDriver];
+                log.info('[FE INFO] Capabilities for selected driver:', capabilities);
+                if (capabilities) {
+                    videosOption.disabled = !capabilities.videos;
+                    gifsOption.disabled = !capabilities.gifs;
+                    log.info(`[FE INFO] Videos option disabled: ${videosOption.disabled}, GIFs option disabled: ${gifsOption.disabled}`);
+
+                    // If the currently selected type is not supported by the new driver, switch to a supported one
+                    if (typeSelect.value === 'videos' && !capabilities.videos) {
+                        log.info('[FE INFO] Current type is videos, but not supported. Switching to GIFs.');
+                        typeSelect.value = 'gifs';
+                    } else if (typeSelect.value === 'gifs' && !capabilities.gifs) {
+                        log.info('[FE INFO] Current type is GIFs, but not supported. Switching to videos.');
+                        typeSelect.value = 'videos';
+                    }
+                    // If neither is supported, default to videos and disable both
+                    if (!capabilities.videos && !capabilities.gifs) {
+                        log.warn('[FE WARN] Neither videos nor GIFs are supported by this driver. Defaulting to videos and disabling both.');
+                        typeSelect.value = 'videos';
+                        videosOption.disabled = true;
+                        gifsOption.disabled = true;
+                    }
+                } else {
+                    log.warn('[FE WARN] No capabilities found for selected driver:', selectedDriver);
+                    // Default to enabling both if capabilities are unknown
+                    videosOption.disabled = false;
+                    gifsOption.disabled = false;
+                }
+            }
+            // Ensure the select wrapper reflects the disabled state
+            typeSelect.closest('.select-wrapper').classList.toggle('disabled', typeSelect.disabled);
         }
 
         function renderMediaErrorPlaceholder(container, message = 'Media Error') {
@@ -1255,6 +1297,7 @@
             searchInput.value = query;
             driverSelect.value = driver;
             typeSelect.value = type;
+            updateTypeSelectOptions();
 
             if (showingFavoritesFromState) {
                 displayFavoritesView();
@@ -1282,48 +1325,62 @@
         }
 
         async function performSearch(page = 1, isUserInitiated = true) {
-            if (appState.isLoading) { log.info('Search prevented: Already loading.'); return; }
+            log.info(`[FE INFO] performSearch called. Page: ${page}, User Initiated: ${isUserInitiated}`);
+            if (appState.isLoading) { log.info('[FE INFO] Search prevented: Already loading.'); return; }
 
             const query = searchInput.value.trim();
             const driver = driverSelect.value;
             const type = typeSelect.value;
 
+            log.info(`[FE INFO] Current input values - Query: '${query}', Driver: '${driver}', Type: '${type}'.`);
+
             if (isUserInitiated && !query) {
                 showError('Please enter a search query.');
                 searchInput.focus();
+                log.warn('[FE WARN] Search aborted: Empty query.');
                 return;
             }
 
             const isNewSearchContext = query !== appState.currentQuery || driver !== appState.currentDriver || type !== appState.currentType;
             const targetPage = (isUserInitiated && isNewSearchContext) ? 1 : Math.max(1, page);
 
+            log.info(`[FE INFO] Search context - New: ${isNewSearchContext}, Target Page: ${targetPage}.`);
+
             appState.currentQuery = query;
             appState.currentDriver = driver;
             appState.currentType = type;
             appState.currentPage = targetPage;
 
-            if (appState.showingFavorites && isUserInitiated) hideFavoritesView();
+            if (appState.showingFavorites && isUserInitiated) {
+                log.info('[FE INFO] Hiding favorites view due to new search.');
+                hideFavoritesView();
+            }
 
             if (suggestionsContainer) suggestionsContainer.innerHTML = '';
             hideError();
             setSearchState(true);
-            log.info(`PerformSearch: Q='${query}', D='${driver}', T='${type}', P=${targetPage}, UserInitiated=${isUserInitiated}`);
+            log.info(`[FE INFO] PerformSearch: Q='${query}', D='${driver}', T='${type}', P=${targetPage}, UserInitiated=${isUserInitiated}`);
 
             const apiDriver = driver === 'all' ? undefined : driver;
+            log.info(`[FE INFO] Calling fetchResultsFromApi with query: '${query}', driver: '${apiDriver}', type: '${type}', page: ${targetPage}.`);
             const apiResponse = await fetchResultsFromApi(query, apiDriver, type, targetPage);
 
+            log.info(`[FE INFO] API response received. Success: ${apiResponse.success}, Is Abort: ${apiResponse.isAbort}.`);
+
+            // Check if the search context is still the same before processing results
             if (query === appState.currentQuery && driver === appState.currentDriver && type === appState.currentType && targetPage === appState.currentPage) {
                 setSearchState(false);
                 if (apiResponse.success) {
+                    log.info('[FE INFO] Displaying search results.');
                     displaySearchResults(apiResponse.data);
                     if (isUserInitiated) updateURL();
                 } else if (!apiResponse.isAbort) {
+                    log.error('[FE ERROR] Search failed:', apiResponse.error);
                     showError(apiResponse.error || 'Failed to fetch results.');
                     displaySearchResults([]);
                 }
-            }
-        } else {
-                log.info('Search result discarded, state changed during request.');
+            } else {
+                log.info('[FE INFO] Search result discarded, state changed during request.');
             }
         }
 
@@ -1342,6 +1399,7 @@
         typeSelect.addEventListener('change', () => performSearch(1, true));
         driverSelect.addEventListener('change', () => {
             log.info(`Driver changed to: ${driverSelect.value}`);
+            updateTypeSelectOptions();
             performSearch(1, true);
         });
         prevBtn.addEventListener('click', () => { if (!prevBtn.disabled && !appState.isLoading) performSearch(appState.currentPage - 1, true); });

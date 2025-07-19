@@ -56,12 +56,12 @@ class Motherless extends AbstractModule {
 
         $(itemSelector).each((i, el) => {
             const item = $(el);
-            let pageUrl = item.find('a.img-action').attr('href'); // Assuming a common link for the item
+            let pageUrl = item.attr('href');
 
             let title = sanitizeText(
+                item.attr('title')?.trim() ||
                 item.find('img').attr('alt')?.trim() ||
-                item.find('a.img-action').attr('title')?.trim() ||
-                item.find('div.title, h5.title').text()?.trim() // Common title selectors
+                item.find('div.caption, div.thumb-title, div.title, h5.title').text()?.trim()
             );
 
             if (!pageUrl) {

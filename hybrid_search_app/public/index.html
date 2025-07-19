@@ -83,18 +83,54 @@
         }
         .input-wrapper input:not(:placeholder-shown)+.clear-input-btn { display: block; }
         .clear-input-btn:hover { color: var(--neon-green); transform: translateY(-50%) scale(1.15) rotate(90deg); }
+        .select-wrapper {
+            position: relative;
+        }
         .select-neon {
-            background: var(--input-bg); color: var(--text-color); border: 2px solid var(--neon-pink);
+            background: var(--input-bg);
+            color: var(--text-color);
+            border: 2px solid var(--neon-pink);
             box-shadow: 0 0 10px var(--neon-pink), inset 0 0 8px rgba(255, 0, 170, 0.25);
-            transition: all 0.3s ease; padding: 0.75rem 1rem; font-size: 1rem; line-height: 1.5; border-radius: 0.6rem;
-            -webkit-appearance: none; -moz-appearance: none; appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23ff00aa'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
-            background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 0.9em auto; padding-right: 2.8rem;
+            transition: all 0.3s ease;
+            padding: 0.75rem 2.8rem 0.75rem 1rem;
+            font-size: 1rem;
+            line-height: 1.5;
+            border-radius: 0.6rem;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            cursor: pointer;
+            width: 100%;
+        }
+        .select-wrapper::after {
+            content: '';
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 1.2em;
+            height: 1.2em;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            color: var(--neon-pink);
+            transition: transform 0.2s ease-in-out, color 0.2s ease-in-out;
+            pointer-events: none;
         }
         .select-neon:focus {
             border-color: var(--neon-green);
             box-shadow: 0 0 18px var(--neon-green), 0 0 30px var(--neon-pink), inset 0 0 10px rgba(57, 255, 20, 0.4);
-            outline: none; animation: focusPulseNeon 1.2s infinite alternate;
+            outline: none;
+            animation: focusPulseNeon 1.2s infinite alternate;
+        }
+        .select-wrapper:focus-within::after {
+            color: var(--neon-green);
+            transform: translateY(-50%) rotate(180deg);
+        }
+        .select-wrapper.disabled::after {
+            color: #444;
+            opacity: var(--disabled-opacity);
         }
         @keyframes focusPulseNeon {
             0% { box-shadow: 0 0 18px var(--neon-green), 0 0 30px var(--neon-cyan), inset 0 0 10px rgba(57, 255, 20, 0.4); }
@@ -306,6 +342,24 @@
             .modal-content { padding: 1rem; }
             .modal-link-container { padding: 0.75rem 1rem; }
         }
+        #suggestionsContainer .suggestion-term {
+            display: inline-block;
+            cursor: pointer;
+            background-color: var(--input-bg);
+            border: 1px solid var(--neon-purple);
+            color: var(--text-color);
+            padding: 0.3rem 0.7rem;
+            margin: 0.2rem;
+            border-radius: 0.4rem;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 0 8px var(--neon-purple);
+        }
+        #suggestionsContainer .suggestion-term:hover {
+            background-color: var(--neon-purple);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px var(--neon-green);
+        }
     </style>
     <style>
         [data-theme="light"] {
@@ -351,14 +405,14 @@
                 <input id="searchInput" type="text" placeholder="Enter search query..." class="input-neon" autocomplete="off">
                 <button type="button" id="clearSearchBtn" class="clear-input-btn" aria-label="Clear search query" title="Clear search">×</button>
             </div>
-            <div class="relative mb-4 sm:mb-0">
+            <div class="relative mb-4 sm:mb-0 select-wrapper">
                 <label for="typeSelect" class="sr-only">Search Type</label>
                 <select id="typeSelect" aria-label="Select Search Type" class="select-neon w-full sm:w-auto">
                     <option value="videos" selected>Videos</option>
                     <option value="gifs">GIFs</option>
                 </select>
             </div>
-            <div class="relative mb-4 sm:mb-0">
+            <div class="relative mb-4 sm:mb-0 select-wrapper">
                 <label for="driverSelect" class="sr-only">Search Provider</label>
                 <select id="driverSelect" aria-label="Select Search Provider" class="select-neon w-full sm:w-auto">
                 </select>
@@ -366,7 +420,12 @@
             <button id="searchBtn" type="button" class="btn-neon px-6 py-3 font-semibold text-base flex items-center justify-center w-full sm:w-auto" aria-controls="resultsDiv" aria-describedby="errorMessage">
                 <span id="searchBtnText">Search</span> <span id="loadingIndicator" class="hidden ml-2" aria-hidden="true"><span class="spinner"></span></span>
             </button>
+            <button id="suggestTermsBtn" type="button" class="btn-neon px-4 py-2 text-sm flex items-center justify-center w-full sm:w-auto">
+                <span id="suggestBtnText">Suggest Terms</span>
+                <span id="suggestLoadingIndicator" class="hidden ml-2" aria-hidden="true"><span class="spinner"></span></span>
+            </button>
         </div>
+        <div id="suggestionsContainer" class="my-4 text-center min-h-[2rem]"></div>
         <p id="errorMessage" class="text-white text-center p-3 hidden" role="alert" aria-live="assertive" aria-hidden="true"></p>
     </header>
 
@@ -413,6 +472,19 @@
         const FAVORITES_STORAGE_KEY = 'neonSearchFavorites';
         const THEME_STORAGE_KEY = 'neonSearchTheme';
 
+        const driverCapabilities = {
+            'eporner': { videos: true, gifs: false },
+            'motherless': { videos: true, gifs: true },
+            'pornhub': { videos: true, gifs: false },
+            'redtube': { videos: true, gifs: false },
+            'sex.com': { videos: true, gifs: true },
+            'spankbang': { videos: true, gifs: true },
+            'xhamster': { videos: true, gifs: true },
+            'xvideos': { videos: true, gifs: true },
+            'youporn': { videos: true, gifs: false },
+            'mock': { videos: true, gifs: true }
+        };
+
         const searchInput = document.getElementById('searchInput');
         const clearSearchBtn = document.getElementById('clearSearchBtn');
         const typeSelect = document.getElementById('typeSelect');
@@ -441,6 +513,10 @@
         const themeToggleBtn = document.getElementById('themeToggleBtn');
         const randomSearchBtn = document.getElementById('randomSearchBtn');
         const scrollToTopBtn = document.getElementById('scrollToTopBtn');
+        const suggestTermsBtn = document.getElementById('suggestTermsBtn');
+        const suggestBtnText = document.getElementById('suggestBtnText');
+        const suggestLoadingIndicator = document.getElementById('suggestLoadingIndicator');
+        const suggestionsContainer = document.getElementById('suggestionsContainer');
 
         const appState = {
             isLoading: false, currentPage: 1, currentQuery: '', currentDriver: 'all', currentType: 'videos',
@@ -460,6 +536,7 @@
             modal: (message, ...args) => console.log(`%c[MODAL] ${message}`, 'color: #9d00ff;', ...args),
             favorites: (message, ...args) => console.log(`%c[FAV] ${message}`, 'color: #ff00aa;', ...args),
             theme: (message, ...args) => console.log(`%c[THEME] ${message}`, 'color: #ffff00;', ...args),
+            suggestion: (message, ...args) => console.log(`%c[SUGGEST] ${message}`, 'color: #00e5ff;', ...args),
         };
 
         function loadTheme() {
@@ -491,61 +568,76 @@
             return queries[Math.floor(Math.random() * queries.length)];
         }
 
-        async function loadScrapers() {
-            log.info('Attempting to load scrapers...');
+        async function loadScrapers(retries = 5, delay = 500) {
+            log.info(`Attempting to load scrapers... (Retries left: ${retries})`);
             if (!driverSelect) {
                 log.error('driverSelect element not found!');
                 return;
             }
-            log.info('driverSelect element found:', driverSelect);
-
+        
             try {
                 const response = await axios.get('/api/scrapers');
                 log.info('API response for /api/scrapers:', response.data);
-
+        
                 const scrapers = response.data.scrapers;
                 if (!Array.isArray(scrapers)) {
                     log.error('Scrapers data is not an array:', scrapers);
+                    if (retries > 0) {
+                        log.warn(`Invalid data received, retrying in ${delay}ms...`);
+                        setTimeout(() => loadScrapers(retries - 1, delay), delay);
+                    }
                     return;
                 }
                 log.info('Scrapers array received:', scrapers);
-
+        
                 driverSelect.innerHTML = '';
                 log.info('driverSelect innerHTML cleared.');
-
+        
                 const allOption = document.createElement('option');
                 allOption.value = 'all';
                 allOption.textContent = 'All';
                 driverSelect.appendChild(allOption);
-
+        
                 if (scrapers.length === 0) {
-                    log.warn('No scrapers received from API.');
-                    driverSelect.value = 'all';
-                } else {
-                    scrapers.forEach(scraper => {
-                        log.info('Adding scraper option:', scraper);
-                        const option = document.createElement('option');
-                        option.value = scraper;
-                        option.textContent = scraper;
-                        driverSelect.appendChild(option);
-                    });
-                    driverSelect.disabled = false;
+                    log.warn('No scrapers received from API. This might be a loading issue.');
+                     if (retries > 0) {
+                        log.warn(`Scrapers list is empty, retrying in ${delay}ms...`);
+                        setTimeout(() => loadScrapers(retries - 1, delay), delay);
+                    }
+                    return;
                 }
+        
+                scrapers.forEach(scraper => {
+                    log.info('Adding scraper option:', scraper);
+                    const option = document.createElement('option');
+                    option.value = scraper.toLowerCase(); // Ensure value is lowercase
+                    option.textContent = scraper;
+                    driverSelect.appendChild(option);
+                });
+        
+                driverSelect.disabled = false;
                 driverSelect.value = appState.currentDriver || 'all';
+                log.info('Successfully populated scrapers.');
                 log.info('driverSelect innerHTML after population:', driverSelect.innerHTML);
-
+        
             } catch (error) {
-                log.error('Failed to load scrapers:', error);
-                driverSelect.innerHTML = '';
-                const allOption = document.createElement('option');
-                allOption.value = 'all';
-                allOption.textContent = 'All (error loading others)';
-                driverSelect.appendChild(allOption);
-                const errorOption = document.createElement('option');
-                errorOption.value = '';
-                errorOption.textContent = 'Error Loading Scrapers';
-                errorOption.disabled = true;
-                driverSelect.appendChild(errorOption);
+                log.error(`Failed to load scrapers (attempt left: ${retries-1}):`, error.message);
+                if (retries > 0) {
+                    log.warn(`Retrying in ${delay}ms...`);
+                    setTimeout(() => loadScrapers(retries - 1, delay), delay);
+                } else {
+                    log.error('All retries failed. Populating with error message.');
+                    driverSelect.innerHTML = '';
+                    const allOption = document.createElement('option');
+                    allOption.value = 'all';
+                    allOption.textContent = 'All (error)';
+                    driverSelect.appendChild(allOption);
+                    const errorOption = document.createElement('option');
+                    errorOption.value = '';
+                    errorOption.textContent = 'Error Loading Drivers';
+                    errorOption.disabled = true;
+                    driverSelect.appendChild(errorOption);
+                }
             }
         }
 
@@ -809,10 +901,86 @@
             searchInput.value = '';
             clearSearchBtn.style.display = 'none';
             resultsDiv.innerHTML = '';
+            if (suggestionsContainer) suggestionsContainer.innerHTML = '';
             initialMessage?.classList.remove('hidden');
             paginationControls.classList.add('hidden');
             hideError();
             updateURL(true);
+        }
+
+        function setSuggestLoadingState(isLoading) {
+            if (suggestTermsBtn) suggestTermsBtn.disabled = isLoading;
+            if (isLoading) {
+                if (suggestBtnText) suggestBtnText.classList.add('hidden');
+                if (suggestLoadingIndicator) suggestLoadingIndicator.classList.remove('hidden');
+            } else {
+                if (suggestBtnText) suggestBtnText.classList.remove('hidden');
+                if (suggestLoadingIndicator) suggestLoadingIndicator.classList.add('hidden');
+            }
+        }
+
+        function displaySuggestions(terms) {
+            if (!suggestionsContainer) return;
+            suggestionsContainer.innerHTML = '';
+            if (!terms || terms.length === 0) {
+                log.suggestion('No suggestions to display.');
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            terms.forEach(term => {
+                const termEl = document.createElement('span');
+                termEl.className = 'suggestion-term';
+                termEl.textContent = term;
+                termEl.tabIndex = 0;
+                termEl.addEventListener('click', () => {
+                    searchInput.value = term;
+                    clearSearchBtn.style.display = 'block';
+                    suggestionsContainer.innerHTML = '';
+                    performSearch(1, true);
+                });
+                termEl.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        searchInput.value = term;
+                        clearSearchBtn.style.display = 'block';
+                        suggestionsContainer.innerHTML = '';
+                        performSearch(1, true);
+                    }
+                });
+                fragment.appendChild(termEl);
+            });
+            suggestionsContainer.appendChild(fragment);
+            log.suggestion('Displayed suggestions:', terms);
+        }
+
+        async function fetchSuggestions() {
+            const query = searchInput.value.trim();
+            if (!query) {
+                showError('Please enter a query to get suggestions.');
+                searchInput.focus();
+                return;
+            }
+            log.suggestion(`Fetching suggestions for "${query}"`);
+            setSuggestLoadingState(true);
+            hideError();
+
+            try {
+                const response = await axios.get('/api/suggest-terms', { params: { query }, timeout: API_TIMEOUT_MS });
+                const suggestions = response.data.suggestions;
+                if (suggestions && suggestions.length > 0) {
+                    displaySuggestions(suggestions);
+                } else {
+                    log.suggestion('Received empty or no suggestions.');
+                    suggestionsContainer.textContent = 'No suggestions found.';
+                }
+            } catch (error) {
+                log.error('Failed to fetch suggestions:', error);
+                showError(error.response?.data?.error || 'Could not fetch suggestions.');
+                suggestionsContainer.innerHTML = '';
+            } finally {
+                setSuggestLoadingState(false);
+            }
         }
 
         async function fetchResultsFromApi(query, driver, type, page) {
@@ -1136,6 +1304,7 @@
 
             if (appState.showingFavorites && isUserInitiated) hideFavoritesView();
 
+            if (suggestionsContainer) suggestionsContainer.innerHTML = '';
             hideError();
             setSearchState(true);
             log.info(`PerformSearch: Q='${query}', D='${driver}', T='${type}', P=${targetPage}, UserInitiated=${isUserInitiated}`);
@@ -1221,6 +1390,13 @@
                 if (appState.isLoading) return;
                 searchInput.value = getRandomQuery();
                 performSearch(1, true);
+            });
+        }
+
+        if (suggestTermsBtn) {
+            suggestTermsBtn.addEventListener('click', () => {
+                if (appState.isLoading) return;
+                fetchSuggestions();
             });
         }
 

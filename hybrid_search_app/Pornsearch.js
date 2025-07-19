@@ -1,283 +1,183 @@
 'use strict';
 
-var _classCallCheck = require('babel-runtime/helpers/classCallCheck');
-var _classCallCheck2 = _interopRequireDefault(_classCallCheck);
-var _createClass = require('babel-runtime/helpers/createClass');
-var _createClass2 = _interopRequireDefault(_createClass);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
 const fs = require('fs').promises;
-const path = require('path');
+const path =require('path');
 const cheerio = require('cheerio');
-
 const { fetchWithRetry, getRandomUserAgent } = require('./modules/driver-utils.js');
-const VideoMixin = require('./core/VideoMixin.js');
-const GifMixin = require('./core/GifMixin.js');
-const DummyBaseClassForMixinCheck = class {};
-const VideoMixinPrototype = VideoMixin(DummyBaseClassForMixinCheck).prototype;
-const GifMixinPrototype = GifMixin(DummyBaseClassForMixinCheck).prototype;
 
 const MOCK_DATA_DIR = path.join(__dirname, 'modules', 'mock_html_data');
 
-var Pornsearch = function () {
-  function Pornsearch(options, drivers, config) {
-    (0, _classCallCheck2.default)(this, Pornsearch);
+class Pornsearch {
+    constructor(config) {
+        this.config = config;
+        this.drivers = {}; // Store loaded drivers
+        console.log('[Pornsearch] Orchestrator instance created.');
+    }
 
-    this.query = options.query || '';
-    this.page = options.page || 1;
-    this.pageSize = options.pageSize || 20;
-    this.config = config;
-    this.allDrivers = drivers;
+    static async create(config) {
+        const instance = new Pornsearch(config);
+        await instance._initializeAndRegisterDrivers();
+        return instance;
+    }
 
-    this.activeDrivers = [];
-    if (options.drivers && Array.isArray(options.drivers) && options.drivers.length > 0) {
-      this.activeDrivers = options.drivers.reduce((acc, driverName) => {
-        const normalizedDriverName = driverName.toLowerCase() === 'sexcom' ? 'sex.com' : driverName.toLowerCase();
-        const driver = this.allDrivers[normalizedDriverName];
-        if (driver) {
-          acc.push(driver);
-        } else {
-          console.warn(`[Pornsearch] Driver '${driverName}' not found or is invalid. Skipping.`);
+    async _initializeAndRegisterDrivers() {
+        console.log('[Pornsearch] Initializing and registering drivers...');
+        const modulesDir = path.join(__dirname, 'modules');
+        try {
+            const files = await fs.readdir(modulesDir);
+            for (const file of files) {
+                if ((file.endsWith('.js') || file.endsWith('.cjs')) && !['driver-utils.js', 'mockScraper.cjs'].includes(file)) {
+                    try {
+                        const driverPath = path.join(modulesDir, file);
+                        let DriverClass = require(driverPath);
+                        if (DriverClass && typeof DriverClass === 'object' && DriverClass.default) {
+                            DriverClass = DriverClass.default;
+                        }
+
+                        if (typeof DriverClass !== 'function' || !DriverClass.prototype) {
+                             console.error(`[DriverLoader] Skipped ${file}: Export is not a valid class/constructor.`);
+                             continue;
+                        }
+
+                        const driverInstance = new DriverClass(); // Pass any necessary config/options here
+                        const driverName = driverInstance.name;
+
+                        if (!driverName || typeof driverName !== 'string') {
+                            console.warn(`[DriverLoader] Skipped ${file}: Driver has no name.`);
+                            continue;
+                        }
+                        
+                        // Basic validation
+                        if (typeof driverInstance.parseResults !== 'function' || !(driverInstance.supportsGifs || driverInstance.supportsVideos)) {
+                            console.warn(`[DriverLoader] Skipped ${driverName}: Missing required methods (parseResults) or capabilities (supportsGifs/supportsVideos).`);
+                            continue;
+                        }
+
+                        this.drivers[driverName.toLowerCase()] = driverInstance;
+                        console.log(`[DriverLoader] Successfully registered driver: ${driverName}`);
+
+                    } catch (error) {
+                        console.error(`[DriverLoader] Failed to load driver from ${file}:`, error);
+                    }
+                }
+            }
+        } catch (dirError) {
+            console.error(`[DriverLoader] Failed to read modules directory:`, dirError);
         }
-        return acc;
-      }, []);
-    } else if (this.allDrivers) {
-      this.activeDrivers = Object.values(this.allDrivers);
+        console.log(`[Pornsearch] Driver registration complete. ${Object.keys(this.drivers).length} drivers loaded.`);
     }
 
-    if (this.activeDrivers.length === 0) {
-      console.warn('[Pornsearch] Warning: No active drivers were loaded. The application may not function as expected.');
+    getAvailablePlatforms() {
+        return Object.values(this.drivers).map(driver => driver.name);
     }
-    console.log(`[Pornsearch] Initialized with query: "${this.query}", page: ${this.page}`);
-  }
 
-  (0, _createClass2.default)(Pornsearch, [{
-    key: 'setQuery',
-    value: function setQuery(newQuery) {
-      if (typeof newQuery !== 'string' || newQuery.trim() === '') {
-        console.warn("[Pornsearch] Invalid query provided. Query must be a non-empty string.");
-        return;
-      }
-      this.query = newQuery.trim();
-      this.activeDrivers.forEach(driver => {
-        if (typeof driver.setQuery === 'function') {
-          driver.setQuery(this.query);
-        } else if (driver.hasOwnProperty('query')) {
-            driver.query = this.query;
-        }
-      });
-      console.log(`[Pornsearch] Query updated to: "${this.query}" for all active drivers.`);
-    }
-  }, {
-    key: '_fetch',
-    value: async function _fetch(driver, searchUrl, useMockData, page, searchType) {
-        let rawContent = '';
+    async _fetch(driver, searchUrl, useMockData, page, searchType) {
         if (useMockData) {
-            const normalizedDriverNameForFile = driver.name.toLowerCase().replace(/[\s.]+/g, '');
-            const mockFileName = `${normalizedDriverNameForFile}_${searchType}_page${page}.html`;
+            const normalizedDriverName = driver.name.toLowerCase().replace(/[\s.]+/g, '');
+            const mockFileName = `${normalizedDriverName}_${searchType}_page${page}.html`;
             const mockFilePath = path.join(MOCK_DATA_DIR, mockFileName);
             try {
-                rawContent = await fs.readFile(mockFilePath, 'utf8');
-                console.log(`  [${driver.name}] Loaded mock data from: ${mockFilePath}`);
+                return await fs.readFile(mockFilePath, 'utf8');
             } catch (fileError) {
-                console.error(`  [${driver.name}] ERROR: Failed to load mock data from ${mockFilePath}: ${fileError.message}. Skipping.`);
+                console.error(`[FETCH_MOCK_ERROR] Failed for ${driver.name}: ${fileError.message}`);
                 return null;
             }
-        } else {
-            console.log(`  [${driver.name}] Fetching live content from: ${searchUrl}`);
-            const defaultHeaders = {
-                'User-Agent': getRandomUserAgent(),
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8,application/json;q=0.7',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Referer': driver.baseUrl
-            };
-
-            let customHeaders = {};
-            if (typeof driver.getCustomHeaders === 'function') {
-                customHeaders = driver.getCustomHeaders();
-            }
-
-            const options = {
-                headers: { ...defaultHeaders, ...customHeaders },
-                timeout: this.config.global.requestTimeout || 15000
-            };
-            
-            const response = await fetchWithRetry(searchUrl, options);
-            rawContent = response.data;
         }
-        return rawContent;
+
+        const options = {
+            headers: {
+                'User-Agent': getRandomUserAgent(),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Referer': driver.baseUrl,
+                ...(typeof driver.getCustomHeaders === 'function' ? driver.getCustomHeaders() : {})
+            },
+            timeout: this.config.global.requestTimeout || 15000
+        };
+
+        const response = await fetchWithRetry(searchUrl, options);
+        return response.data;
     }
-  }, {
-    key: '_parse',
-    value: async function _parse(driver, rawContent, parserOptions) {
+
+    async _parse(driver, rawContent, parserOptions) {
+        if (!rawContent) return [];
+        
         let cheerioInstance = null;
         let jsonData = null;
 
-        if (typeof rawContent === 'string' && rawContent.trim().startsWith('<')) {
-            cheerioInstance = cheerio.load(rawContent);
-            if (parserOptions && !parserOptions.useMockData) {
-                const noResultsSelectors = '#videoSearchResult .no-results-found, .no-results-found-container, .noResultsMessage';
-                if (cheerioInstance(noResultsSelectors).length > 0) {
-                    console.log(`  [${driver.name}] No results found on page.`);
-                    return [];
-                }
+        try {
+            if (typeof rawContent === 'string' && rawContent.trim().startsWith('<')) {
+                cheerioInstance = cheerio.load(rawContent);
+            } else if (typeof rawContent === 'object' || (typeof rawContent === 'string' && rawContent.trim().startsWith('{'))) {
+                jsonData = (typeof rawContent === 'string') ? JSON.parse(rawContent) : rawContent;
+            } else {
+                return [];
             }
-        } else if (typeof rawContent === 'object' || (typeof rawContent === 'string' && rawContent.trim().startsWith('{'))) {
-            jsonData = (typeof rawContent === 'string') ? JSON.parse(rawContent) : rawContent;
-        } else {
-            console.warn(`  [${driver.name}] Unknown content format. Skipping.`);
+        } catch (e) {
+            console.error(`[PARSE_ERROR] Failed to load content for ${driver.name}: ${e.message}`);
             return [];
         }
 
         const results = await driver.parseResults(cheerioInstance, jsonData || rawContent, parserOptions);
-
-        if (Array.isArray(results)) {
-            console.log(`  [${driver.name}] Parsed ${results.length} ${parserOptions.type} results.`);
-            // Ensure source and type are consistently added if driver didn't do it
-            return results.map(r => ({
-                ...r,
-                source: r.source || driver.name, // Prioritize driver's source, then orchestrator's
-                type: r.type || parserOptions.type      // Prioritize driver's type, then orchestrator's
-            }));
-        } else {
-            console.warn(`  [${driver.name}] parseResults did not return an array. Skipping.`);
+        
+        if (!Array.isArray(results)) {
+            console.warn(`[PARSE_WARN] Driver ${driver.name} did not return an array.`);
             return [];
         }
+
+        return results.map(r => ({
+            ...r,
+            source: r.source || driver.name,
+            type: r.type || parserOptions.type
+        }));
     }
-  }, {
-    key: 'search',
-    value: async function search(searchOptions) {
-      const { query, page = 1, type = 'videos', useMockData = false, platform = null } = searchOptions;
 
-      if (!query && !useMockData) {
-        throw new Error("Search query cannot be empty.");
-      }
-      let searchType = type;
-      if (!['videos', 'gifs'].includes(searchType)) {
-        console.warn(`[Pornsearch] Invalid search type '${searchType}'. Defaulting to 'videos'.`);
-        searchType = 'videos';
-      }
+    async search(options) {
+        const { query, page = 1, type = 'videos', useMockData = false, platform = null } = options;
 
-      console.log(`[Pornsearch] Searching for "${query}" (${searchType}) on page ${page} (Mocking: ${useMockData ? 'YES' : 'NO'})...`);
+        if (!query) throw new Error("Search query is required.");
+        if (!['videos', 'gifs'].includes(type)) throw new Error(`Invalid search type: ${type}`);
 
-      let driversToSearch = this.activeDrivers;
-      if (!useMockData) {
-        driversToSearch = driversToSearch.filter(d => d.name.toLowerCase() !== 'mock');
-      }
+        console.log(`[SEARCH] Starting search for "${query}" (type: ${type}, page: ${page}, platform: ${platform || 'all'})`);
 
-      if (platform) {
-        const normalizedPlatform = platform.toLowerCase() === 'sexcom' ? 'sex.com' : platform.toLowerCase();
-        driversToSearch = driversToSearch.filter(d => d.name.toLowerCase() === normalizedPlatform);
-        if (driversToSearch.length === 0) {
-          console.warn(`[Pornsearch] No active driver found for platform: ${platform}`);
-          return [];
-        }
-      }
-
-      const searchPromises = driversToSearch.map(async driver => {
-        try {
-          let searchUrl = '';
-          const parserOptions = { type: searchType, sourceName: driver.name, query: query, page: page };
-
-          let getUrlMethod;
-          if (searchType === 'videos' && driver.supportsVideos && typeof driver.getVideoSearchUrl === 'function') {
-            getUrlMethod = driver.getVideoSearchUrl;
-          } else if (searchType === 'gifs' && driver.supportsGifs && typeof driver.getGifSearchUrl === 'function') {
-            getUrlMethod = driver.getGifSearchUrl;
-          } else {
-            console.warn(`  [${driver.name}] Driver does not support '${searchType}' or missing URL method. Skipping.`);
-            return [];
-          }
-
-          searchUrl = getUrlMethod.call(driver, query, page);
-
-          if (!searchUrl || typeof searchUrl !== 'string' || searchUrl.trim() === '') {
-            console.warn(`  [${driver.name}] Failed to generate valid URL for ${searchType}. Skipping.`);
-            return [];
-          }
-
-          const rawContent = await this._fetch(driver, searchUrl, useMockData, page, searchType);
-          if (!rawContent) {
-              return [];
-          }
-
-          return await this._parse(driver, rawContent, parserOptions);
-        } catch (error) {
-          console.error(`  [Pornsearch] Error searching ${searchType} on ${driver.name} (Mock: ${useMockData}):`, error.message);
-          if (error.response) {
-            console.error(`    Status: ${error.response.status}`);
-          } else if (error.code === 'ENOENT' && useMockData) {
-            console.error(`    Mock file not found. Ensure '${error.path}' exists.`);
-          }
-          return [];
-        }
-      });
-
-      const allResults = await Promise.all(searchPromises);
-      return [].concat(...allResults);
-    }
-  }, {
-    key: 'getAvailablePlatforms',
-    value: function getAvailablePlatforms() {
-      return this.activeDrivers.map(driver => driver.name);
-    }
-  }], [{
-    key: 'create',
-    value: async function create(options) {
-      let config;
-      try {
-          config = require('./config.js');
-      } catch (e) {
-          console.error("[Pornsearch.js] Critical: Failed to load config.js. Defaulting global settings.", e.message);
-          config = { global: { defaultUserAgent: 'Mozilla/5.0', requestTimeout: 15000 }};
-      }
-
-      const drivers = await this.loadDrivers(options);
-      return new Pornsearch(options, drivers, config);
-    }
-  }, {
-    key: 'loadDrivers',
-    value: async function loadDrivers(options) {
-      const drivers = {};
-      const modulesDirs = [
-        path.join(__dirname, 'modules')
-      ];
-
-      for (const modulesDir of modulesDirs) {
-        try {
-          const files = await fs.readdir(modulesDir);
-          for (const file of files) {
-            if ((file.endsWith('.js') || file.endsWith('.cjs')) && !['driver-utils.js'].includes(file)) {
-              try {
-                const driverPath = path.join(modulesDir, file);
-                let DriverClass = require(driverPath);
-                // If it's an object with a 'default' property (Babel transpiled ES6 export)
-                if (DriverClass && typeof DriverClass === 'object' && DriverClass.default) {
-                  DriverClass = DriverClass.default;
-                }
-                // If it's still not a function (constructor), something is wrong
-                if (typeof DriverClass !== 'function') {
-                    throw new TypeError(`DriverClass for ${file} is not a constructor function.`);
-                }
-                const driverInstance = new DriverClass(options);
-                const driverName = driverInstance.name.toLowerCase();
-                drivers[driverName] = driverInstance;
-              } catch (error) {
-                console.error(`Failed to load driver from ${file}:`, error);
-              }
+        let driversToSearch = Object.values(this.drivers);
+        if (platform) {
+            const normalizedPlatform = platform.toLowerCase();
+            const specificDriver = this.drivers[normalizedPlatform];
+            if (!specificDriver) {
+                console.warn(`[SEARCH] Platform '${platform}' not found or not loaded.`);
+                return [];
             }
-          }
-        } catch (dirError) {
-          console.error(`Failed to read directory ${modulesDir}:`, dirError);
+            driversToSearch = [specificDriver];
         }
-      }
-      return drivers;
-    }
-  }]);
 
-  return Pornsearch;
-}();
+        const searchPromises = driversToSearch.map(async driver => {
+            let getUrlMethod;
+            if (type === 'videos' && driver.supportsVideos) getUrlMethod = driver.getVideoSearchUrl;
+            else if (type === 'gifs' && driver.supportsGifs) getUrlMethod = driver.getGifSearchUrl;
+            else return [];
+
+            if (typeof getUrlMethod !== 'function') return [];
+
+            try {
+                const searchUrl = getUrlMethod.call(driver, query, page);
+                if (!searchUrl) return [];
+
+                const rawContent = await this._fetch(driver, searchUrl, useMockData, page, type);
+                return await this._parse(driver, rawContent, { type, sourceName: driver.name, query, page });
+            } catch (error) {
+                console.error(`[SEARCH_FAIL] Error searching on ${driver.name}:`, error.message);
+                return [];
+            }
+        });
+
+        const settledResults = await Promise.allSettled(searchPromises);
+        const successfulResults = settledResults
+            .filter(res => res.status === 'fulfilled' && Array.isArray(res.value))
+            .flatMap(res => res.value);
+            
+        console.log(`[SEARCH] Completed. Found a total of ${successfulResults.length} results.`);
+        return successfulResults;
+    }
+}
 
 module.exports = Pornsearch;

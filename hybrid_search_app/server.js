@@ -59,11 +59,12 @@ let pornsearchOrchestrator;
 
 async function initializeOrchestrator() {
     try {
-        pornsearchOrchestrator = await PornsearchOrchestrator.create({ /* options if any */ });
-        log.info('PornsearchOrchestrator created successfully.');
+        const config = require('./config.js');
+        pornsearchOrchestrator = await PornsearchOrchestrator.create(config);
+        log.info('PornsearchOrchestrator created and drivers registered successfully.');
     } catch (err) {
         log.error('Failed to create PornsearchOrchestrator:', err);
-        process.exit(1);
+        process.exit(1); // Exit if orchestrator fails to initialize
     }
 }
 
@@ -103,7 +104,7 @@ async function handleCustomOrchestratorRequest(driverKey, params) {
     }
 }
 
-// --- API Search Endpoint ---
+// --- API Endpoints ---
 app.get('/api/search', async (req, res) => {
     log.debug('[/api/search] Received request. Query params:', req.query);
     const { query, driver, type = 'videos', page = '1' } = req.query;

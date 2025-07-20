@@ -1,20 +1,17 @@
-'use strict';
-
 const AbstractModule = require('../core/AbstractModule');
+const VideoMixin = require('../core/VideoMixin');
+const GifMixin = require('../core/GifMixin');
 const { makeAbsolute, extractPreview, sanitizeText } = require('./driver-utils.js');
 
 const BASE_URL = 'https://www.sex.com';
-// Frontend driverSelect uses "sex", so orchestrator will likely map "Sex.com" to "sex" or use "sex" as key.
-// Let's use "Sex.com" for display name and assume orchestrator handles mapping if its key is "sex".
 const DRIVER_NAME = 'Sex.com';
 
-/**
- * @class SexComDriver
- * @classdesc Driver for scraping video and GIF content from Sex.com.
- */
-class SexComDriver extends AbstractModule {
+const BaseSexComClass = AbstractModule.with(VideoMixin, GifMixin);
+
+class SexComDriver extends BaseSexComClass {
     constructor(options = {}) {
         super(options);
+        this.logger = require('../core/log.js').child({ module: 'SexComDriver' });
     }
 
     get supportsVideos() {
@@ -42,7 +39,7 @@ class SexComDriver extends AbstractModule {
      */
     getVideoSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
-            throw new Error(`[${this.name}] Search query is not set for video search.`);
+            throw new Error(`Search query is not set for video search.`);
         }
         const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
 
@@ -63,7 +60,7 @@ class SexComDriver extends AbstractModule {
      */
     getGifSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
-            throw new Error(`[${this.name}] Search query is not set for GIF search.`);
+            throw new Error(`Search query is not set for GIF search.`);
         }
         const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
 
@@ -83,9 +80,25 @@ class SexComDriver extends AbstractModule {
      * @returns {Array<object>} Array of MediaResult objects.
      */
     parseResults($, htmlOrJsonData, parserOptions) {
+        const { isMock } = parserOptions;
         if (!$) {
-            // console.warn(`[${this.name}] Cheerio object ($) is null. Expecting HTML.`);
+            this.logger.warn(`Cheerio object ($) is null. Expecting HTML.`);
             return [];
+        }
+
+        if (!isMock) {
+            // Check for common indicators of no results or a block page
+            const noResultsText = $('div.no-results-message, p.no-results').text();
+            if (noResultsText.length > 0) {
+                this.logger.warn(`No results found or block page detected for query: "${parserOptions.query}". Message: ${noResultsText.trim().substring(0, 100)}`);
+                return [];
+            }
+
+            // Check for Cloudflare or other common block page elements
+            if ($('#cf-wrapper').length > 0 || $('body:contains("Attention Required!")').length > 0) {
+                this.logger.error(`Cloudflare or similar block page detected for query: "${parserOptions.query}".`);
+                return [];
+            }
         }
 
         const results = [];
@@ -119,7 +132,7 @@ class SexComDriver extends AbstractModule {
             }
 
             if (!pageUrl || !title) {
-                // console.warn(`[${this.name}] Item ${i} (${parserOptions.type}): Skipping due to missing title or page URL.`);
+                this.logger.warn(`Item ${i} (${parserOptions.type}): Skipping due to missing title or page URL.`);
                 return;
             }
 
@@ -146,7 +159,8 @@ class SexComDriver extends AbstractModule {
             const absolutePreview = makeAbsolute(previewUrl, this.baseUrl);
 
             if (!absoluteUrl || !title) {
-                 return;
+                this.logger.warn(`Item ${i}: Failed to resolve absolute URL or title is missing.`);
+                return;
             }
 
             results.push({
@@ -161,7 +175,7 @@ class SexComDriver extends AbstractModule {
             });
         });
 
-        // console.log(`[${this.name}] Parsed ${results.length} ${parserOptions.type} items.`);
+        this.logger.info(`Parsed ${results.length} ${parserOptions.type} items.`);
         return results;
     }
 }

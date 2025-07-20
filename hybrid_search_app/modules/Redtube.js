@@ -1,43 +1,60 @@
-'use strict';
+const AbstractModule = require('../core/AbstractModule.js');
+const VideoMixin = require('../core/VideoMixin.js');
+const { makeAbsolute, validatePreview, extractPreview } = require('./driver-utils');
 
-const { makeAbsolute, logger, validatePreview, extractPreview } = require('./driver-utils');
-const cheerio = require('cheerio');
-const chalk = require('chalk');
+const BaseRedtubeClass = AbstractModule.with(VideoMixin);
 
-/**
- * @typedef {import('../Pornsearch.js').MediaResult} MediaResult
- */
-class RedtubeDriver {
+class RedtubeDriver extends BaseRedtubeClass {
   constructor() {
-    this.name = 'Redtube';
-    this.baseUrl = 'https://www.redtube.com';
-    this.supportsVideos = true;
-    this.supportsGifs = false;
+    super();
+    this.logger = require('../core/log.js').child({ module: 'RedtubeDriver' });
   }
+
+  get name() { return 'Redtube'; }
+  get baseUrl() { return 'https://www.redtube.com'; }
+  get supportsVideos() { return true; }
+  get supportsGifs() { return false; }
 
   getVideoSearchUrl(query, page) {
     const pageNum = Math.max(1, page || 1);
     const searchQueryPath = encodeURIComponent(query.trim().replace(/\s+/g, '+'));
     const searchUrl = new URL(`/search?q=${searchQueryPath}`, this.baseUrl);
     searchUrl.searchParams.set('page', String(pageNum));
-    logger.debug(chalk.cyan(`// [${this.name}] Forging search URL: ${searchUrl.href}`));
+    this.logger.debug(`Forging search URL: ${searchUrl.href}`);
     return searchUrl.href;
   }
 
   parseResults($, htmlData, options) {
+    const { isMock } = options;
     if (!$) {
-      logger.warn(chalk.red(`// [${this.name}] Cheerio instance not provided for HTML parsing.`));
+      this.logger.warn(`Cheerio instance not provided for HTML parsing.`);
       return [];
     }
+
+    if (!isMock) {
+        // Check for common indicators of no results or a block page
+        const noResultsText = $('div.no_results_message, p.no-results').text();
+        if (noResultsText.length > 0) {
+            this.logger.warn(`No results found or block page detected for query: "${options.query}". Message: ${noResultsText.trim().substring(0, 100)}`);
+            return [];
+        }
+
+        // Check for Cloudflare or other common block page elements
+        if ($('#age_disclaimer').length > 0 || $('body:contains("Page Not Found")').length > 0) {
+            this.logger.error(`Redtube block page or age disclaimer detected for query: "${options.query}".`);
+            return [];
+        }
+    }
+
     const results = [];
     // Selectors for Redtube's 2025 layout
     const videoItems = $('div.video_bloc, li.video_item, div.video-tile, div.videoBlock');
-    logger.debug(chalk.cyan(`// [${this.name}] Discovered ${videoItems.length} video artifacts.`));
+    this.logger.debug(`Discovered ${videoItems.length} video artifacts.`);
 
     videoItems.each((i, elem) => {
       this._parseSingleItem($, $(elem), results);
     });
-    logger.info(chalk.green(`// [${this.name}] Conjured ${results.length} videos for query "${options.query}".`));
+    this.logger.info(`Conjured ${results.length} videos for query "${options.query}".`);
     return results;
   }
 
@@ -77,11 +94,11 @@ class RedtubeDriver {
     if (url && title) {
       const finalPreview = validatePreview(previewVideo) ? makeAbsolute(previewVideo, this.baseUrl) : undefined;
       if (previewVideo && !finalPreview) {
-        logger.warn(chalk.yellow(`// [${this.name}] Invalid preview for ${title}: ${previewVideo}`));
+        this.logger.warn(`Invalid preview for ${title}: ${previewVideo}`);
       } else if (finalPreview) {
-        logger.info(chalk.green(`// [${this.name}] Preview conjured for ${title}: ${finalPreview}`));
+        this.logger.info(`Preview conjured for ${title}: ${finalPreview}`);
       } else {
-        logger.warn(chalk.yellow(`// [${this.name}] No preview found for ${title}`));
+        this.logger.warn(`No preview found for ${title}`);
       }
 
       resultsArray.push({
@@ -95,7 +112,7 @@ class RedtubeDriver {
         type: 'videos'
       });
     } else {
-      logger.warn(chalk.red(`// [${this.name}] Skipping item: missing URL or title.`));
+      this.logger.warn(`Skipping item: missing URL or title.`);
     }
   }
 }

@@ -1,18 +1,17 @@
-'use strict';
-
 const AbstractModule = require('../core/AbstractModule');
+const VideoMixin = require('../core/VideoMixin');
+const GifMixin = require('../core/GifMixin');
 const { makeAbsolute, extractPreview, sanitizeText } = require('./driver-utils.js');
 
 const BASE_URL = 'https://www.spankbang.com';
 const DRIVER_NAME = 'Spankbang';
 
-/**
- * @class SpankbangDriver
- * @classdesc Driver for scraping video and GIF content from Spankbang.
- */
-class SpankbangDriver extends AbstractModule {
+const BaseSpankbangClass = AbstractModule.with(VideoMixin, GifMixin);
+
+class SpankbangDriver extends BaseSpankbangClass {
     constructor(options = {}) {
         super(options);
+        this.logger = require('../core/log.js').child({ module: 'SpankbangDriver' });
     }
 
     get supportsVideos() {
@@ -33,7 +32,7 @@ class SpankbangDriver extends AbstractModule {
 
     getVideoSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
-            throw new Error(`[${this.name}] Search query is not set for video search.`);
+            throw new Error(`Search query is not set for video search.`);
         }
         const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
         const pageSegment = searchPage > 1 ? `${searchPage}/` : '';
@@ -44,7 +43,7 @@ class SpankbangDriver extends AbstractModule {
 
     getGifSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
-            throw new Error(`[${this.name}] Search query is not set for GIF search.`);
+            throw new Error(`Search query is not set for GIF search.`);
         }
         const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
         const pageSegment = searchPage > 1 ? `${searchPage}/` : '';
@@ -62,8 +61,25 @@ class SpankbangDriver extends AbstractModule {
     }
 
     parseResults($, htmlOrJsonData, parserOptions) {
+        const { isMock } = parserOptions;
         if (!$) {
+            this.logger.warn(`Cheerio instance not provided for HTML parsing.`);
             return [];
+        }
+
+        if (!isMock) {
+            // Check for common indicators of no results or a block page
+            const noResultsText = $('div.no-results-message, p.no-results').text();
+            if (noResultsText.length > 0) {
+                this.logger.warn(`No results found or block page detected for query: "${parserOptions.query}". Message: ${noResultsText.trim().substring(0, 100)}`);
+                return [];
+            }
+
+            // Check for Cloudflare or other common block page elements
+            if ($('#cf-wrapper').length > 0 || $('body:contains("Attention Required!")').length > 0) {
+                this.logger.error(`Cloudflare or similar block page detected for query: "${parserOptions.query}".`);
+                return [];
+            }
         }
 
         const results = [];
@@ -88,6 +104,7 @@ class SpankbangDriver extends AbstractModule {
             if (!title) title = `Spankbang Content ${i+1}`;
 
             if (!pageUrl) {
+                this.logger.warn(`Item ${i} (${parserOptions.type}): Skipping due to missing page URL.`);
                 return;
             }
 
@@ -109,7 +126,8 @@ class SpankbangDriver extends AbstractModule {
             const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl);
 
             if (!absoluteUrl || !title) {
-                 return;
+                this.logger.warn(`Item ${i}: Failed to resolve absolute URL or title is missing.`);
+                return;
             }
 
             results.push({
@@ -124,6 +142,7 @@ class SpankbangDriver extends AbstractModule {
             });
         });
 
+        this.logger.info(`Parsed ${results.length} ${parserOptions.type} items.`);
         return results;
     }
 }

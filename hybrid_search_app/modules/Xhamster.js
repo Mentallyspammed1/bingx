@@ -179,7 +179,7 @@ class XhamsterDriver extends BaseXhamsterClass {
       const gifItems = $('div.photo-thumb, div.gif-thumb, div.gallery-thumb'); // Updated based on xhamster_gifs_page1.html
 
       if (!gifItems.length) {
-        logger.warn(`[${sourceName}] No GIF items found with current selectors. Page structure may have changed.`);
+        this.logger.warn(`No GIF items found with current selectors. Page structure may have changed.`);
         return [];
       }
 
@@ -208,10 +208,10 @@ class XhamsterDriver extends BaseXhamsterClass {
         let thumbnailUrl = thumbElement.attr('data-src') || thumbElement.attr('src') || item.attr('data-poster');
 
         // --- Data validation and normalization ---
-        logger.debug(`[${sourceName}] Raw GIF data - Item ${index}: gifId=${gifId}, title=${title}, gifPageUrl=${gifPageUrl}, animatedGifUrl=${animatedGifUrl}, thumbnailUrl=${thumbnailUrl}`);
+        this.logger.debug(`Raw GIF data - Item ${index}: gifId=${gifId}, title=${title}, gifPageUrl=${gifPageUrl}, animatedGifUrl=${animatedGifUrl}, thumbnailUrl=${thumbnailUrl}`);
 
         if (!gifPageUrl || !title || !animatedGifUrl || !thumbnailUrl || !gifId) {
-          logger.warn(`[${sourceName}] Skipping malformed GIF item (missing essential data):`, { title, gifPageUrl, animatedGifUrl, thumbnailUrl, gifId, index });
+          this.logger.warn(`Skipping malformed GIF item (missing essential data):`, { title, gifPageUrl, animatedGifUrl, thumbnailUrl, gifId, index });
           return;
         }
 
@@ -219,8 +219,8 @@ class XhamsterDriver extends BaseXhamsterClass {
         gifPageUrl = makeAbsolute(gifPageUrl, this.baseUrl);
         thumbnailUrl = makeAbsolute(thumbnailUrl, this.baseUrl);
 
-        if (!gifPageUrl || !thumbnailUrl) { // Re-validate after making absolute
-           logger.warn(`[${sourceName}] Skipping GIF item "${title}": Failed to resolve absolute URLs.`);
+        if (!gifPageUrl || !thumbnailUrl) {
+           this.logger.warn(`Skipping GIF item "${title}": Failed to resolve absolute URLs.`);
            return;
         }
 
@@ -237,7 +237,7 @@ class XhamsterDriver extends BaseXhamsterClass {
       // --- END SPECULATIVE GIF CSS SELECTORS ---
     }
 
-    logger.info(`[${sourceName}] Parsed ${results.length} ${type} results.`);
+    this.logger.info(`Parsed ${results.length} ${type} results.`);
     return results;
   }
 }

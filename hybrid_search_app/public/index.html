@@ -565,24 +565,24 @@
             }
         
             try {
-                const response = await axios.get('/api/scrapers');
-                log.info('[FE INFO] API response for /api/scrapers:', response.data);
+                const response = await axios.get('/api/drivers');
+                log.info('[FE INFO] API response for /api/drivers:', response.data);
         
-                const scrapers = response.data.scrapers;
-                if (!Array.isArray(scrapers)) {
-                    log.error('[FE ERROR] Scrapers data is not an array:', scrapers);
+                const platforms = response.data.platforms;
+                if (!Array.isArray(platforms)) {
+                    log.error('[FE ERROR] Platforms data is not an array:', platforms);
                     if (retries > 0) {
                         log.warn(`[FE WARN] Invalid data received, retrying in ${delay}ms...`);
                         setTimeout(() => loadScrapers(retries - 1, delay), delay);
                     }
                     return;
                 }
-                log.info('[FE INFO] Scrapers array received:', scrapers);
+                log.info('[FE INFO] Platforms array received:', platforms);
         
                 // Populate allDriverCapabilities
                 allDriverCapabilities = {};
-                scrapers.forEach(s => {
-                    allDriverCapabilities[s.name.toLowerCase()] = { videos: s.supportsVideos, gifs: s.supportsGifs };
+                platforms.forEach(p => {
+                    allDriverCapabilities[p.name.toLowerCase()] = { videos: p.supportsVideos, gifs: p.supportsGifs };
                 });
                 log.info('[FE INFO] Populated allDriverCapabilities:', allDriverCapabilities);
         
@@ -594,31 +594,31 @@
                 allOption.textContent = 'All';
                 driverSelect.appendChild(allOption);
         
-                if (scrapers.length === 0) {
-                    log.warn('[FE WARN] No scrapers received from API. This might be a loading issue.');
+                if (platforms.length === 0) {
+                    log.warn('[FE WARN] No platforms received from API. This might be a loading issue.');
                      if (retries > 0) {
-                        log.warn(`[FE WARN] Scrapers list is empty, retrying in ${delay}ms...`);
+                        log.warn(`[FE WARN] Platforms list is empty, retrying in ${delay}ms...`);
                         setTimeout(() => loadScrapers(retries - 1, delay), delay);
                     }
                     return;
                 }
         
-                scrapers.forEach(scraper => {
-                    log.info('[FE INFO] Adding scraper option:', scraper);
+                platforms.forEach(platform => {
+                    log.info('[FE INFO] Adding platform option:', platform);
                     const option = document.createElement('option');
-                    option.value = scraper.name.toLowerCase(); // Ensure value is lowercase
-                    option.textContent = scraper.name;
+                    option.value = platform.name.toLowerCase(); // Ensure value is lowercase
+                    option.textContent = platform.name;
                     driverSelect.appendChild(option);
                 });
         
                 driverSelect.disabled = false;
                 driverSelect.value = appState.currentDriver || 'all';
                 updateTypeSelectOptions(); // Call this after populating drivers
-                log.info('[FE INFO] Successfully populated scrapers.');
+                log.info('[FE INFO] Successfully populated platforms.');
                 log.info('[FE INFO] driverSelect innerHTML after population:', driverSelect.innerHTML);
         
             } catch (error) {
-                log.error(`[FE ERROR] Failed to load scrapers (attempt left: ${retries-1}):`, error.message);
+                log.error(`[FE ERROR] Failed to load platforms (attempt left: ${retries-1}):', error.message);
                 if (retries > 0) {
                     log.warn(`[FE WARN] Retrying in ${delay}ms...`);
                     setTimeout(() => loadScrapers(retries - 1, delay), delay);

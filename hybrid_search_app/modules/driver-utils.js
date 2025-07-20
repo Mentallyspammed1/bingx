@@ -8,22 +8,7 @@ const { HttpsProxyAgent } = require('https-proxy-agent');
 /**
  * Custom logger with colorized output and log level control.
  */
-const logger = {
-  // Set to true to enable debug logs; can be toggled via environment variable
-  debugEnabled: process.env.DEBUG_DRIVER_UTILS === 'true' || process.env.DEBUG === 'true', // Allow general DEBUG env var too
-
-  info: (...args) => console.log(chalk.green(`[INFO] ${args.join(' ')}`)),
-
-  warn: (...args) => console.warn(chalk.yellow(`[WARN] ${args.join(' ')}`)),
-
-  error: (...args) => console.error(chalk.red(`[ERROR] ${args.join(' ')}`)),
-
-  debug: (...args) => {
-    if (logger.debugEnabled) {
-      console.log(chalk.cyan(`[DEBUG] ${args.join(' ')}`));
-    }
-  }
-};
+const logger = require('../core/log.js');
 
 /**
  * A list of common User-Agent strings to rotate through.
@@ -155,22 +140,33 @@ function validatePreview(url) {
     return false;
   }
 
-  const isValidUrlScheme = url.match(/^https?:\/\/.+/i);
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname.toLowerCase();
+    const isValidUrlScheme = urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
 
-  if (!isValidUrlScheme) {
-    logger.debug(chalk.yellow(`Preview URL "${url}" does not have a valid http/https scheme.`));
-    return false;
-  }
-  if (!PREVIEW_VALID_FORMATS_REGEX.test(url)) {
-    logger.debug(chalk.yellow(`Preview URL "${url}" does not match a valid video/gif format.`));
-    return false;
-  }
-  if (PREVIEW_PLACEHOLDER_REGEX.test(url)) {
-    logger.debug(chalk.yellow(`Preview URL "${url}" appears to be a placeholder image.`));
-    return false;
-  }
+    if (!isValidUrlScheme) {
+      logger.debug(chalk.yellow(`Preview URL "${url}" does not have a valid http/https scheme.`));
+      return false;
+    }
 
-  return true;
+    // Check if the pathname (without query params) matches a valid format
+    if (!PREVIEW_VALID_FORMATS_REGEX.test(pathname)) {
+      logger.debug(chalk.yellow(`Preview URL pathname "${pathname}" does not match a valid video/gif format.`));
+      return false;
+    }
+
+    // Check if the full URL (including query params) appears to be a placeholder
+    if (PREVIEW_PLACEHOLDER_REGEX.test(url)) {
+      logger.debug(chalk.yellow(`Preview URL "${url}" appears to be a placeholder image.`));
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    logger.warn(chalk.yellow(`Error parsing URL "${url}" for validation: ${e.message}`));
+    return false;
+  }
 }
 
 

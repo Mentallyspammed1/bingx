@@ -117,7 +117,7 @@ class XvideosDriver extends BaseXvideosClass {
             });
         });
 
-        logger.debug(`[${this.name}] Parsed ${results.length} ${type} items.`);
+        this.logger.debug(`Parsed ${results.length} ${type} items.`);
         return results;
     }
 }

@@ -36,11 +36,11 @@ class AbstractModule {
   }
 
   hasVideoSupport() {
-    throw new OverwriteError('Method "hasVideoSupport" must be implemented by the concrete scraper class.');
+    return false; // Default to false. Override in concrete class or via mixin.
   }
 
   hasGifSupport() {
-    throw new OverwriteError('Method "hasGifSupport" must be implemented by the concrete scraper class.');
+    return false; // Default to false. Override in concrete class or via mixin.
   }
 
   get firstpage() {
@@ -90,7 +90,7 @@ class AbstractModule {
         if (typeof mixinFactory === 'function') {
             ClassToExtend = mixinFactory(ClassToExtend);
         } else {
-            logger.warn('[AbstractModule.with] Encountered a non-function in mixinFactories array:', mixinFactory);
+            log.warn('[AbstractModule.with] Encountered a non-function in mixinFactories array:', mixinFactory);
         }
     }
     return ClassToExtend;

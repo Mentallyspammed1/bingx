@@ -1,9 +1,14 @@
 const AbstractModule = require('../core/AbstractModule');
+const VideoMixin = require('../core/VideoMixin');
+const GifMixin = require('../core/GifMixin');
 const { makeAbsolute, extractPreview, sanitizeText, validatePreview } = require('./driver-utils.js');
 
-class Motherless extends AbstractModule {
+const BaseMotherlessClass = AbstractModule.with(VideoMixin, GifMixin);
+
+class Motherless extends BaseMotherlessClass {
     constructor(options = {}) {
         super(options);
+        this.logger = require('../core/log.js').child({ module: 'Motherless' });
     }
 
     get supportsVideos() {
@@ -24,7 +29,7 @@ class Motherless extends AbstractModule {
 
     getVideoSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
-            throw new Error(`[${this.name}] Search query is not set for video search.`);
+            throw new Error(`Search query is not set for video search.`);
         }
         const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
         const searchPath = `/term/videos/${encodeURIComponent(query.trim())}`;
@@ -35,7 +40,7 @@ class Motherless extends AbstractModule {
 
     getGifSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
-            throw new Error(`[${this.name}] Search query is not set for GIF search.`);
+            throw new Error(`Search query is not set for GIF search.`);
         }
         const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
         const searchPath = `/term/images/${encodeURIComponent(query.trim())}`; // Note: '/images/' for GIFs
@@ -45,10 +50,26 @@ class Motherless extends AbstractModule {
     }
 
     parseResults($, htmlOrJsonData, parserOptions) {
-        const { type, sourceName } = parserOptions;
+        const { type, sourceName, isMock } = parserOptions;
         const results = [];
         if (!$) {
+            this.logger.warn(`Cheerio instance not provided for HTML parsing.`);
             return [];
+        }
+
+        if (!isMock) {
+            // Check for common indicators of no results or a block page
+            const noResultsText = $('div.no-results-message, p.no-results').text();
+            if (noResultsText.length > 0) {
+                this.logger.warn(`No results found or block page detected for query: "${parserOptions.query}". Message: ${noResultsText.trim().substring(0, 100)}`);
+                return [];
+            }
+
+            // Check for Cloudflare or other common block page elements
+            if ($('#cf-wrapper').length > 0 || $('body:contains("Attention Required!")').length > 0) {
+                this.logger.error(`Cloudflare or similar block page detected for query: "${parserOptions.query}".`);
+                return [];
+            }
         }
 
         const isGifSearch = parserOptions.type === 'gifs';
@@ -65,6 +86,7 @@ class Motherless extends AbstractModule {
             );
 
             if (!pageUrl) {
+                this.logger.warn(`Skipping item ${i}: missing page URL.`);
                 return;
             }
             if (!title && pageUrl) {
@@ -92,7 +114,8 @@ class Motherless extends AbstractModule {
             const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl);
 
             if (!absoluteUrl || !title) {
-                 return;
+                this.logger.warn(`Skipping item ${i}: missing absolute URL or title.`);
+                return;
             }
 
             results.push({
@@ -107,6 +130,7 @@ class Motherless extends AbstractModule {
             });
         });
 
+        this.logger.info(`Parsed ${results.length} ${type} items.`);
         return results;
     }
 }

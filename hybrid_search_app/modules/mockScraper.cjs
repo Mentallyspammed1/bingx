@@ -43,11 +43,16 @@ class MockDriver extends _AbstractModule2.default.with(_VideoMixin2.default, _Gi
     }
 
     parseResults($, rawData, parserOptions) {
-        const { query, page, type, sourceName } = parserOptions;
+        const { query, page, type, sourceName, isMock } = parserOptions; // Added isMock
         const results = [];
         const numResults = 5;
 
-        logger.debug(`[${this.name}] Parsing mock results for type "${type}", query "${query}", page ${page}.`);
+        this.logger.debug(`Parsing mock results for type "${type}", query "${query}", page ${page}.`);
+
+        // No need for block page checks if it's mock data
+        if (!isMock) {
+            // Add block page checks here if this mock driver could ever fetch live data
+        }
 
         for (let i = 0; i < numResults; i++) {
             const id = `${type.slice(0,3)}-${page}-${i + 1}-${Math.random().toString(16).slice(2, 8)}`;
@@ -78,11 +83,11 @@ class MockDriver extends _AbstractModule2.default.with(_VideoMixin2.default, _Gi
                     type
                 });
             } else {
-                logger.warn(`[${this.name}] Skipped malformed mock result: ${id}`);
+                this.logger.warn(`Skipped malformed mock result: ${id}`);
             }
         }
         return results;
     }
 }
 
-module.exports = MockDriver; // Ensure consistent export name
+module.exports = MockDriver;

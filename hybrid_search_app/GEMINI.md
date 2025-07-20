@@ -36,29 +36,32 @@
             "file_name": "pornx.html (or server.cjs)",
             "role": "Express.js Backend Server & API Gateway",
             "key_functions": [
+              "loadConfig(): Loads application configuration from `config.json`.",
+              "watchConfig(): Watches `config.json` for changes and reloads configuration and orchestrator.",
+              "initializeOrchestrator(): Initializes the `Pornsearch` orchestrator, loading custom scrapers.",
+              "handleCustomOrchestratorRequest(driverKey, params): Handles search requests by delegating to the `Pornsearch` orchestrator.",
               "app.use(helmet()): Applies security headers.",
               "app.use(cors()): Configures Cross-Origin Resource Sharing.",
-              "app.use(express.json()) & app.use(express.urlencoded()): Body parsers.",
-              "app.use(morgan()): HTTP request logging.",
+              "app.use(express.json()): Body parser for JSON requests.",
               "app.use(rateLimit()): Applies rate limiting to API endpoints.",
-              "app.get('/api/search', async (req, res) => { ... }): Handles search requests, validates parameters, instantiates `Pornsearch` orchestrator, and returns results.",
-              "app.get('/api/suggest-terms', async (req, res) => { ... }): **New LLM Integration Endpoint**. Takes a `query`, prompts the `gemini-2.0-flash` model via `fetch` API call, and returns comma-separated search term suggestions.",
-              "app.get('/', (req, res) => { ... }): Serves the `index.html` frontend file.",
-              "app.use((req, res, next) => { ... }): 404 Not Found handler.",
-              "app.use((err, req, res, next) => { ... }): Global error handling middleware.",
-              "app.listen(): Starts the server and performs a startup check of available drivers.",
-              "process.on('SIGTERM', ...), process.on('SIGINT', ...): Graceful shutdown handlers.",
-              "process.on('uncaughtException', ...), process.on('unhandledRejection', ...): Catches unhandled errors for stability."
+              "app.use(express.static()): Serves static files from the `public` directory.",
+              "app.get('/api/search', ...): Handles search requests, validates parameters, uses caching, and returns results.",
+              "app.get('/api/drivers', ...): Returns a list of available drivers/platforms.",
+              "app.get('/api/health', ...): Provides server health status.",
+              "app.get('/', ...): Serves the `index.html` frontend file.",
+              "app.use((err, req, res, next) => { ... }): Centralized error handling middleware.",
+              "startServer(): Initiates server startup, including config loading and orchestrator initialization.",
+              "process.on('SIGINT', ...), process.on('SIGTERM', ...): Graceful shutdown handlers."
             ],
             "key_ideas_or_enhancements": [
-              "**Centralized API Gateway**: All frontend requests go through this server, which then orchestrates internal logic.",
-              "**Robust Security**: Uses `helmet` for various HTTP security headers (including a basic CSP) and `cors` for controlled cross-origin access.",
-              "**API Rate Limiting**: Protects the `/api/search` endpoint from abuse.",
-              "**Structured Logging**: Integrates `morgan` with a custom `logger` for detailed and colored server logs.",
-              "**Dynamic Cheerio Loading**: The server intelligently loads Cheerio for HTML parsing only when the response content type is HTML, passing `null` otherwise to driver parsers.",
-              "**Comprehensive Error Handling**: Differentiates between client-side (400), upstream (504), and internal (500) errors, providing informative messages.",
-              "**LLM-Powered Suggestions**: Adds a new feature leveraging the Gemini API to enhance user search experience with AI-generated terms.",
-              "**Graceful Shutdown**: Ensures the server closes cleanly on termination signals, preventing hanging processes."
+              "**Centralized Logging**: Uses `core/log.js` for all server-side logging, ensuring consistency.",
+              "**Dynamic Configuration**: `config.json` is loaded and watched for changes, allowing dynamic updates to strategies and custom scrapers without server restart.",
+              "**Modular Orchestrator Integration**: Seamlessly integrates with the `Pornsearch` orchestrator for search operations.",
+              "**Robust Security**: Employs `helmet` for security headers and `express-rate-limit` for API protection.",
+              "**API Caching**: Implements in-memory caching for search results to improve performance and reduce redundant requests.",
+              "**Streamlined API Endpoints**: Provides clear and concise API endpoints for search, driver listing, and health checks.",
+              "**Comprehensive Error Handling**: Centralized error handling middleware provides consistent error responses and detailed logs in development.",
+              "**Graceful Shutdown**: Ensures the server closes cleanly on termination signals."
             ]
           }
         ]

@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>deepthroat - youjizz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #16213e;
+            --accent-cyan: #00d4ff;
+            --accent-pink: #ff006e;
+            --accent-purple: #8b5cf6;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666;
+            --border: #2a2a3e;
+            --shadow: rgba(0, 212, 255, 0.1);
+            --gradient: linear-gradient(135deg, var(--accent-cyan), var(--accent-pink));
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            margin-top: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 4px;
+            background: var(--gradient);
+            border-radius: 2px;
+        }
+
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px var(--shadow);
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 1.5rem 0;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            background: var(--bg-card);
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            border: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .video-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .video-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px var(--shadow);
+            border-color: var(--accent-cyan);
+        }
+
+        .video-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .video-card:hover::before { opacity: 1; }
+
+        .thumbnail {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            background: var(--bg-primary);
+        }
+
+        .thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .video-card:hover .thumbnail img { transform: scale(1.1); }
+
+        .play-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 212, 255, 0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .video-card:hover .play-overlay {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        .play-overlay::before {
+            content: '▶';
+            color: white;
+            font-size: 1.2rem;
+            margin-left: 3px;
+        }
+
+        .video-info {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .video-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-title a {
+            color: inherit;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .video-title a:hover { color: var(--accent-cyan); }
+
+        .video-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        .meta-item {
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--accent-cyan);
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .meta-item a {
+            color: inherit;
+            text-decoration: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .meta-item a:hover { opacity: 0.8; }
+
+        .loading-placeholder {
+            background: linear-gradient(90deg, var(--bg-card) 25%, rgba(255,255,255,0.05) 50%, var(--bg-card) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .error-placeholder {
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .container { margin: 1rem; padding: 1rem; border-radius: 12px; }
+            h1 { font-size: 2rem; }
+            .video-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+            .stats { gap: 1rem; }
+            .stat { padding: 0.5rem 1rem; font-size: 0.8rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>deepthroat</h1>
+            <p class="subtitle">Search results from Youjizz</p>
+            <div class="stats">
+                <div class="stat">🎬 24 videos</div>
+                <div class="stat">🔍 Youjizz</div>
+                <div class="stat">⏰ 2025-08-01 08:33</div>
+            </div>
+        </header>
+        <main class="video-grid">
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/deep-throat-compilation-3930761.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Deep_throat_compilation_0.gif" alt="Deep throat compilation" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/deep-throat-compilation-3930761.html" target="_blank" rel="noopener noreferrer">
+                            Deep throat compilation
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 22:21</span><span class="meta-item">👁️ 632967</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/cum-in-throat-compilation---deepthroat-oral-creampie-48387881.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Cum_in_Throat_Compilation_-_Deepthroat_Oral_Creamp_1.gif" alt="Cum in Throat Compilation - Deepthroat Oral Creampie" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/cum-in-throat-compilation---deepthroat-oral-creampie-48387881.html" target="_blank" rel="noopener noreferrer">
+                            Cum in Throat Compilation - Deepthroat Oral Creampie
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 45:53</span><span class="meta-item">👁️ 1387120</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/extreme-deepthroat-cum-in-throat-compilation-46570761.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Extreme_deepthroat_cum_in_throat_compilation_2.gif" alt="Extreme deepthroat cum in throat compilation" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/extreme-deepthroat-cum-in-throat-compilation-46570761.html" target="_blank" rel="noopener noreferrer">
+                            Extreme deepthroat cum in throat compilation
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 5:32</span><span class="meta-item">👁️ 367437</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/bbc---deepthroat---compilation-53831701.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/BBC_-_Deepthroat_-_Compilation_3.gif" alt="BBC - Deepthroat - Compilation" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/bbc---deepthroat---compilation-53831701.html" target="_blank" rel="noopener noreferrer">
+                            BBC - Deepthroat - Compilation
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 19:34</span><span class="meta-item">👁️ 147633</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/heathers-deep-throat-instructional-207295.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Heathers_Deep_Throat_Instructional_4.gif" alt="Heathers Deep Throat Instructional" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/heathers-deep-throat-instructional-207295.html" target="_blank" rel="noopener noreferrer">
+                            Heathers Deep Throat Instructional
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 4:57</span><span class="meta-item">👁️ 3554606</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/deepthroat-compilation-2182932.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Deepthroat_Compilation_5.gif" alt="Deepthroat Compilation" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/deepthroat-compilation-2182932.html" target="_blank" rel="noopener noreferrer">
+                            Deepthroat Compilation
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 52:07</span><span class="meta-item">👁️ 2153720</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/my-busty-best-friend-makes-me-a-sloppy-deepthroat-blowjob-63526201.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/My_busty_best_friend_makes_me_a_sloppy_deepthroat__6.gif" alt="My busty best friend makes me a sloppy deepthroat blowjob" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/my-busty-best-friend-makes-me-a-sloppy-deepthroat-blowjob-63526201.html" target="_blank" rel="noopener noreferrer">
+                            My busty best friend makes me a sloppy deepthroat blowjob
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 15:39</span><span class="meta-item">👁️ 145570</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/throated-adriana-chechik-insane-deepthroat-skills-44787151.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Throated_Adriana_Chechik_Insane_Deepthroat_Skills_7.gif" alt="Throated Adriana Chechik Insane Deepthroat Skills" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/throated-adriana-chechik-insane-deepthroat-skills-44787151.html" target="_blank" rel="noopener noreferrer">
+                            Throated Adriana Chechik Insane Deepthroat Skills
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 11:22</span><span class="meta-item">👁️ 367638</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/sloppy-deepthroat-58872041.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/sloppy_deepthroat_8.gif" alt="sloppy deepthroat" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/sloppy-deepthroat-58872041.html" target="_blank" rel="noopener noreferrer">
+                            sloppy deepthroat
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 36:34</span><span class="meta-item">👁️ 59517</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/deepthroat-swallow%2c-listen-to-her-gulp-it-down%21-who-is-this%21%3f%3f-43917021.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Deepthroat_swallow_listen_to_her_gulp_it_down_WHO__9.gif" alt="Deepthroat swallow, listen to her gulp it down! WHO IS THIS!??" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/deepthroat-swallow%2c-listen-to-her-gulp-it-down%21-who-is-this%21%3f%3f-43917021.html" target="_blank" rel="noopener noreferrer">
+                            Deepthroat swallow, listen to her gulp it down! WHO IS THIS!??
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 0:30</span><span class="meta-item">👁️ 342820</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/best-deepthroat-%233-cumshot-collection-~-cum-in-throat-39923511.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Best_Deepthroat_3_Cumshot_Collection_Cum_In_Throat_10.gif" alt="Best Deepthroat #3 Cumshot Collection ~ Cum In Throat" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/best-deepthroat-%233-cumshot-collection-~-cum-in-throat-39923511.html" target="_blank" rel="noopener noreferrer">
+                            Best Deepthroat #3 Cumshot Collection ~ Cum In Throat
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 14:04</span><span class="meta-item">👁️ 291137</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/deepthroat-compilation-2178098.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/DeepThroat_Compilation_11.gif" alt="DeepThroat Compilation" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/deepthroat-compilation-2178098.html" target="_blank" rel="noopener noreferrer">
+                            DeepThroat Compilation
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 1:04:38</span><span class="meta-item">👁️ 809822</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/handcuffs-belts-and-a-blind-fold-12886791.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/handcuffs_belts_and_a_blind_fold_12.gif" alt="handcuffs belts and a blind fold" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/handcuffs-belts-and-a-blind-fold-12886791.html" target="_blank" rel="noopener noreferrer">
+                            handcuffs belts and a blind fold
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 37:17</span><span class="meta-item">👁️ 68646</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/extreme-deepthroat-compilation-2419444.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Extreme_Deepthroat_compilation_13.gif" alt="Extreme Deepthroat compilation" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/extreme-deepthroat-compilation-2419444.html" target="_blank" rel="noopener noreferrer">
+                            Extreme Deepthroat compilation
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 56:33</span><span class="meta-item">👁️ 596997</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/new-to-porn-amateur-redhead-anal-banged-23199281.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/New_to_Porn_Amateur_Redhead_Anal_Banged_14.gif" alt="New to Porn Amateur Redhead Anal Banged" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/new-to-porn-amateur-redhead-anal-banged-23199281.html" target="_blank" rel="noopener noreferrer">
+                            New to Porn Amateur Redhead Anal Banged
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 7:00</span><span class="meta-item">👁️ 302260</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/sloppy-deepthroat-session-with-jill-kassidy-and-alina-lopez-52776981.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Sloppy_deepthroat_session_with_Jill_Kassidy_and_Al_15.gif" alt="Sloppy deepthroat session with Jill Kassidy and Alina Lopez" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/sloppy-deepthroat-session-with-jill-kassidy-and-alina-lopez-52776981.html" target="_blank" rel="noopener noreferrer">
+                            Sloppy deepthroat session with Jill Kassidy and Alina Lopez
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 6:12</span><span class="meta-item">👁️ 173234</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/juicy-ass-28445841.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Juicy_ass_16.gif" alt="Juicy ass" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/juicy-ass-28445841.html" target="_blank" rel="noopener noreferrer">
+                            Juicy ass
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 7:24</span><span class="meta-item">👁️ 56417</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/throated-gagging-juice-in-my-dreadlocks-25937091.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Throated_Gagging_juice_in_my_dreadlocks_17.gif" alt="Throated Gagging juice in my dreadlocks" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/throated-gagging-juice-in-my-dreadlocks-25937091.html" target="_blank" rel="noopener noreferrer">
+                            Throated Gagging juice in my dreadlocks
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:35</span><span class="meta-item">👁️ 198072</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/casting-with-holly-hendrix-p2-28757461.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Casting_with_Holly_Hendrix_p2_18.gif" alt="Casting with Holly Hendrix p2" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/casting-with-holly-hendrix-p2-28757461.html" target="_blank" rel="noopener noreferrer">
+                            Casting with Holly Hendrix p2
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 6:24</span><span class="meta-item">👁️ 85776</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/deep-throat-compilation-and-cumshots-2290420.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Deep_throat_compilation_and_cumshots_19.gif" alt="Deep throat compilation and cumshots" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/deep-throat-compilation-and-cumshots-2290420.html" target="_blank" rel="noopener noreferrer">
+                            Deep throat compilation and cumshots
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 15:42</span><span class="meta-item">👁️ 1103401</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/deep-throat-this-p73-sc07-33419931.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Deep_Throat_This_p73_sc07_20.gif" alt="Deep Throat This p73 sc07" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/deep-throat-this-p73-sc07-33419931.html" target="_blank" rel="noopener noreferrer">
+                            Deep Throat This p73 sc07
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 5:29</span><span class="meta-item">👁️ 84262</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/the-best-cum-in-throat-deepthroat-compilation-2018-48258991.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/The_best_cum_in_throat_deepthroat_compilation_2018_21.gif" alt="The best cum in throat deepthroat compilation 2018" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/the-best-cum-in-throat-deepthroat-compilation-2018-48258991.html" target="_blank" rel="noopener noreferrer">
+                            The best cum in throat deepthroat compilation 2018
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 8:34</span><span class="meta-item">👁️ 116949</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/cock-hungry-african-babe-is-devouring-an-extra-long-loaded-anaconda-43115321.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Cock_hungry_african_babe_is_devouring_an_extra_lon_22.gif" alt="Cock hungry african babe is devouring an extra long loaded anaconda" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/cock-hungry-african-babe-is-devouring-an-extra-long-loaded-anaconda-43115321.html" target="_blank" rel="noopener noreferrer">
+                            Cock hungry african babe is devouring an extra long loaded anaconda
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 5:53</span><span class="meta-item">👁️ 281510</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.youjizz.com/videos/isabel-ice-shows-of-her-deepthroat-skills-dtd-2182215.html" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Isabel_Ice_shows_of_her_deepthroat_skills_DTD_23.gif" alt="Isabel Ice shows of her deepthroat skills DTD" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.youjizz.com/videos/isabel-ice-shows-of-her-deepthroat-skills-dtd-2182215.html" target="_blank" rel="noopener noreferrer">
+                            Isabel Ice shows of her deepthroat skills DTD
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 11:16</span><span class="meta-item">👁️ 433733</span>
+                    </div>
+                </div>
+            </div>
+                    </main>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {{
+            const images = document.querySelectorAll('img[data-src]');
+            const imageObserver = new IntersectionObserver((entries, observer) => {{
+                entries.forEach(entry => {{
+                    if (entry.isIntersecting) {{
+                        const img = entry.target;
+                        const placeholder = img.parentElement;
+                        
+                        placeholder.classList.add('loading-placeholder');
+                        
+                        img.src = img.dataset.src;
+                        img.onload = () => {{
+                            img.removeAttribute('data-src');
+                            placeholder.classList.remove('loading-placeholder');
+                        }};
+                        img.onerror = () => {{
+                            placeholder.innerHTML = '<div class="error-placeholder">❌</div>';
+                        }};
+                        imageObserver.unobserve(img);
+                    }}
+                }});
+            }});
+
+            images.forEach(img => imageObserver.observe(img));
+        }});
+    </script>
+</body>
+</html>

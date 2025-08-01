@@ -118,6 +118,7 @@ for noisy in ("urllib3", "chardet", "requests", "aiohttp", "selenium"):
 
 # ── Enhanced Defaults ────────────────────────────────────────────────────
 THUMBNAILS_DIR = "downloaded_thumbnails"
+VSEARCH_DIR = "vsearch"
 DEFAULT_ENGINE = "pexels"
 DEFAULT_LIMIT = 30
 DEFAULT_PAGE = 1
@@ -230,6 +231,7 @@ ENGINE_MAP: Dict[str, Dict[str, Any]] = {
     "pornhub": {
         "url": "https://www.pornhub.com",
         "search_path": "/video/search?search={query}",
+        "gif_search_path": "/gifs/search?search={query}",
         "page_param": "page",
         "requires_js": False,
         "video_item_selector": "li.pcVideoListItem, .video-item, div.videoblock",
@@ -616,6 +618,7 @@ def get_search_results(
     limit: int,
     page: int,
     delay_range: Tuple[float, float],
+    search_type: str = "video",
 ) -> List[Dict]:
     """Enhanced scraping with comprehensive error handling[1][2][3]."""
     if engine not in ENGINE_MAP:
@@ -650,10 +653,16 @@ def get_search_results(
             last_request_time = time.time()
 
             # Build URL
-            if "{page}" in cfg["search_path"]:
-                search_path = cfg["search_path"].format(query=quote_plus(query), page=current_page)
-            else:
+            if search_type == "gif" and "gif_search_path" in cfg:
+                search_path = cfg["gif_search_path"].format(query=quote_plus(query))
+            elif "search_path" in cfg:
                 search_path = cfg["search_path"].format(query=quote_plus(query))
+            else:
+                logger.error(f"No search path defined for {engine} and type {search_type}")
+                return []
+
+            if "{page}" in search_path:
+                search_path = search_path.format(page=current_page)
             
             url = urljoin(base_url, search_path)
             
@@ -1209,8 +1218,9 @@ async def build_enhanced_html_async(
     """Build enhanced HTML with async thumbnail downloads."""
     ensure_dir(thumbs_dir)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ensure_dir(Path(VSEARCH_DIR))
     filename = f"{engine}_{enhanced_slugify(query)}_{timestamp}_{uuid.uuid4().hex[:8]}.html"
-    outfile = Path(filename)
+    outfile = Path(VSEARCH_DIR) / filename
 
     def generate_placeholder_svg(icon: str) -> str:
         """Generate SVG placeholder."""
@@ -1389,6 +1399,11 @@ Example usage:
         help=f"Output format for the results (default: {DEFAULT_FORMAT})."
     )
     parser.add_argument(
+        "--type", type=str, default="video",
+        choices=["video", "gif"],
+        help="Type of content to search for (video or gif)."
+    )
+    parser.add_argument(
         "-x", "--proxy", type=str,
         help="Proxy to use for requests (e.g., http://user:pass@host:port)."
     )
@@ -1441,6 +1456,7 @@ Example usage:
             limit=args.limit,
             page=args.page,
             delay_range=DEFAULT_DELAY,
+            search_type=args.type,
         )
         
         if not results:

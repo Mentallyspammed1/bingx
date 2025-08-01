@@ -874,6 +874,10 @@ def main() -> None:
         print_error("No search query provided. Exiting.")
         sys.exit(1)
 
+    # Apply gif-only filter if specified
+    if args.gif_only:
+        args.type = "AnimatedGif"
+
     # Apply default values if not set by CLI or interactive input
     if args.output_dir is None:
         args.output_dir = Config.DEFAULT_OUTPUT_DIR

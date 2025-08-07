@@ -5298,3 +5298,12 @@ TypeError: build_enhanced_session() got an unexpected keyword argument 'proxy'
 [36m2025-08-07 17:58:01,100[0m - [35mINFO[0m - [32mFetching page 3: https://www.pornhub.com/video/search?search=facefuck+swallow&page=3[0m
 [36m2025-08-07 17:58:04,424[0m - [35mINFO[0m - [32mFetching page 4: https://www.pornhub.com/video/search?search=facefuck+swallow&page=4[0m
 [36m2025-08-07 17:58:06,403[0m - [35mINFO[0m - [32mSuccessfully extracted 0 videos[0m
+[36m2025-08-07 18:13:53,921[0m - [35mERROR[0m - [32mSelenium WebDriver error: Message: Unable to obtain driver for chrome; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors/driver_location
+. Make sure ChromeDriver is installed and PATH is set properly. Refer to https://chromedriver.chromium.org/downloads[0m
+[36m2025-08-07 18:13:53,923[0m - [35mWARNING[0m - [32mJavaScript required for pornhub but Selenium unavailable[0m
+[36m2025-08-07 18:13:53,923[0m - [35mINFO[0m - [32mSearching pornhub for 'facefuck swallow' (up to 4 pages)[0m
+[36m2025-08-07 18:13:56,304[0m - [35mINFO[0m - [32mFetching page 1: https://www.pornhub.com/video/search?search=facefuck+swallow[0m
+[36m2025-08-07 18:14:01,109[0m - [35mINFO[0m - [32mFetching page 2: https://www.pornhub.com/video/search?search=facefuck+swallow&page=2[0m
+[36m2025-08-07 18:14:03,980[0m - [35mINFO[0m - [32mFetching page 3: https://www.pornhub.com/video/search?search=facefuck+swallow&page=3[0m
+[36m2025-08-07 18:14:07,875[0m - [35mINFO[0m - [32mFetching page 4: https://www.pornhub.com/video/search?search=facefuck+swallow&page=4[0m
+[36m2025-08-07 18:14:10,691[0m - [35mINFO[0m - [32mSuccessfully extracted 0 videos[0m

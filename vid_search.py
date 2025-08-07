@@ -514,7 +514,12 @@ def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: Dict) -> List
             return []
         
         # Additional wait to ensure dynamic content loads
-        time.sleep(2)
+        # time.sleep(2) # Replaced by WebDriverWait for robustness
+        try:
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, cfg["link_selector"].split(',')[0].strip())))
+            logger.debug(f"Selenium waited for link selector: {cfg["link_selector"].split(',')[0].strip()}")
+        except TimeoutException:
+            logger.warning(f"Selenium timed out waiting for link selector on {url}")
         
         # Get page source and parse with BeautifulSoup
         soup = BeautifulSoup(driver.page_source, "html.parser")
@@ -669,10 +674,16 @@ def get_search_results(
     driver = None
 
     # Create Selenium driver if needed for JavaScript content
-    if cfg.get("requires_js", False) and SELENIUM_AVAILABLE:
-        driver = create_selenium_driver()
-        if not driver:
-            logger.warning(f"JavaScript required for {engine} but Selenium unavailable")
+    driver = None
+    if cfg.get("requires_js", False):
+        if SELENIUM_AVAILABLE:
+            driver = create_selenium_driver()
+            if not driver:
+                logger.warning(f"JavaScript required for {engine} but Selenium driver could not be created; skipping engine.")
+                return []
+        else:
+            logger.warning(f"JavaScript required for {engine} but Selenium is not available; skipping engine.")
+            return []
 
     try:
         items_per_page = 30

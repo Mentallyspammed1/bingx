@@ -194,7 +194,7 @@ ENGINE_MAP: Dict[str, Dict[str, Any]] = {
         "url": "https://www.dailymotion.com",
         "search_path": "/search/{query}/videos",
         "page_param": "page",
-        "requires_js": True,  # Dailymotion loads content dynamically
+        "requires_js": False,  # Dailymotion loads content dynamically
         "video_item_selector": 'div[data-testid="video-card"], .video-item',
         "link_selector": 'a[data-testid="card-link"], .video-link',
         "title_selector": 'div[data-testid="card-title"], .video-title',
@@ -510,44 +510,54 @@ async def async_download_thumbnail(
     session: aiohttp.ClientSession,
     url: str,
     path: Path,
-    semaphore: asyncio.Semaphore
+    semaphore: asyncio.Semaphore,
+    max_attempts: int = 3,
 ) -> bool:
-    """Async thumbnail download with enhanced error handling."""
+    """Async thumbnail download with enhanced error handling and retries."""
     if not ASYNC_AVAILABLE or not session:
         return False
-        
-    async with semaphore:
-        try:
-            async with session.get(url) as response:
-                if response.status != 200:
-                    logger.debug(f"Async download failed, status {response.status} for {url}")
-                    return False
-                    
-                content_type = response.headers.get("content-type", "").lower()
-                if not any(ct in content_type for ct in ["image/", "application/octet-stream"]):
-                    logger.debug(f"Async download failed, invalid content type for {url}")
-                    return False
-                    
-                content = await response.read()
-                if len(content) == 0 or len(content) > 10 * 1024 * 1024:  # 10MB limit
-                    logger.debug(f"Async download failed, invalid content size for {url}")
-                    return False
-                    
-                with open(path, "wb") as f:
-                    f.write(content)
-                    
-                return True
-                
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.debug(f"Async download failed for {url}: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"Unexpected error during async download for {url}: {e}")
-            return False
+
+    for attempt in range(max_attempts):
+        async with semaphore:
+            try:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        content_type = response.headers.get("content-type", "").lower()
+                        if not any(ct in content_type for ct in ["image/", "application/octet-stream"]):
+                            logger.debug(f"Async download failed, invalid content type for {url}")
+                            return False  # Fail fast on wrong content type
+
+                        content = await response.read()
+                        if not content or len(content) > 10 * 1024 * 1024:  # 10MB limit
+                            logger.debug(f"Async download failed, invalid content size for {url}")
+                            continue  # Retry on empty or too large content
+
+                        with open(path, "wb") as f:
+                            f.write(content)
+
+                        if path.stat().st_size > 0:
+                            return True
+                        else:
+                            path.unlink(missing_ok=True)
+                            logger.debug(f"Async download resulted in empty file for {url}")
+                            continue  # Retry if file is empty
+
+                    logger.debug(f"Async download failed, status {response.status} for {url} (attempt {attempt + 1})")
+
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                logger.debug(f"Async download failed for {url} (attempt {attempt + 1}): {e}")
+            except Exception as e:
+                logger.error(f"Unexpected error during async download for {url}: {e}")
+                return False  # Do not retry on unexpected errors
+
+        if attempt < max_attempts - 1:
+            await asyncio.sleep(1.5 ** attempt)  # Exponential backoff
+
+    return False
 
 
 def robust_download_sync(session: requests.Session, url: str, path: Path, max_attempts: int = 3) -> bool:
-    """Synchronous fallback download with enhanced validation[3]."""
+    """Synchronous fallback download with enhanced validation and retries[3]."""
     if not url or not urlparse(url).scheme:
         return False
 
@@ -563,13 +573,13 @@ def robust_download_sync(session: requests.Session, url: str, path: Path, max_at
                 content_type = response.headers.get("content-type", "").lower()
                 if not any(ct in content_type for ct in ["image/", "application/octet-stream"]):
                     logger.debug(f"Sync download failed, invalid content type for {url}")
-                    return False
+                    return False  # Fail fast on wrong content type
 
                 # Validate content length
                 content_length = response.headers.get("content-length")
-                if content_length and int(content_length) > 10 * 1024 * 1024:
-                    logger.debug(f"Sync download failed, invalid content size for {url}")
-                    return False
+                if content_length and int(content_length) > 10 * 1024 * 1024:  # 10MB limit
+                    logger.debug(f"Sync download failed, content too large for {url}")
+                    return False # Fail fast on oversized content
 
                 # Write file with validation
                 with open(path, "wb") as fh:
@@ -577,17 +587,21 @@ def robust_download_sync(session: requests.Session, url: str, path: Path, max_at
                         if chunk:
                             fh.write(chunk)
 
-                if path.stat().st_size == 0:
-                    path.unlink()
-                    logger.debug(f"Sync download failed, empty file for {url}")
-                    return False
+                if path.stat().st_size > 0:
+                    return True
+                else:
+                    path.unlink(missing_ok=True)
+                    logger.debug(f"Sync download resulted in empty file for {url} (attempt {attempt + 1})")
+                    # Continue to retry
 
-                return True
-
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             logger.debug(f"Download failed for {url} (attempt {attempt + 1}): {e}")
-            if attempt < max_attempts - 1:
-                time.sleep(2 ** attempt)  # Exponential backoff
+        except Exception as e:
+            logger.error(f"Unexpected error during sync download for {url}: {e}")
+            return False # Do not retry on unexpected errors
+
+        if attempt < max_attempts - 1:
+            time.sleep(1.5 ** attempt)  # Exponential backoff
 
     return False
 
@@ -1195,6 +1209,12 @@ async def build_enhanced_html_async(
     filename = f"{engine}_{enhanced_slugify(query)}_{timestamp}_{uuid.uuid4().hex[:8]}.html"
     outfile = Path(filename)
 
+    def get_thumb_path(img_url: str, title: str, idx: int) -> Path:
+        """Generate a consistent, safe file path for a thumbnail."""
+        ext = os.path.splitext(urlparse(img_url).path)[1] or ".jpg"
+        safe_title = enhanced_slugify(title)[:50]
+        return thumbs_dir / f"{safe_title}_{idx}{ext}"
+
     def generate_placeholder_svg(icon: str) -> str:
         """Generate SVG placeholder."""
         svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
@@ -1205,46 +1225,58 @@ async def build_enhanced_html_async(
         return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
 
     async def fetch_thumbnail_async_task(idx: int, video: Dict) -> Tuple[int, str]:
-        """Download thumbnail async or fallback to sync."""
+        """Download thumbnail async with caching and fallbacks."""
         img_url = video.get("img_url")
         if not img_url:
             return idx, generate_placeholder_svg("🎬")
 
+        dest_path = get_thumb_path(img_url, video.get("title", "video"), idx)
+        
+        # Use cached version if it exists and is valid
+        if dest_path.exists() and dest_path.stat().st_size > 0:
+            return idx, str(dest_path).replace("\\", "/")
+
         try:
-            ext = os.path.splitext(urlparse(img_url).path)[1] or ".jpg"
-            safe_title = enhanced_slugify(video.get("title", "video"))[:50]
-            filename = f"{safe_title}_{idx}{ext}"
-            dest_path = thumbs_dir / filename
-
-            if dest_path.exists():
-                return idx, str(Path(THUMBNAILS_DIR) / filename).replace("\\", "/")
-
             # Try async download first
-            if ASYNC_AVAILABLE:
-                async with aiohttp_session() as async_session:
-                    if async_session:
-                        semaphore = asyncio.Semaphore(workers)
-                        success = await async_download_thumbnail(async_session, img_url, dest_path, semaphore)
-                        if success:
-                            return idx, str(Path(THUMBNAILS_DIR) / filename).replace("\\", "/")
+            async with aiohttp_session() as async_session:
+                if async_session:
+                    semaphore = asyncio.Semaphore(workers)
+                    if await async_download_thumbnail(async_session, img_url, dest_path, semaphore):
+                        return idx, str(dest_path).replace("\\", "/")
 
             # Fallback to sync download
             if robust_download_sync(session, img_url, dest_path):
-                return idx, str(Path(THUMBNAILS_DIR) / filename).replace("\\", "/")
+                return idx, str(dest_path).replace("\\", "/")
 
         except Exception as e:
             logger.debug(f"Error during thumbnail fetch for {img_url}: {e}")
 
         return idx, generate_placeholder_svg("❌")
 
+    def fetch_thumbnail_sync_task(idx: int, video: Dict) -> Tuple[int, str]:
+        """Wrapper for threaded sync download with caching."""
+        img_url = video.get("img_url")
+        if not img_url:
+            return idx, generate_placeholder_svg("🎬")
+            
+        dest_path = get_thumb_path(img_url, video.get("title", "video"), idx)
+
+        # Use cached version if it exists and is valid
+        if dest_path.exists() and dest_path.stat().st_size > 0:
+            return idx, str(dest_path).replace("\\", "/")
+            
+        if robust_download_sync(session, img_url, dest_path):
+            return idx, str(dest_path).replace("\\", "/")
+        
+        return idx, generate_placeholder_svg("❌")
+
     # Download thumbnails
+    thumbnail_paths = [""] * len(results)
+    
     if ASYNC_AVAILABLE:
-        thumbnail_paths_with_idx = await asyncio.gather(
-            *[fetch_thumbnail_async_task(i, video) for i, video in enumerate(results)],
-            return_exceptions=True
-        )
-        thumbnail_paths = [""] * len(results)
-        for result in thumbnail_paths_with_idx:
+        tasks = [fetch_thumbnail_async_task(i, video) for i, video in enumerate(results)]
+        results_with_idx = await asyncio.gather(*tasks, return_exceptions=True)
+        for result in results_with_idx:
             if isinstance(result, tuple) and len(result) == 2:
                 idx, path = result
                 thumbnail_paths[idx] = path
@@ -1252,20 +1284,11 @@ async def build_enhanced_html_async(
                 logger.debug(f"Error gathering async thumbnail result: {result}")
     else:
         # Fallback to threaded downloads
-        thumbnail_paths = [""] * len(results)
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(workers, 20)) as executor:
-            future_to_idx = {}
-            for i, video in enumerate(results):
-                img_url = video.get("img_url")
-                if img_url:
-                    ext = os.path.splitext(urlparse(img_url).path)[1] or ".jpg"
-                    safe_title = enhanced_slugify(video.get("title", "video"))[:50]
-                    filename = f"{safe_title}_{i}{ext}"
-                    dest_path = thumbs_dir / filename
-                    future = executor.submit(robust_download_sync, session, img_url, dest_path)
-                    future_to_idx[future] = (i, dest_path)
-                else:
-                    thumbnail_paths[i] = generate_placeholder_svg("🎬")
+            future_to_idx = {
+                executor.submit(fetch_thumbnail_sync_task, i, video): i
+                for i, video in enumerate(results)
+            }
 
             for future in tqdm(
                 concurrent.futures.as_completed(future_to_idx),
@@ -1274,15 +1297,12 @@ async def build_enhanced_html_async(
                 unit="files",
                 ncols=100
             ):
-                i, dest_path = future_to_idx[future]
+                i = future_to_idx[future]
                 try:
-                    success = future.result()
-                    if success:
-                        thumbnail_paths[i] = str(Path(THUMBNAILS_DIR) / dest_path.name).replace("\\", "/")
-                    else:
-                        thumbnail_paths[i] = generate_placeholder_svg("❌")
+                    _, path = future.result()
+                    thumbnail_paths[i] = path
                 except Exception as e:
-                    logger.debug(f"Error with threaded download: {e}")
+                    logger.debug(f"Error with threaded download for item {i}: {e}")
                     thumbnail_paths[i] = generate_placeholder_svg("❌")
                     
     # Generate HTML
@@ -1326,7 +1346,7 @@ async def build_enhanced_html_async(
                         </a>
                     </h3>
                     <div class="video-meta">
-                        {"".join(meta_items)}
+                        {" ".join(meta_items)}
                     </div>
                 </div>
             </div>

@@ -45,31 +45,6 @@ from bs4 import BeautifulSoup
 from colorama import Fore, Style, init
 from requests.adapters import HTTPAdapter, Retry
 
-# Optional async and selenium support
-try:
-    import aiohttp
-    ASYNC_AVAILABLE = True
-except ImportError:
-    ASYNC_AVAILABLE = False
-    
-try:
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options as ChromeOptions
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
-    from selenium.common.exceptions import TimeoutException, WebDriverException
-    SELENIUM_AVAILABLE = True
-except ImportError:
-    SELENIUM_AVAILABLE = False
-
-try:
-    from tqdm import tqdm
-except ModuleNotFoundError:
-    def tqdm(iterable, **kwargs):  # type: ignore
-        return iterable
-
-
 # ── Enhanced Color Setup ────────────────────────────────────────────────
 init(autoreset=True)
 NEON = {
@@ -114,6 +89,31 @@ logger.addFilter(ContextFilter())
 # Suppress noisy loggers
 for noisy in ("urllib3", "chardet", "requests", "aiohttp", "selenium"):
     logging.getLogger(noisy).setLevel(logging.WARNING)
+
+
+# Optional async and selenium support
+try:
+    import aiohttp
+    ASYNC_AVAILABLE = True
+except ImportError:
+    ASYNC_AVAILABLE = False
+    
+try:
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options as ChromeOptions
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.common.exceptions import TimeoutException, WebDriverException
+    SELENIUM_AVAILABLE = True
+except ImportError:
+    SELENIUM_AVAILABLE = False
+
+try:
+    from tqdm import tqdm
+except ModuleNotFoundError:
+    def tqdm(iterable, **kwargs):  # type: ignore
+        return iterable
 
 
 # ── Enhanced Defaults ────────────────────────────────────────────────────
@@ -187,7 +187,7 @@ ENGINE_MAP: Dict[str, Dict[str, Any]] = {
         "channel_link_selector": 'a[data-testid="video-card-user-avatar-link"], .author-link',
         "fallback_selectors": {
             "title": ["img[alt]", ".video-title", "h3", "a[title]"],
-            "img": ["img[data-src]", "img[src]", "img[data-lazy]"],
+            "img": ["img[data-src]", "img[src]", "img[data-lazy]", "img[data-testid='video-card-img']"], # Added data-testid for robustness
             "link": ["a[href*='/video/']", "a.video-link"]
         }
     },
@@ -205,7 +205,7 @@ ENGINE_MAP: Dict[str, Dict[str, Any]] = {
         "channel_link_selector": 'a[data-testid="card-owner-link"], .owner-link',
         "fallback_selectors": {
             "title": [".video-title", "h3", "[title]"],
-            "img": ["img[src]", "img[data-src]"],
+            "img": ["img[src]", "img[data-src]", "img[data-testid='card-thumbnail']"], # Added data-testid for robustness
             "link": ["a[href*='/video/']"]
         }
     },
@@ -224,7 +224,7 @@ ENGINE_MAP: Dict[str, Dict[str, Any]] = {
         "channel_link_selector": "a.video-uploader__name",
         "fallback_selectors": {
             "title": ["a[title]"],
-            "img": ["img[data-src]", "img[src]"],
+            "img": ["img[data-src]", "img[src]", "img[data-role='thumb-preview-img']"], # Added data-role for robustness
             "link": ["a[href*='/videos/']"]
         }
     },
@@ -233,19 +233,19 @@ ENGINE_MAP: Dict[str, Dict[str, Any]] = {
         "search_path": "/video/search?search={query}",
         "gif_search_path": "/gifs/search?search={query}",
         "page_param": "page",
-        "requires_js": False,
-        "video_item_selector": "li.pcVideoListItem, .video-item, div.videoblock",
-        "link_selector": "a.previewVideo, a.thumb, .video-link, .videoblock__link",
-        "title_selector": "a.previewVideo .title, a.thumb .title, .video-title, .videoblock__title",
-        "img_selector": "img[src], img[data-src], img[data-lazy]",
-        "time_selector": "var.duration, .duration, .videoblock__duration",
-        "channel_name_selector": ".usernameWrap a, .channel-name, .videoblock__channel",
-        "channel_link_selector": ".usernameWrap a, .channel-link",
-        "meta_selector": ".views, .video-views, .videoblock__views",
+        "requires_js": True,
+        "video_item_selector": "li.pcVideoListItem, div.phimage, div.videoblock, div.video-item, .video-box",
+        "link_selector": "a.previewVideo, a.thumb, a[href*='/view_video.php'], .video-link, .videoblock__link, .link-video",
+        "title_selector": "a.previewVideo .title, a.thumb .title, .video-title, .videoblock__title, a[title], .title-video",
+        "img_selector": "img[src], img[data-src], img[data-lazy], img[data-thumb], img.js-videoThumb",
+        "time_selector": "var.duration, .duration, .videoblock__duration, span.duration, .duration-video",
+        "channel_name_selector": ".usernameWrap a, .channel-name, .videoblock__channel, a[href*='/users/'], .username",
+        "channel_link_selector": ".usernameWrap a, .channel-link, a[href*='/users/'], .username",
+        "meta_selector": ".views, .video-views, .videoblock__views, span.views, .views-video",
         "fallback_selectors": {
-            "title": [".title", "a[title]", "[data-title]"],
-            "img": ["img[data-thumb]", "img[src]"],
-            "link": ["a[href*='/view_video.php']", "a.video-link"]
+            "title": [".title", "a[title]", "[data-title]", ".title-video"],
+            "img": ["img[data-thumb]", "img[src]", "img[data-src]", "img.js-videoThumb"],
+            "link": ["a[href*='/view_video.php']", "a.video-link", ".link-video"]
         }
     },
     "xvideos": {
@@ -261,7 +261,7 @@ ENGINE_MAP: Dict[str, Dict[str, Any]] = {
         "meta_selector": ".video-views, .views, .thumb-block__views",
         "fallback_selectors": {
             "title": ["a[title]", ".title", "p.title"],
-            "img": ["img[data-src]", "img[src]"],
+            "img": ["img[data-src]", "img[src]", ".thumb img"], # Added .thumb img for robustness
             "link": ["a[href*='/video']"]
         }
     },
@@ -273,12 +273,12 @@ ENGINE_MAP: Dict[str, Dict[str, Any]] = {
         "video_item_selector": "div.mozaique > div.thumb-block",
         "link_selector": ".thumb-under > a",
         "title_selector": ".thumb-under > a",
-        "img_selector": "img[data-src]",
+        "img_selector": "img[data-src], img[src]", # Added img[src]
         "time_selector": "span.duration",
         "meta_selector": "span.video-views",
         "fallback_selectors": {
             "title": ["a[title]", "p.title"],
-            "img": ["img[src]"],
+            "img": ["img[src]", "img[data-src]"], # Reordered for priority
             "link": ["a[href*='/video']"]
         }
     },
@@ -290,13 +290,13 @@ ENGINE_MAP: Dict[str, Dict[str, Any]] = {
         "video_item_selector": "div.video-thumb",
         "link_selector": "a.frame.video",
         "title_selector": "div.video-title a",
-        "img_selector": "img.img-responsive.lazy",
+        "img_selector": "img.img-responsive.lazy, img[data-original], img[src]", # Added img[src]
         "img_attribute": "data-original",
         "time_selector": "span.time",
         "meta_selector": "span.views",
         "fallback_selectors": {
             "title": ["a[title]"],
-            "img": ["img[data-original]", "img[src]"],
+            "img": ["img[data-original]", "img[src]", "img.img-responsive.lazy"], # Reordered for priority
             "link": ["a[href*='/videos/']"]
         }
     },
@@ -308,12 +308,12 @@ ENGINE_MAP: Dict[str, Dict[str, Any]] = {
         "video_item_selector": "div.video-item",
         "link_selector": "a.video-item__link",
         "title_selector": "a.video-item__title",
-        "img_selector": "img.video-item__img",
+        "img_selector": "img.video-item__img, img[data-src], img[src]", # Added img[src]
         "time_selector": "div.video-item__duration",
         "meta_selector": "div.video-item__views",
         "fallback_selectors": {
             "title": ["a[title]"],
-            "img": ["img[data-src]", "img[src]"],
+            "img": ["img[data-src]", "img[src]", "img.video-item__img"], # Reordered for priority
             "link": ["a[href*='/video']"]
         }
     },
@@ -361,10 +361,28 @@ def enhanced_slugify(text: str) -> str:
     return text
 
 
+def load_proxies_from_file(filepath: str) -> List[str]:
+    """Load proxies from a text file, one proxy per line."""
+    proxies = []
+    try:
+        with open(filepath, 'r') as f:
+            for line in f:
+                proxy = line.strip()
+                if proxy and urlparse(proxy).scheme and urlparse(proxy).netloc:
+                    proxies.append(proxy)
+                else:
+                    logger.warning(f"Invalid proxy format in file: {proxy}")
+    except FileNotFoundError:
+        logger.error(f"Proxy list file not found: {filepath}")
+    except Exception as e:
+        logger.error(f"Error loading proxies from {filepath}: {e}")
+    return proxies
+
+
 def build_enhanced_session(
     timeout: int = DEFAULT_TIMEOUT,
     max_retries: int = DEFAULT_MAX_RETRIES,
-    proxy: Optional[str] = None,
+    proxies: Optional[List[str]] = None,
 ) -> requests.Session:
     """Create enhanced session with 2025 best practices[1][2][3]."""
     session = requests.Session()
@@ -393,17 +411,18 @@ def build_enhanced_session(
     user_agent = random.choice(REALISTIC_USER_AGENTS)
     session.headers.update(get_realistic_headers(user_agent))
 
-    # Proxy support with validation
-    if proxy:
+    # Proxy support with validation and rotation
+    if proxies:
+        selected_proxy = random.choice(proxies)
         try:
-            parsed_proxy = urlparse(proxy)
+            parsed_proxy = urlparse(selected_proxy)
             if parsed_proxy.scheme and parsed_proxy.netloc:
-                session.proxies.update({"http": proxy, "https": proxy})
+                session.proxies.update({"http": selected_proxy, "https": selected_proxy})
                 logger.info(f"Using proxy: {parsed_proxy.netloc}")
             else:
-                logger.warning(f"Invalid proxy format: {proxy}")
+                logger.warning(f"Invalid proxy format: {selected_proxy}")
         except Exception as e:
-            logger.warning(f"Failed to set proxy {proxy}: {e}")
+            logger.warning(f"Failed to set proxy {selected_proxy}: {e}")
 
     session.timeout = timeout
     return session
@@ -436,6 +455,7 @@ def smart_delay_with_jitter(
 def create_selenium_driver() -> Optional[webdriver.Chrome]:
     """Create Selenium driver for JavaScript-heavy sites[2]."""
     if not SELENIUM_AVAILABLE:
+        logger.warning("Selenium not installed; JS rendering disabled.")
         return None
         
     try:
@@ -459,9 +479,15 @@ def create_selenium_driver() -> Optional[webdriver.Chrome]:
         
         driver = webdriver.Chrome(options=options)
         driver.set_page_load_timeout(30)
+        driver.implicitly_wait(5)
         return driver
+    except WebDriverException as e:
+        logger.error(
+            "Selenium WebDriver error: %s. Make sure ChromeDriver is installed and PATH is set properly. "
+            "Refer to https://chromedriver.chromium.org/downloads", e)
+        return None
     except Exception as e:
-        logger.warning(f"Failed to create Selenium driver: {e}")
+        logger.error(f"Unexpected error creating Selenium driver: {e}")
         return None
 
 
@@ -493,6 +519,17 @@ def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: Dict) -> List
         # Get page source and parse with BeautifulSoup
         soup = BeautifulSoup(driver.page_source, "html.parser")
         logger.debug(f"Selenium parsed soup: {soup.prettify()}")
+
+        # Save page source to file for debugging if in debug mode and engine is Pornhub
+        if logger.level <= logging.DEBUG and cfg.get("url") == "https://www.pornhub.com":
+            debug_file_path = Path("pornhub_debug.html")
+            try:
+                with open(debug_file_path, "w", encoding="utf-8") as f:
+                    f.write(driver.page_source)
+                logger.debug(f"Pornhub debug HTML saved to: {debug_file_path}")
+            except Exception as e:
+                logger.error(f"Failed to save debug HTML: {e}")
+
         return extract_video_items(soup, cfg)
         
     except (TimeoutException, WebDriverException) as e:
@@ -812,6 +849,37 @@ def extract_video_data_enhanced(item, cfg: Dict, base_url: str) -> Optional[Dict
                 if img_url:
                     break
 
+        # Extract preview video URL (Pornhub specific or general)
+        preview_video_url = None
+        if engine == "pornhub":
+            # Try data-video-src on the image itself
+            if img_el and img_el.has_attr("data-video-src"):
+                preview_video_url = urljoin(base_url, img_el["data-video-src"])
+            # Try data-preview on the image itself (common for GIFs)
+            elif img_el and img_el.has_attr("data-preview"):
+                preview_video_url = urljoin(base_url, img_el["data-preview"])
+            # Try finding a video tag within the item
+            elif item.select_one("video source[src]"):
+                preview_video_url = urljoin(base_url, item.select_one("video source[src]")["src"])
+            elif item.select_one("video[data-src]"):
+                preview_video_url = urljoin(base_url, item.select_one("video[data-src]")["data-src"])
+            # Try finding a video tag with a specific class or attribute
+            elif item.select_one("video.js-video-player[data-src]"):
+                preview_video_url = urljoin(base_url, item.select_one("video.js-video-player[data-src]")["data-src"])
+            # Look for script tags containing video data (common for initial page load)
+            elif item.select_one("script:contains(\"video_url\")"):
+                script_content = item.select_one("script:contains(\"video_url\")").string
+                match = re.search(r"\"video_url\":\"(.*?)\"", script_content)
+                if match:
+                    preview_video_url = urljoin(base_url, match.group(1).replace("\\", ""))
+        # General fallback for other engines if they have a common preview video attribute
+        if not preview_video_url and img_el and img_el.has_attr("data-preview"):
+            preview_video_url = urljoin(base_url, img_el["data-preview"])
+        elif not preview_video_url and item.select_one("video source[src]"):
+            preview_video_url = urljoin(base_url, item.select_one("video source[src]")["src"])
+        elif not preview_video_url and item.select_one("video[data-src]"):
+            preview_video_url = urljoin(base_url, item.select_one("video[data-src]")["data-src"])
+
         # Extract metadata with safe handling
         duration = extract_text_safe(item, cfg.get("time_selector", ""), "N/A")
         views = extract_text_safe(item, cfg.get("meta_selector", ""), "N/A")
@@ -830,6 +898,7 @@ def extract_video_data_enhanced(item, cfg: Dict, base_url: str) -> Optional[Dict
             "title": html.escape(title[:200]),
             "link": link,
             "img_url": img_url,
+            "preview_video_url": preview_video_url, # Now extracted
             "time": duration,
             "channel_name": channel_name,
             "channel_link": channel_link,
@@ -1070,6 +1139,21 @@ ENHANCED_HTML_HEAD = """<!DOCTYPE html>
             margin-left: 3px;
         }}
 
+        .thumbnail video {{
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }}
+
+        .video-card:hover .thumbnail video {{
+            opacity: 1;
+        }}
+
         .video-info {{
             padding: 1.5rem;
             display: flex;
@@ -1177,31 +1261,53 @@ ENHANCED_HTML_HEAD = """<!DOCTYPE html>
 ENHANCED_HTML_TAIL = """        </main>
     </div>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {{
+        document.addEventListener('DOMContentLoaded', function() {
             const images = document.querySelectorAll('img[data-src]');
-            const imageObserver = new IntersectionObserver((entries, observer) => {{
-                entries.forEach(entry => {{
-                    if (entry.isIntersecting) {{
+            const videoCards = document.querySelectorAll('.video-card');
+
+            // Lazy load images
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
                         const img = entry.target;
                         const placeholder = img.parentElement;
                         
+                        // Add loading class to parent for visual feedback
                         placeholder.classList.add('loading-placeholder');
                         
                         img.src = img.dataset.src;
-                        img.onload = () => {{
+                        img.onload = () => {
                             img.removeAttribute('data-src');
                             placeholder.classList.remove('loading-placeholder');
-                        }};
-                        img.onerror = () => {{
+                        };
+                        img.onerror = () => {
                             placeholder.innerHTML = '<div class="error-placeholder">❌</div>';
-                        }};
+                            placeholder.classList.remove('loading-placeholder');
+                        };
                         imageObserver.unobserve(img);
-                    }}
-                }});
-            }});
+                    }
+                });
+            });
 
             images.forEach(img => imageObserver.observe(img));
-        }});
+
+            // Video preview on hover
+            videoCards.forEach(card => {
+                const video = card.querySelector('video');
+                if (video) {
+                    card.addEventListener('mouseenter', () => {
+                        // Only attempt to play if video has a source
+                        if (video.currentSrc || video.src) {
+                            video.play().catch(error => console.error('Error playing video:', error));
+                        }
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        video.pause();
+                        video.currentTime = 0; // Reset video to start
+                    });
+                }
+            });
+        });
     </script>
 </body>
 </html>"""
@@ -1260,7 +1366,7 @@ async def build_enhanced_html_async(
                 return idx, str(Path(THUMBNAILS_DIR) / filename).replace("\\", "/")
 
         except Exception as e:
-            logger.debug(f"Error during thumbnail fetch for {img_url}: {e}")
+            logger.warning(f"Failed to download thumbnail for {img_url}: {e}")
 
         return idx, generate_placeholder_svg("❌")
 
@@ -1323,6 +1429,10 @@ async def build_enhanced_html_async(
         ))
 
         for video, thumbnail in zip(results, thumbnail_paths):
+            video_preview_tag = ""
+            if video.get("preview_video_url"):
+                video_preview_tag = f'<video loop muted playsinline><source src="{html.escape(video["preview_video_url"])}" type="video/mp4"></video>'
+
             # Build meta items
             meta_items = []
             if video.get("time", "N/A") != "N/A":
@@ -1343,6 +1453,7 @@ async def build_enhanced_html_async(
                 <a href="{html.escape(video['link'])}" target="_blank" rel="noopener noreferrer">
                     <div class="thumbnail">
                         <img src="" data-src="{html.escape(thumbnail)}" alt="{html.escape(video['title'])}" loading="lazy">
+                        {video_preview_tag}
                         <div class="play-overlay"></div>
                     </div>
                 </a>
@@ -1408,6 +1519,10 @@ Example usage:
         help="Proxy to use for requests (e.g., http://user:pass@host:port)."
     )
     parser.add_argument(
+        "--proxy-list", type=str,
+        help="Path to a file containing a list of proxies (one per line)."
+    )
+    parser.add_argument(
         "-w", "--workers", type=int, default=DEFAULT_WORKERS,
         help=f"Number of concurrent workers for thumbnail downloads (default: {DEFAULT_WORKERS})."
     )
@@ -1444,7 +1559,16 @@ Example usage:
 
     # Main execution logic
     try:
-        session = build_enhanced_session(proxy=args.proxy)
+        proxies = []
+        if args.proxy_list:
+            proxies = load_proxies_from_file(args.proxy_list)
+            if not proxies:
+                logger.error("No valid proxies loaded from the file. Exiting.")
+                sys.exit(1)
+        elif args.proxy:
+            proxies = [args.proxy]
+
+        session = build_enhanced_session(proxies=proxies)
         
         print(f"{NEON['CYAN']}{Style.BRIGHT}Starting search for '{args.query}' on {args.engine}...")
 

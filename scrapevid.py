@@ -1,67 +1,378 @@
+from __future__ import annotations
+
+import argparse
+import asyncio
+import base64
+import concurrent.futures
+import html
+import json
 import logging
 import os
-import sys
-import webbrowser
-from datetime import datetime
+import random
 import re
-import argparse
-from urllib.parse import urljoin
-from typing import List, Dict, Optional
+import signal
+import sys
+import time
+import unicodedata
+import uuid
+import webbrowser
+from contextlib import asynccontextmanager
+from datetime import datetime
+from functools import wraps
+from pathlib import Path
+from typing import Any, AsyncGenerator, Dict, List, Optional, Sequence, Tuple, Union
+from urllib.parse import quote_plus, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
-from colorama import Fore, init, Style
+from colorama import Fore, Style, init
+from requests.adapters import HTTPAdapter, Retry
 
-# --- Dependencies ---
-# To install required libraries, run:
-# pip install requests beautifulsoup4 colorama
-
-# Initialize Colorama for cross-platform colored output
+# ── Enhanced Color Setup ────────────────────────────────────────────────
 init(autoreset=True)
+NEON = {
+    "CYAN": Fore.CYAN,
+    "MAGENTA": Fore.MAGENTA,
+    "GREEN": Fore.GREEN,
+    "YELLOW": Fore.YELLOW,
+    "RED": Fore.RED,
+    "BLUE": Fore.BLUE,
+    "WHITE": Fore.WHITE,
+    "BRIGHT": Style.BRIGHT,
+    "RESET": Style.RESET_ALL,
+}
 
-# --- Configuration & Logging ---
-NEON_CYAN = Fore.CYAN
-NEON_MAGENTA = Fore.MAGENTA
-NEON_GREEN = Fore.GREEN
-NEON_YELLOW = Fore.YELLOW
-NEON_RED = Fore.RED
-NEON_BLUE = Fore.BLUE
-NEON_WHITE = Fore.WHITE
-NEON_BRIGHT = Style.BRIGHT
-RESET_ALL = Style.RESET_ALL
-
-LOG_FORMAT = (
-    f"{NEON_CYAN}%(asctime)s{RESET_ALL} - "
-    f"{NEON_MAGENTA}%(levelname)s{RESET_ALL} - "
-    f"{NEON_GREEN}%(message)s{RESET_ALL}"
+LOG_FMT = (
+    f"{NEON['CYAN']}%(asctime)s{NEON['RESET']} - "
+    f"{NEON['MAGENTA']}%(levelname)s{NEON['RESET']} - "
+    f"{NEON['GREEN']}%(message)s{NEON['RESET']}"
 )
-logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, handlers=[    logging.StreamHandler(sys.stdout)
-])
+
+# Enhanced logging with context
+class ContextFilter(logging.Filter):
+    def filter(self, record):
+        record.engine = getattr(record, 'engine', 'unknown')
+        record.query = getattr(record, 'query', 'unknown')
+        return True
+
+log_handlers = [logging.StreamHandler(sys.stdout)]
+try:
+    log_handlers.append(logging.FileHandler("video_search.log", mode="a"))
+except PermissionError:
+    pass
+
+logging.basicConfig(
+    level=logging.INFO,
+    format=LOG_FMT,
+    handlers=log_handlers,
+)
 logger = logging.getLogger(__name__)
+logger.addFilter(ContextFilter())
 
-# Suppress noisy external library warnings
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger("chardet").setLevel(logging.WARNING)
+# Suppress noisy loggers
+for noisy in ("urllib3", "chardet", "requests", "aiohttp", "selenium"):
+    logging.getLogger(noisy).setLevel(logging.WARNING)
 
-# --- Global Defaults ---
+
+# Optional async and selenium support
+try:
+    import aiohttp
+    ASYNC_AVAILABLE = True
+except ImportError:
+    ASYNC_AVAILABLE = False
+    
+try:
+    import undetected_chromedriver as uc
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options as ChromeOptions
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.common.exceptions import TimeoutException, WebDriverException
+    SELENIUM_AVAILABLE = True
+except ImportError:
+    logger.info("Selenium libraries not found. To scrape JavaScript-heavy sites, install with: pip install selenium undetected-chromedriver")
+    SELENIUM_AVAILABLE = False
+
+def create_selenium_driver() -> Optional[uc.Chrome]:
+    """Create Selenium driver for JavaScript-heavy sites using undetected-chromedriver."""
+    if not SELENIUM_AVAILABLE:
+        return None
+        
+    try:
+        options = uc.ChromeOptions()
+        options.add_argument("--headless=new")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1920,1080")
+        
+        logger.info("Initializing undetected-chromedriver...")
+        # This forces undetected-chromedriver to download the driver if it's missing.
+        driver = uc.Chrome(options=options, driver_executable_path=None, browser_executable_path=None)
+        driver.set_page_load_timeout(45)
+        logger.info("Selenium driver created successfully.")
+        return driver
+    except Exception as e:
+        logger.warning(f"Failed to create Selenium driver: {e}", exc_info=True)
+        return None
+
+
+def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: Dict) -> List:
+    """Extract data using Selenium for JavaScript-heavy sites[2]."""
+    try:
+        driver.get(url)
+        
+        # Wait for video items to load
+        wait = WebDriverWait(driver, 10)
+        found_element = False
+        for selector in cfg["video_item_selector"].split(','):
+            try:
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector.strip())))
+                found_element = True
+                logger.debug(f"Selenium found element with selector: {selector.strip()}")
+                break
+            except TimeoutException:
+                logger.debug(f"Selenium did not find element with selector: {selector.strip()}")
+                continue
+        
+        if not found_element:
+            logger.warning(f"Selenium could not find any video items with provided selectors for {url}")
+            return []
+        
+        # Additional wait to ensure dynamic content loads
+        time.sleep(2)
+        
+        # Get page source and parse with BeautifulSoup
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        logger.debug(f"Selenium parsed soup: {soup.prettify()}")
+
+        # Save page source to file for debugging if in debug mode and engine is Pornhub
+        if logger.level <= logging.DEBUG and cfg.get("url") == "https://www.pornhub.com":
+            debug_file_path = Path("pornhub_debug.html")
+            try:
+                with open(debug_file_path, "w", encoding="utf-8") as f:
+                    f.write(driver.page_source)
+                logger.debug(f"Pornhub debug HTML saved to: {debug_file_path}")
+            except Exception as e:
+                logger.error(f"Failed to save debug HTML: {e}")
+
+        return extract_video_items(soup, cfg)
+        
+    except (TimeoutException, WebDriverException) as e:
+        logger.warning(f"Selenium extraction failed for {url}: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during Selenium extraction for {url}: {e}")
+        return []
+
+try:
+    from tqdm import tqdm
+except ModuleNotFoundError:
+    def tqdm(iterable, **kwargs):  # type: ignore
+        return iterable
+
+
+# ── Enhanced Defaults ────────────────────────────────────────────────────
 THUMBNAILS_DIR = "downloaded_thumbnails"
-DEFAULT_SEARCH_LIMIT = 30
-DEFAULT_PAGE_NUMBER = 1
-DEFAULT_ENGINE = "example"
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+VSEARCH_DIR = "vsearch"
+DEFAULT_ENGINE = "pexels"
+DEFAULT_LIMIT = 30
+DEFAULT_PAGE = 1
+DEFAULT_FORMAT = "html"
+DEFAULT_TIMEOUT = 25
+DEFAULT_DELAY = (1.5, 4.0)  # Random delay with jitter
+DEFAULT_MAX_RETRIES = 5
+DEFAULT_WORKERS = 12
 
-# Engines mapping - expand with supported sites as needed.
-ENGINE_MAP = {
-    "example": {
-        "url": "https://example.com",
-        "search_path": "/search",
-        "video_item_selector": "div.video-item",
-        "title_selector": "h3",
-        "img_selector": "img",
-        "link_selector": "a",
-        "page_param": "page"
+# Enhanced User-Agent rotation based on 2025 browser statistics[1][2][3]
+REALISTIC_USER_AGENTS = [
+    # Chrome on Windows (most common)
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    # Chrome on macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    # Firefox variations
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:122.0) Gecko/20100101 Firefox/122.0",
+    # Safari on macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+    # Chrome on Linux
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    # Edge
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.2277.83",
+]
+
+# Realistic browser headers to avoid bot detection[2][3]
+def get_realistic_headers(user_agent: str) -> Dict[str, str]:
+    """Generate realistic browser headers based on User-Agent."""
+    return {
+        "User-Agent": user_agent,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": random.choice([
+            "en-US,en;q=0.9",
+            "en-GB,en;q=0.9",
+            "en-US,en;q=0.8,es;q=0.6",
+        ]),
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Cache-Control": "max-age=0",
+        "DNT": "1",
+        "Sec-GPC": "1",
+    }
+
+# ── Enhanced Engine Configurations ─────────────────────────────────────────
+ENGINE_MAP: Dict[str, Dict[str, Any]] = {
+    "pexels": {
+        "url": "https://www.pexels.com",
+        "search_path": "/search/videos/{query}/",
+        "page_param": "page",
+        "requires_js": False,
+        "video_item_selector": "article.hide-favorite-badge-container, article[data-testid='video-card']",
+        "link_selector": 'a[data-testid="video-card-link"], a.video-link',
+        "title_selector": 'img[data-testid="video-card-img"], .video-title',
+        "title_attribute": "alt",
+        "img_selector": 'img[data-testid="video-card-img"], img.video-thumbnail',
+        "channel_name_selector": 'a[data-testid="video-card-user-avatar-link"] > span, .author-name',
+        "channel_link_selector": 'a[data-testid="video-card-user-avatar-link"], .author-link',
+        "fallback_selectors": {
+            "title": ["img[alt]", ".video-title", "h3", "a[title]"],
+            "img": ["img[data-src]", "img[src]", "img[data-lazy]", "img[data-testid='video-card-img']"], # Added data-testid for robustness
+            "link": ["a[href*='/video/']", "a.video-link"]
+        }
     },
-    # Add more engines here with their specific selectors and URL parameters
+    "dailymotion": {
+        "url": "https://www.dailymotion.com",
+        "search_path": "/search/{query}/videos",
+        "page_param": "page",
+        "requires_js": True,  # Dailymotion loads content dynamically
+        "video_item_selector": 'div[data-testid="video-card"], .video-item',
+        "link_selector": 'a[data-testid="card-link"], .video-link',
+        "title_selector": 'div[data-testid="card-title"], .video-title',
+        "img_selector": 'img[data-testid="card-thumbnail"], img.thumbnail',
+        "time_selector": 'span[data-testid="card-duration"], .duration',
+        "channel_name_selector": 'div[data-testid="card-owner-name"], .owner-name',
+        "channel_link_selector": 'a[data-testid="card-owner-link"], .owner-link',
+        "fallback_selectors": {
+            "title": [".video-title", "h3", "[title]"],
+            "img": ["img[src]", "img[data-src]", "img[data-testid='card-thumbnail']"], # Added data-testid for robustness
+            "link": ["a[href*='/video/']"]
+        }
+    },
+    "xhamster": {
+        "url": "https://xhamster.com",
+        "search_path": "/search/{query}",
+        "page_param": "page",
+        "requires_js": True,
+        "video_item_selector": "div.thumb-list__item.video-thumb",
+        "link_selector": "a.video-thumb__image-container[data-role='thumb-link']",
+        "title_selector": "a.video-thumb-info__name[data-role='thumb-link']",
+        "img_selector": "img.thumb-image-container__image[data-role='thumb-preview-img']",
+        "time_selector": "div.thumb-image-container__duration div.tiny-8643e",
+        "meta_selector": "div.video-thumb-views",
+        "channel_name_selector": "a.video-uploader__name",
+        "channel_link_selector": "a.video-uploader__name",
+        "fallback_selectors": {
+            "title": ["a[title]"],
+            "img": ["img[data-src]", "img[src]", "img[data-role='thumb-preview-img']"], # Added data-role for robustness
+            "link": ["a[href*='/videos/']"]
+        }
+    },
+    "pornhub": {
+        "url": "https://www.pornhub.com",
+        "search_path": "/video/search?search={query}",
+        "gif_search_path": "/gifs/search?search={query}",
+        "page_param": "page",
+        "requires_js": True,
+        "video_item_selector": "li.pcVideoListItem, div.phimage, div.videoblock, div.video-item", # More generic selectors
+        "link_selector": "a.previewVideo, a.thumb, a[href*='/view_video.php'], .video-link, .videoblock__link", # More generic
+        "title_selector": "a.previewVideo .title, a.thumb .title, .video-title, .videoblock__title, a[title]", # More generic
+        "img_selector": "img[src], img[data-src], img[data-lazy], img[data-thumb]",
+        "time_selector": "var.duration, .duration, .videoblock__duration, span.duration", # More generic
+        "channel_name_selector": ".usernameWrap a, .channel-name, .videoblock__channel, a[href*='/users/']", # More generic
+        "channel_link_selector": ".usernameWrap a, .channel-link, a[href*='/users/']", # More generic
+        "meta_selector": ".views, .video-views, .videoblock__views, span.views", # More generic
+        "fallback_selectors": {
+            "title": [".title", "a[title]", "[data-title]"],
+            "img": ["img[data-thumb]", "img[src]", "img[data-src]"],
+            "link": ["a[href*='/view_video.php']", "a.video-link"]
+        }
+    },
+    "xvideos": {
+        "url": "https://www.xvideos.com",
+        "search_path": "/?k={query}",
+        "page_param": "p",
+        "requires_js": False,
+        "video_item_selector": "div.mozaique > div, .video-block, .thumb-block",
+        "link_selector": ".thumb-under > a, .video-link, .thumb-block__header a",
+        "title_selector": ".thumb-under > a, .video-title, .thumb-block__header a",
+        "img_selector": "img, img[data-src], .thumb img",
+        "time_selector": ".duration, .thumb-block__duration",
+        "meta_selector": ".video-views, .views, .thumb-block__views",
+        "fallback_selectors": {
+            "title": ["a[title]", ".title", "p.title"],
+            "img": ["img[data-src]", "img[src]", ".thumb img"], # Added .thumb img for robustness
+            "link": ["a[href*='/video']"]
+        }
+    },
+    "xnxx": {
+        "url": "https://www.xnxx.com",
+        "search_path": "/search/{query}/",
+        "page_param": "p",
+        "requires_js": False,
+        "video_item_selector": "div.mozaique > div.thumb-block",
+        "link_selector": ".thumb-under > a",
+        "title_selector": ".thumb-under > a",
+        "img_selector": "img[data-src], img[src]", # Added img[src]
+        "time_selector": "span.duration",
+        "meta_selector": "span.video-views",
+        "fallback_selectors": {
+            "title": ["a[title]", "p.title"],
+            "img": ["img[src]", "img[data-src]"], # Reordered for priority
+            "link": ["a[href*='/video']"]
+        }
+    },
+    "youjizz": {
+        "url": "https://www.youjizz.com",
+        "search_path": "/search/{query}-{page}.html",
+        "page_param": "",
+        "requires_js": True,
+        "video_item_selector": "div.video-thumb",
+        "link_selector": "a.frame.video",
+        "title_selector": "div.video-title a",
+        "img_selector": "img.img-responsive.lazy, img[data-original], img[src]", # Added img[src]
+        "img_attribute": "data-original",
+        "time_selector": "span.time",
+        "meta_selector": "span.views",
+        "fallback_selectors": {
+            "title": ["a[title]"],
+            "img": ["img[data-original]", "img[src]", "img.img-responsive.lazy"], # Reordered for priority
+            "link": ["a[href*='/videos/']"]
+        }
+    },
+    "spankbang": {
+        "url": "https://spankbang.com",
+        "search_path": "/s/{query}/{page}/",
+        "page_param": "",
+        "requires_js": True,
+        "video_item_selector": "div.video-item",
+        "link_selector": "a.video-item__link",
+        "title_selector": "a.video-item__title",
+        "img_selector": "img.video-item__img, img[data-src], img[src]", # Added img[src]
+        "time_selector": "div.video-item__duration",
+        "meta_selector": "div.video-item__views",
+        "fallback_selectors": {
+            "title": ["a[title]"],
+            "img": ["img[data-src]", "img[src]", "img.video-item__img"], # Reordered for priority
+            "link": ["a[href*='/video']"]
+        }
+    },
 }
 
 # --- Helper Functions ---
@@ -117,7 +428,8 @@ def search(
     query: str,
     limit: int,
     engine: str,
-    page: int
+    page: int,
+    driver: Optional[webdriver.Chrome] = None
 ) -> List[Dict]:
     """
     Performs a search using a specified engine and returns parsed results.
@@ -137,13 +449,16 @@ def search(
 
     try:
         logger.info(f"Searching at URL: {search_url}")
-        response = session.get(search_url, timeout=15)
-        response.raise_for_status()
+        
+        if engine_config.get("requires_js", False) and driver:
+            video_items = extract_with_selenium(driver, search_url, engine_config)
+        else:
+            response = session.get(search_url, timeout=15)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
+            video_items = soup.select(engine_config["video_item_selector"])
 
-        soup = BeautifulSoup(response.text, 'html.parser')
         results = []
-
-        video_items = soup.select(engine_config["video_item_selector"])
         for idx, item in enumerate(video_items[:limit]):
             try:
                 title_tag = item.select_one(engine_config["title_selector"])
@@ -384,7 +699,14 @@ def main():
         logger.info(f"  {NEON_BLUE}{key.replace('_', ' ').title()}:{RESET_ALL} {value}")
     logger.info(f"{NEON_CYAN}------------------------{RESET_ALL}")
 
+    driver = None
     try:
+        if ENGINE_MAP[settings["engine"]].get("requires_js", False) and SELENIUM_AVAILABLE:
+            driver = create_selenium_driver()
+            if not driver:
+                logger.error(f"{NEON_RED}Failed to initialize Selenium driver. Cannot scrape JavaScript-heavy site.{RESET_ALL}")
+                sys.exit(1)
+
         with requests.Session() as session:
             session.headers.update({"User-Agent": USER_AGENT})
 
@@ -393,7 +715,8 @@ def main():
                 query=settings["query"],
                 limit=settings["limit"],
                 engine=settings["engine"],
-                page=settings["page"]
+                page=settings["page"],
+                driver=driver
             )
 
             html_file = generate_html_output(
@@ -417,6 +740,10 @@ def main():
 
     except Exception as e:
         logger.critical(f"{NEON_RED}An unhandled error occurred: {e}{RESET_ALL}", exc_info=True)
+
+    finally:
+        if driver:
+            driver.quit()
 
     logger.info(f"{NEON_CYAN}{NEON_BRIGHT}--- Script Finished ---{RESET_ALL}")
 

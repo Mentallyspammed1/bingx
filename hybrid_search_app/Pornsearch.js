@@ -330,7 +330,7 @@ class Pornsearch {
             driversToSearch = [specificDriver];
         }
 
-        const pLimit = await loadPLimit();
+        const { default: pLimit } = await loadPLimit();
         const limit = pLimit(this.config.global.maxConcurrentSearches);
 
         const searchPromises = driversToSearch.map(driver => limit(async () => {

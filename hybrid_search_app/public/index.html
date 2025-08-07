@@ -708,11 +708,20 @@
             staticThumbImg.loading = 'lazy';
             staticThumbImg.className = 'static-thumb';
             staticThumbImg.onerror = () => {
-                log.warn(`Static thumbnail load failed: ${staticThumbnailUrl} for "${item.title}". Using placeholder.`);
-                staticThumbImg.src = PLACEHOLDER_GIF_DATA_URI;
-                if (!animatedPreviewUrl && !mediaContainer.querySelector('.media-error-placeholder')) {
+                log.warn(`Static thumbnail load failed: ${staticThumbnailUrl} for "${item.title}". Attempting preview fallback.`);
+                // If static thumbnail fails, try to use the preview video/gif as a fallback
+                if (animatedPreviewUrl) {
+                    const fallbackMedia = mediaContainer.querySelector('.preview-video, .preview-gif-image');
+                    if (fallbackMedia) {
+                        fallbackMedia.style.opacity = 1; // Make fallback visible
+                        staticThumbImg.style.opacity = 0; // Hide broken static thumb
+                    } else {
+                        renderMediaErrorPlaceholder(mediaContainer, 'Thumb Error');
+                    }
+                } else {
                     renderMediaErrorPlaceholder(mediaContainer, 'Thumb Error');
                 }
+                staticThumbImg.src = PLACEHOLDER_GIF_DATA_URI; // Ensure a placeholder is set
             };
             mediaContainer.appendChild(staticThumbImg);
 

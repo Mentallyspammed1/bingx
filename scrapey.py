@@ -888,6 +888,9 @@ def main() -> None:
     if args.phash_threshold is None:
         args.phash_threshold = Config.PHASH_THRESHOLD
 
+    # Ensure adult filter is always off (safe search off)
+    args.adult_filter_off = True
+
     logger.setLevel(getattr(logging, args.log_level.upper()))
 
     # Dependency checks

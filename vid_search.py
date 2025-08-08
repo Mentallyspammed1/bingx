@@ -1204,7 +1204,7 @@ async def build_enhanced_html_async(
         </svg>'''
         return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
 
-    async def fetch_thumbnail_async_task(idx: int, video: Dict) -> Tuple[int, str]:
+    async def fetch_thumbnail_async_task(idx: int, video: Dict, outfile: Path) -> Tuple[int, str]:
         """Download thumbnail async or fallback to sync."""
         img_url = video.get("img_url")
         if not img_url:
@@ -1216,21 +1216,7 @@ async def build_enhanced_html_async(
             filename = f"{safe_title}_{idx}{ext}"
             dest_path = thumbs_dir / filename
 
-            if dest_path.exists():
-                return idx, str(Path(THUMBNAILS_DIR) / filename).replace("\\", "/")
-
-            # Try async download first
-            if ASYNC_AVAILABLE:
-                async with aiohttp_session() as async_session:
-                    if async_session:
-                        semaphore = asyncio.Semaphore(workers)
-                        success = await async_download_thumbnail(async_session, img_url, dest_path, semaphore)
-                        if success:
-                            return idx, str(Path(THUMBNAILS_DIR) / filename).replace("\\", "/")
-
-            # Fallback to sync download
-            if robust_download_sync(session, img_url, dest_path):
-                return idx, str(Path(THUMBNAILS_DIR) / filename).replace("\\", "/")
+            if dest_path.exists():                return idx, str(Path(os.path.relpath(thumbs_dir, outfile.parent)) / filename).replace("\\", "/")            # Try async download first            if ASYNC_AVAILABLE:                async with aiohttp_session() as async_session:                    if async_session:                        semaphore = asyncio.Semaphore(workers)                        success = await async_download_thumbnail(async_session, img_url, dest_path, semaphore)                        if success:                            return idx, str(Path(os.path.relpath(thumbs_dir, outfile.parent)) / filename).replace("\\", "/")            # Fallback to sync download            if robust_download_sync(session, img_url, dest_path):                return idx, str(Path(os.path.relpath(thumbs_dir, outfile.parent)) / filename).replace("\\", "/")
 
         except Exception as e:
             logger.debug(f"Error during thumbnail fetch for {img_url}: {e}")
@@ -1315,7 +1301,7 @@ async def build_enhanced_html_async(
             <div class="video-card">
                 <a href="{html.escape(video['link'])}" target="_blank" rel="noopener noreferrer">
                     <div class="thumbnail">
-                        <img src="" data-src="{html.escape(thumbnail)}" alt="{html.escape(video['title'])}" loading="lazy">
+                        <img data-src="{html.escape(thumbnail)}" alt="{html.escape(video['title'])}" loading="lazy">
                         <div class="play-overlay"></div>
                     </div>
                 </a>

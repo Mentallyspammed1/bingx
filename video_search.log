@@ -5307,3 +5307,24 @@ TypeError: build_enhanced_session() got an unexpected keyword argument 'proxy'
 [36m2025-08-07 18:14:03,980[0m - [35mINFO[0m - [32mFetching page 3: https://www.pornhub.com/video/search?search=facefuck+swallow&page=3[0m
 [36m2025-08-07 18:14:07,875[0m - [35mINFO[0m - [32mFetching page 4: https://www.pornhub.com/video/search?search=facefuck+swallow&page=4[0m
 [36m2025-08-07 18:14:10,691[0m - [35mINFO[0m - [32mSuccessfully extracted 0 videos[0m
+[36m2025-08-07 18:20:27,719[0m - [35mERROR[0m - [32mSelenium WebDriver error: Message: Unable to obtain driver for chrome; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors/driver_location
+. Make sure ChromeDriver is installed and PATH is set properly. Refer to https://chromedriver.chromium.org/downloads[0m
+[36m2025-08-07 18:20:27,721[0m - [35mWARNING[0m - [32mJavaScript required for pornhub but Selenium driver could not be created; skipping engine.[0m
+[36m2025-08-07 19:09:15,188[0m - [35mINFO[0m - [32mSearching pornhub for 'facefuck swallow' (up to 4 pages)[0m
+[36m2025-08-07 19:09:19,637[0m - [35mINFO[0m - [32mFetching page 1: https://www.pornhub.com/video/search?search=facefuck+swallow[0m
+[36m2025-08-07 19:09:32,491[0m - [35mINFO[0m - [32mFetching page 2: https://www.pornhub.com/video/search?search=facefuck+swallow&page=2[0m
+[36m2025-08-07 19:09:39,414[0m - [35mINFO[0m - [32mFetching page 3: https://www.pornhub.com/video/search?search=facefuck+swallow&page=3[0m
+[36m2025-08-07 19:09:40,917[0m - [35mINFO[0m - [32mSuccessfully extracted 100 videos[0m
+[36m2025-08-07 19:09:45,313[0m - [35mINFO[0m - [32mEnhanced HTML gallery saved to: vsearch/pornhub_facefuck_swallow_20250807_190940_db4067f1.html[0m
+[36m2025-08-07 19:28:58,611[0m - [35mINFO[0m - [32mSearching pornhub for 'facefuck swallow' (up to 4 pages)[0m
+[36m2025-08-07 19:29:02,577[0m - [35mINFO[0m - [32mFetching page 1: https://www.pornhub.com/video/search?search=facefuck+swallow[0m
+[36m2025-08-07 19:29:05,332[0m - [35mINFO[0m - [32mFetching page 2: https://www.pornhub.com/video/search?search=facefuck+swallow&page=2[0m
+[36m2025-08-07 19:29:08,326[0m - [35mINFO[0m - [32mFetching page 3: https://www.pornhub.com/video/search?search=facefuck+swallow&page=3[0m
+[36m2025-08-07 19:29:09,679[0m - [35mINFO[0m - [32mSuccessfully extracted 100 videos[0m
+[36m2025-08-07 19:29:11,239[0m - [35mINFO[0m - [32mEnhanced HTML gallery saved to: vsearch/pornhub_facefuck_swallow_20250807_192909_8b644821.html[0m
+[36m2025-08-07 19:33:01,779[0m - [35mINFO[0m - [32mpornhub[0m - [32mfacefuck swallow[0m - [32mSearching pornhub for 'facefuck swallow' (up to 4 pages)[0m
+[36m2025-08-07 19:33:04,781[0m - [35mINFO[0m - [32mpornhub[0m - [32mfacefuck swallow[0m - [32mFetching page 1: https://www.pornhub.com/video/search?search=facefuck+swallow[0m
+[36m2025-08-07 19:33:08,159[0m - [35mINFO[0m - [32mpornhub[0m - [32mfacefuck swallow[0m - [32mFetching page 2: https://www.pornhub.com/video/search?search=facefuck+swallow&page=2[0m
+[36m2025-08-07 19:33:11,547[0m - [35mINFO[0m - [32mpornhub[0m - [32mfacefuck swallow[0m - [32mFetching page 3: https://www.pornhub.com/video/search?search=facefuck+swallow&page=3[0m
+[36m2025-08-07 19:33:12,854[0m - [35mINFO[0m - [32mpornhub[0m - [32mfacefuck swallow[0m - [32mSuccessfully extracted 100 videos[0m
+[36m2025-08-07 19:33:14,083[0m - [35mINFO[0m - [32munknown[0m - [32munknown[0m - [32mEnhanced HTML gallery saved to: vsearch/pornhub_facefuck_swallow_20250807_193312_b7de7beb.html[0m

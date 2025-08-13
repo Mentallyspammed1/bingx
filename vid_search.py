@@ -1216,7 +1216,21 @@ async def build_enhanced_html_async(
             filename = f"{safe_title}_{idx}{ext}"
             dest_path = thumbs_dir / filename
 
-            if dest_path.exists():                return idx, str(Path(os.path.relpath(thumbs_dir, outfile.parent)) / filename).replace("\\", "/")            # Try async download first            if ASYNC_AVAILABLE:                async with aiohttp_session() as async_session:                    if async_session:                        semaphore = asyncio.Semaphore(workers)                        success = await async_download_thumbnail(async_session, img_url, dest_path, semaphore)                        if success:                            return idx, str(Path(os.path.relpath(thumbs_dir, outfile.parent)) / filename).replace("\\", "/")            # Fallback to sync download            if robust_download_sync(session, img_url, dest_path):                return idx, str(Path(os.path.relpath(thumbs_dir, outfile.parent)) / filename).replace("\\", "/")
+            if dest_path.exists():
+                return idx, str(Path(os.path.relpath(thumbs_dir, outfile.parent)) / filename).replace("\\", "/")
+
+            # Try async download first
+            if ASYNC_AVAILABLE:
+                async with aiohttp_session() as async_session:
+                    if async_session:
+                        semaphore = asyncio.Semaphore(workers)
+                        success = await async_download_thumbnail(async_session, img_url, dest_path, semaphore)
+                        if success:
+                            return idx, str(Path(os.path.relpath(thumbs_dir, outfile.parent)) / filename).replace("\\", "/")
+
+            # Fallback to sync download
+            if robust_download_sync(session, img_url, dest_path):
+                return idx, str(Path(os.path.relpath(thumbs_dir, outfile.parent)) / filename).replace("\\", "/")
 
         except Exception as e:
             logger.debug(f"Error during thumbnail fetch for {img_url}: {e}")
@@ -1226,7 +1240,7 @@ async def build_enhanced_html_async(
     # Download thumbnails
     if ASYNC_AVAILABLE:
         thumbnail_paths_with_idx = await asyncio.gather(
-            *[fetch_thumbnail_async_task(i, video) for i, video in enumerate(results)],
+            *[fetch_thumbnail_async_task(i, video, outfile) for i, video in enumerate(results)],
             return_exceptions=True
         )
         thumbnail_paths = [""] * len(results)
@@ -1264,7 +1278,7 @@ async def build_enhanced_html_async(
                 try:
                     success = future.result()
                     if success:
-                        thumbnail_paths[i] = str(Path(THUMBNAILS_DIR) / dest_path.name).replace("\\", "/")
+                        thumbnail_paths[i] = str(Path(os.path.relpath(thumbs_dir, outfile.parent)) / dest_path.name).replace("\\", "/")
                     else:
                         thumbnail_paths[i] = generate_placeholder_svg("❌")
                 except Exception as e:

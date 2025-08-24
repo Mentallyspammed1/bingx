@@ -298,6 +298,47 @@ ENGINE_MAP: Dict[str, Dict[str, Any]] = {
             "link": ["a[href*='/videos/']"]
         }
     },
+    "motherless": {
+        "url": "https://www.motherless.com",
+        "search_path": "/term/videos/{query}?page={page}",
+        "page_param": "",
+        "requires_js": False,
+        "video_item_selector": "div.thumb",
+        "link_selector": "a",
+        "title_selector": ".thumb-caption a",
+        "title_attribute": "title",
+        "img_selector": "img.thumb-img",
+        "img_attribute": "src",
+        "time_selector": ".thumb-duration",
+        "meta_selector": ".thumb-views",
+        "channel_name_selector": ".thumb-member a",
+        "channel_link_selector": ".thumb-member a",
+        "fallback_selectors": {
+            "title": ["a[title]"],
+            "img": ["img[src]"],
+            "link": ["a[href*='/video/']"]
+        }
+    },
+    "wowxxx": {
+        "url": "https://www.wow.xxx",
+        "search_path": "/popular/search/{query}/top-rated/",
+        "page_param": None,
+        "requires_js": True,
+        "video_item_selector": "article.video-card, div.video-item, li.video-list-item",
+        "link_selector": "a.video-card__link, a.video-item__link, a[href*='/video/']",
+        "title_selector": "h3.video-card__title, h2.video-title, span.title-text",
+        "title_attribute": "title",
+        "img_selector": "img.video-card__thumbnail, img.video-thumbnail, img[data-src], img[src]",
+        "time_selector": "span.video-card__duration, span.duration, div.time",
+        "meta_selector": "span.video-card__views, span.views, div.meta-info",
+        "channel_name_selector": "a.video-card__channel-name, span.channel-name, a[href*='/channel/']",
+        "channel_link_selector": "a.video-card__channel-link, a.channel-link",
+        "fallback_selectors": {
+            "title": ["a[title]", "h2", "div.title", "span.title", "div.video-title"],
+            "img": ["img[data-src]", "img[src]", "video-preview", "img.lazy", "img.thumbnail"],
+            "link": ["a[href*='/video/']", "a[href*='/viewkey=']", "a.item-link", "a.video-link"]
+        }
+    },
 }
 
 

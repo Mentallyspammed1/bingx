@@ -5991,3 +5991,12 @@ NameError: name 'HTML_HEAD' is not defined
 [36m2025-08-23 21:22:13,005[0m - [35mINFO[0m - [32mFetching page 1: https://www.pornhub.com/video/search?search=deepthroat[0m
 [36m2025-08-23 21:22:14,940[0m - [35mINFO[0m - [32mSuccessfully extracted 30 videos[0m
 [36m2025-08-23 21:22:18,395[0m - [35mINFO[0m - [32mEnhanced HTML gallery saved to: vsearch/pornhub_deepthroat_20250823_212214_223ec2b2.html[0m
+[36m2025-08-24 06:15:50,267[0m - [35mINFO[0m - [32mSearching pornhub for 'throat friends' (up to 5 pages)[0m
+[36m2025-08-24 06:15:53,468[0m - [35mINFO[0m - [32mFetching page 1: https://www.pornhub.com/video/search?search=throat+friends[0m
+[36m2025-08-24 06:15:56,815[0m - [35mINFO[0m - [32mFetching page 2: https://www.pornhub.com/video/search?search=throat+friends&page=2[0m
+[36m2025-08-24 06:15:58,439[0m - [35mINFO[0m - [32mFetching page 3: https://www.pornhub.com/video/search?search=throat+friends&page=3[0m
+[36m2025-08-24 06:16:00,566[0m - [35mINFO[0m - [32mFetching page 4: https://www.pornhub.com/video/search?search=throat+friends&page=4[0m
+[36m2025-08-24 06:16:03,970[0m - [35mINFO[0m - [32mFetching page 5: https://www.pornhub.com/video/search?search=throat+friends&page=5[0m
+[36m2025-08-24 06:16:05,190[0m - [35mWARNING[0m - [32mNo video items found on page 5[0m
+[36m2025-08-24 06:16:05,191[0m - [35mINFO[0m - [32mSuccessfully extracted 180 videos[0m
+[36m2025-08-24 06:16:09,031[0m - [35mINFO[0m - [32mEnhanced HTML gallery saved to: vsearch/pornhub_throat_friends_20250824_061605_c0b4c962.html[0m

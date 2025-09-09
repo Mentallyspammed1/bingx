@@ -35,7 +35,7 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'https//',
+        protocol: 'https',
         hostname: 'cdn.youporn.com',
         port: '',
         pathname: '/**',

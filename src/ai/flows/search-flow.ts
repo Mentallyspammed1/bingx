@@ -594,5 +594,14 @@ const searchFlow = ai.defineFlow(
 );
 
 export async function search(input: SearchInput): Promise<SearchOutput> {
+    if (input.driver.toLowerCase() === 'mock') {
+        const DriverClass = drivers['mock'];
+        const driverInstance = new DriverClass({query: input.query, page: input.page});
+        if (input.type === 'videos') {
+            return driverInstance.videoParser(cheerio.load(''), '');
+        } else {
+            return driverInstance.gifParser(cheerio.load(''), '');
+        }
+    }
     return searchFlow(input);
 }

@@ -271,6 +271,7 @@ export default function Home() {
               <SelectItem value="xvideos">XVideos</SelectItem>
               <SelectItem value="xhamster">Xhamster</SelectItem>
               <SelectItem value="youporn">Youporn</SelectItem>
+              <SelectItem value="wow.xxx">Wow.xxx</SelectItem>
               <SelectItem value="mock">Mock (Test)</SelectItem>
             </SelectContent>
           </Select>

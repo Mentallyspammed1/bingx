@@ -476,6 +476,75 @@ class YoupornDriver extends AbstractModule {
     }
 }
 
+class WowDriver extends AbstractModule {
+    get name() { return 'Wow.xxx'; }
+    get firstpage() { return 1; }
+    videoUrl(query: string, page: number) {
+        const encodedQuery = encodeURIComponent(query.trim());
+        const pageNumber = Math.max(1, page || this.firstpage);
+        const url = new URL('https://www.wow.xxx/search');
+        url.searchParams.set('q', encodedQuery);
+        url.searchParams.set('page', String(pageNumber));
+        return url.href;
+    }
+    videoParser($: cheerio.CheerioAPI) {
+        const results: any[] = [];
+        $('div.video-item').each((index, element) => {
+            const item = $(element);
+            const linkElement = item.find('a.thumb').first();
+            let videoUrl = linkElement.attr('href');
+            let videoId = videoUrl?.match(/video\/(\d+)\//)?.[1];
+            let title = item.find('div.title').text().trim() || linkElement.attr('title');
+            const thumbElement = item.find('img').first();
+            let thumbnailUrl = thumbElement.attr('data-src') || thumbElement.attr('src');
+            if (thumbnailUrl?.includes('nothumb')) thumbnailUrl = undefined;
+            let duration = item.find('span.duration').text().trim();
+            let previewVideoUrl = linkElement.attr('data-preview-video') || thumbElement.attr('data-preview-video');
+
+            if (videoUrl) videoUrl = this._makeAbsolute(videoUrl, 'https://www.wow.xxx');
+            if (thumbnailUrl) thumbnailUrl = this._makeAbsolute(thumbnailUrl, 'https://www.wow.xxx');
+            if (previewVideoUrl) previewVideoUrl = this._makeAbsolute(previewVideoUrl, 'https://www.wow.xxx');
+
+            if (!videoUrl || !title || !thumbnailUrl || !videoId) return;
+            results.push({ id: videoId, title, url: videoUrl, duration, thumbnail: thumbnailUrl, preview_video: previewVideoUrl, source: this.name, type: 'videos' });
+        });
+        return results;
+    }
+    gifUrl(query: string, page: number) {
+        const encodedQuery = encodeURIComponent(query.trim());
+        const pageNumber = Math.max(1, page || this.firstpage);
+        const url = new URL('https://www.wow.xxx/gifs');
+        url.searchParams.set('q', encodedQuery);
+        url.searchParams.set('page', String(pageNumber));
+        return url.href;
+    }
+    gifParser($: cheerio.CheerioAPI) {
+        const results: any[] = [];
+        $('div.gif-item').each((index, element) => {
+            const item = $(element);
+            const linkElement = item.find('a').first();
+            let gifPageUrl = linkElement.attr('href');
+            let gifId = item.attr('data-id') || gifPageUrl?.match(/\/gif\/(\d+)\//)?.[1];
+            let title = item.find('img').attr('alt') || linkElement.attr('title') || 'Untitled GIF';
+            let animatedGifUrl = item.find('img').attr('data-src') || item.find('img').attr('src');
+            if (animatedGifUrl?.endsWith('.gif')) {
+                animatedGifUrl = this._makeAbsolute(animatedGifUrl, 'https://cdn.wow.xxx');
+            } else {
+                const videoPreview = item.find('video source').attr('src') || item.find('video').attr('data-src');
+                if (videoPreview) animatedGifUrl = this._makeAbsolute(videoPreview, 'https://www.wow.xxx');
+            }
+            let staticThumbnailUrl = item.find('img').attr('data-thumb') || item.find('img').attr('src');
+            if (!staticThumbnailUrl && animatedGifUrl?.endsWith('.gif')) staticThumbnailUrl = animatedGifUrl;
+            if (staticThumbnailUrl) staticThumbnailUrl = this._makeAbsolute(staticThumbnailUrl, 'https://www.wow.xxx');
+
+            if (!gifPageUrl || !title || !animatedGifUrl || !gifId) return;
+            gifPageUrl = this._makeAbsolute(gifPageUrl, 'https://www.wow.xxx');
+            results.push({ id: gifId, title, url: gifPageUrl, thumbnail: staticThumbnailUrl, preview_video: animatedGifUrl, source: this.name, type: 'gifs' });
+        });
+        return results;
+    }
+}
+
 class MockDriver extends AbstractModule {
     get name() { return 'Mock'; }
     get firstpage() { return 1; }
@@ -522,6 +591,7 @@ const drivers: {[key: string]: typeof AbstractModule} = {
     'xvideos': XvideosDriver,
     'xhamster': XhamsterDriver,
     'youporn': YoupornDriver,
+    'wow.xxx': WowDriver,
     'mock': MockDriver,
 };
 

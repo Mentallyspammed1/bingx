@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { search, SearchInput, SearchOutput } from '@/ai/flows/search-flow';
+import { search } from '@/ai/flows/search-flow';
+import type { SearchInput, SearchOutput } from '@/ai/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

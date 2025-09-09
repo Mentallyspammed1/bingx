@@ -11,6 +11,8 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import type { SearchInput, SearchOutput } from '@/ai/types';
+import { SearchInputSchema, SearchOutputSchema } from '@/ai/types';
 
 // Define Abstract Base Class (conceptual)
 class AbstractModule {
@@ -594,28 +596,6 @@ const drivers: {[key: string]: typeof AbstractModule} = {
     'wow.xxx': WowDriver,
     'mock': MockDriver,
 };
-
-export const SearchInputSchema = z.object({
-  query: z.string().describe('The search query'),
-  driver: z.string().describe('The search driver to use'),
-  type: z.enum(['videos', 'gifs']).describe('The type of content to search for'),
-  page: z.number().describe('The page number of results to fetch'),
-});
-export type SearchInput = z.infer<typeof SearchInputSchema>;
-
-const MediaResultSchema = z.object({
-    id: z.string(),
-    title: z.string(),
-    url: z.string(),
-    duration: z.string().optional(),
-    thumbnail: z.string().optional(),
-    preview_video: z.string().optional(),
-    source: z.string(),
-    type: z.string(),
-});
-
-export const SearchOutputSchema = z.array(MediaResultSchema);
-export type SearchOutput = z.infer<typeof SearchOutputSchema>;
 
 const searchFlow = ai.defineFlow(
   {

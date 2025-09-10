@@ -29,13 +29,13 @@ const pornhub = {
   videoUrl: (query: string, page: number) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(query)}&page=${page}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('div.phimage').each((_, element) => {
+    $('li.videoBox').each((_, element) => {
       const item = $(element);
       const link = item.find('a').first();
       const videoUrl = makeAbsolute(link.attr('href'), 'https://www.pornhub.com');
       const videoId = videoUrl?.match(/viewkey=([a-zA-Z0-9]+)/)?.[1];
       const title = item.find('span.title a').text().trim();
-      const thumbnail = makeAbsolute(item.find('img').attr('data-thumb_url'), 'https://www.pornhub.com');
+      const thumbnail = makeAbsolute(item.find('img').attr('data-src'), 'https://www.pornhub.com');
       const duration = item.find('var.duration').text().trim();
       const preview_video = makeAbsolute(item.find('img').attr('data-mediabook'), 'https://www.pornhub.com');
 
@@ -196,16 +196,15 @@ const xhamster = {
   videoUrl: (query: string, page: number) => `https://xhamster.com/search/${encodeURIComponent(query)}?page=${page}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('div.video-thumb-info__container').each((_, element) => {
+    $('a.video-thumb__image-container').each((_, element) => {
         const item = $(element);
-        const link = item.find('a.video-thumb-info__image-container').first();
-        const videoUrl = makeAbsolute(link.attr('href'), 'https://xhamster.com');
+        const videoUrl = makeAbsolute(item.attr('href'), 'https://xhamster.com');
         const videoId = videoUrl?.match(/\/videos\/(.+?)-\d+/)?.[1];
-        const img = link.find('img');
+        const img = item.find('img.video-thumb__img');
         const title = img.attr('alt');
         const thumbnail = makeAbsolute(img.attr('src'), 'https://xhamster.com');
-        const duration = item.find('.video-thumb-info__duration').text().trim();
-        const preview_video_url_attr = link.attr('onmouseover');
+        const duration = item.find('.video-thumb__duration').text().trim();
+        const preview_video_url_attr = item.attr('onmouseover');
         let preview_video = null;
         if(preview_video_url_attr) {
           const match = preview_video_url_attr.match(/showVideoPreview\([^,]+,\s*'([^']+)'/);
@@ -388,7 +387,7 @@ export async function search(input: SearchInput): Promise<SearchOutput> {
     });
 
     const $ = cheerio.load(response.data);
-    return parserFn($, input);
+    return parserFn($);
     
   } catch (error: any) {
     console.error(`Error fetching from ${driver.name}: ${error.message}`);

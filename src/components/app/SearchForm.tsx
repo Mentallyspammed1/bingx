@@ -9,7 +9,7 @@ import type { SearchInput } from '@/ai/types';
 
 interface SearchFormProps {
   searchParams: Omit<SearchInput, 'page'>;
-  setSearchParams: React.Dispatch<React.SetStateAction<Omit<SearchInput, 'page'>>>;
+  setSearchParams: (params: Partial<Omit<SearchInput, 'page'>>) => void;
   onSubmit: () => void;
   isLoading: boolean;
   isFavoritesView: boolean;
@@ -26,12 +26,12 @@ const SearchForm: React.FC<SearchFormProps> = ({
   setIsFavoritesView,
   favoritesCount,
 }) => {
-  const handleInputChange = (key: keyof typeof searchParams, value: string) => {
-    setSearchParams(prev => ({ ...prev, [key]: value }));
+  const handleInputChange = (key: keyof Omit<SearchInput, 'page'>, value: string) => {
+    setSearchParams({ [key]: value });
   };
 
   const handleClear = () => {
-    setSearchParams(prev => ({ ...prev, query: '' }));
+    setSearchParams({ query: '' });
   };
 
   return (
@@ -54,7 +54,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
             autoComplete="off"
             value={searchParams.query}
             onChange={(e) => handleInputChange('query', e.target.value)}
-            disabled={isLoading}
+            disabled={isLoading || isFavoritesView}
           />
           {searchParams.query && (
             <Button
@@ -76,7 +76,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
             <Select
               value={searchParams.type}
               onValueChange={(value) => handleInputChange('type', value)}
-              disabled={isLoading}
+              disabled={isLoading || isFavoritesView}
             >
               <SelectTrigger className="h-12 text-base">
                 <SelectValue placeholder="Type" />
@@ -92,7 +92,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
             <Select
               value={searchParams.driver}
               onValueChange={(value) => handleInputChange('driver', value)}
-              disabled={isLoading}
+              disabled={isLoading || isFavoritesView}
             >
               <SelectTrigger className="h-12 text-base">
                 <SelectValue placeholder="Source" />
@@ -111,12 +111,12 @@ const SearchForm: React.FC<SearchFormProps> = ({
           </div>
         </div>
         
-        <Button type="submit" className="h-12 text-base font-bold" disabled={isLoading}>
+        <Button type="submit" className="h-12 text-base font-bold" disabled={isLoading || isFavoritesView}>
           {isLoading ? 'Searching...' : 'Search'}
         </Button>
       </form>
       <div className="flex justify-center mt-6">
-        <Button onClick={() => setIsFavoritesView(!isFavoritesView)} variant="outline" className="text-base">
+        <Button onClick={() => setIsFavoritesView(!isFavoritesView)} variant="outline" className="text-base" disabled={isLoading}>
           {isFavoritesView ? 'Back to Search' : `View Favorites (${favoritesCount})`}
         </Button>
       </div>

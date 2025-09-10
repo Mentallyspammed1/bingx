@@ -29,7 +29,7 @@ type State = {
 
 type Action =
   | { type: 'SET_SEARCH_PARAMS'; payload: Partial<Omit<SearchInput, 'page'>> }
-  | { type: 'START_SEARCH' }
+  | { type: 'START_SEARCH'; payload: Omit<SearchInput, 'page'> }
   | { type: 'SEARCH_SUCCESS'; payload: { results: MediaItem[], newSearch: boolean } }
   | { type: 'SEARCH_FAILURE' }
   | { type: 'LOAD_MORE' }
@@ -59,7 +59,7 @@ function reducer(state: State, action: Action): State {
     case 'SET_SEARCH_PARAMS':
       return { ...state, searchParams: { ...state.searchParams, ...action.payload } };
     case 'START_SEARCH':
-      return { ...state, isLoading: true, page: 1, results: [], hasMore: true };
+      return { ...state, isLoading: true, page: 1, results: [], hasMore: true, isFavoritesView: false, searchParams: action.payload };
     case 'SEARCH_SUCCESS':
       return { 
         ...state, 
@@ -69,13 +69,13 @@ function reducer(state: State, action: Action): State {
         page: action.payload.newSearch ? 1 : state.page,
       };
     case 'SEARCH_FAILURE':
-      return { ...state, isLoading: false, results: [] };
+      return { ...state, isLoading: false, results: [], hasMore: false };
     case 'LOAD_MORE':
       return { ...state, page: state.page + 1, isLoading: true };
     case 'SET_SELECTED_ITEM':
       return { ...state, selectedItem: action.payload };
     case 'TOGGLE_FAVORITES_VIEW':
-      return { ...state, isFavoritesView: action.payload };
+      return { ...state, isFavoritesView: action.payload, hasMore: !action.payload && state.results.length > 0 };
     case 'SET_FAVORITES':
       return { ...state, favorites: action.payload };
     case 'SET_HISTORY':
@@ -152,7 +152,7 @@ export default function Home() {
     }
     
     if (newSearch) {
-        dispatch({ type: 'START_SEARCH' });
+        dispatch({ type: 'START_SEARCH', payload: params });
     } else {
         dispatch({ type: 'SET_PAGE', payload: searchPage });
     }
@@ -182,7 +182,6 @@ export default function Home() {
   };
   
   const handleHistorySearch = (historyItem: Omit<SearchInput, 'page'>) => {
-    dispatch({ type: 'SET_SEARCH_PARAMS', payload: historyItem });
     performSearch(historyItem, 1, true);
   };
 
@@ -205,36 +204,46 @@ export default function Home() {
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <Header />
       
-      <div className="bg-card/50 backdrop-blur-sm border border-primary/20 p-6 sm:p-8 rounded-2xl shadow-2xl shadow-primary/10">
-        <SearchForm
-          searchParams={searchParams}
-          setSearchParams={(payload) => dispatch({ type: 'SET_SEARCH_PARAMS', payload })}
-          onSubmit={handleSearchSubmit}
-          isLoading={isLoading}
-          isFavoritesView={isFavoritesView}
-          setIsFavoritesView={(payload) => dispatch({ type: 'TOGGLE_FAVORITES_VIEW', payload })}
-          favoritesCount={favorites.length}
-        />
-        <SearchHistory 
-          history={history}
-          onSearch={handleHistorySearch}
-          onClear={() => dispatch({ type: 'CLEAR_HISTORY' })}
-        />
+      <div className="relative p-1 bg-gradient-to-br from-primary via-secondary to-purple-500 rounded-2xl shadow-2xl shadow-primary/20">
+        <div className="bg-card/90 backdrop-blur-sm p-6 sm:p-8 rounded-[14px]">
+          <SearchForm
+            searchParams={searchParams}
+            setSearchParams={(payload) => dispatch({ type: 'SET_SEARCH_PARAMS', payload })}
+            onSubmit={handleSearchSubmit}
+            isLoading={isLoading}
+            isFavoritesView={isFavoritesView}
+            setIsFavoritesView={(payload) => dispatch({ type: 'TOGGLE_FAVORITES_VIEW', payload })}
+            favoritesCount={favorites.length}
+          />
+          <SearchHistory 
+            history={history}
+            onSearch={handleHistorySearch}
+            onClear={() => dispatch({ type: 'CLEAR_HISTORY' })}
+          />
+        </div>
       </div>
 
       <main className="mt-8">
         <ResultsGrid
           items={isFavoritesView ? favorites : results}
-          isLoading={isLoading}
+          isLoading={isLoading && page === 1}
           isFavoritesView={isFavoritesView}
           isFavorite={isFavorite}
           toggleFavorite={toggleFavorite}
           openModal={(payload) => dispatch({ type: 'SET_SELECTED_ITEM', payload })}
+          hasSearched={results.length > 0 || isLoading}
         />
         {!isFavoritesView && hasMore && results.length > 0 && !isLoading && (
           <div className="w-full flex justify-center mt-8">
             <Button onClick={handleLoadMore} variant="secondary" size="lg" disabled={isLoading}>
               {isLoading ? 'Loading...' : 'Load More'}
+            </Button>
+          </div>
+        )}
+         {isLoading && page > 1 && (
+          <div className="w-full flex justify-center mt-8">
+             <Button variant="secondary" size="lg" disabled>
+              Loading...
             </Button>
           </div>
         )}

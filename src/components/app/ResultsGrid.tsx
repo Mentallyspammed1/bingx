@@ -12,6 +12,7 @@ interface ResultsGridProps {
   isFavorite: (item: MediaItem) => boolean;
   toggleFavorite: (item: MediaItem) => void;
   openModal: (item: MediaItem) => void;
+  hasSearched: boolean;
 }
 
 const ResultsGrid: React.FC<ResultsGridProps> = ({
@@ -21,8 +22,9 @@ const ResultsGrid: React.FC<ResultsGridProps> = ({
   isFavorite,
   toggleFavorite,
   openModal,
+  hasSearched
 }) => {
-  if (isLoading && items.length === 0) {
+  if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {Array.from({ length: 8 }).map((_, i) => (
@@ -39,10 +41,17 @@ const ResultsGrid: React.FC<ResultsGridProps> = ({
   }
 
   if (items.length === 0) {
+    let message = "Enter a search to see results.";
+    if (isFavoritesView) {
+      message = "You haven't saved any favorites yet.";
+    } else if (hasSearched) {
+      message = "No results found for your query.";
+    }
+
     return (
       <div className="text-center py-16">
         <p className="text-xl text-muted-foreground">
-          {isFavoritesView ? "You haven't saved any favorites yet." : "Enter a search to see results."}
+          {message}
         </p>
       </div>
     );

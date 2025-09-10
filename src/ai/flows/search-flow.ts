@@ -327,7 +327,7 @@ const wow = {
 const mock = {
     name: 'Mock',
     videoUrl: (query: string, page: number) => `http://mock.com/videos?q=${query}&page=${page}`,
-    videoParser: ($: cheerio.CheerioAPI, rawBody: string, input: SearchInput): MediaItem[] => {
+    videoParser: (input: SearchInput): MediaItem[] => {
         return Array.from({ length: 10 }, (_, i) => ({
             id: `mock-video-${i}-${Date.now()}`,
             title: `Mock Video ${input.query} - Page ${input.page} - Item ${i + 1}`,
@@ -340,7 +340,7 @@ const mock = {
         }));
     },
     gifUrl: (query: string, page: number) => `http://mock.com/gifs?q=${query}&page=${page}`,
-    gifParser: ($: cheerio.CheerioAPI, rawBody: string, input: SearchInput): MediaItem[] => {
+    gifParser: (input: SearchInput): MediaItem[] => {
         return Array.from({ length: 10 }, (_, i) => ({
             id: `mock-gif-${i}-${Date.now()}`,
             title: `Mock GIF ${input.query} - Page ${input.page} - Item ${i + 1}`,
@@ -372,7 +372,7 @@ export async function search(input: SearchInput): Promise<SearchOutput> {
   }
 
   if (driverName.toLowerCase() === 'mock') {
-    return parserFn(cheerio.load(''), '', input);
+    return parserFn(input);
   }
 
   const url = urlFn(query, page);
@@ -388,7 +388,7 @@ export async function search(input: SearchInput): Promise<SearchOutput> {
     });
 
     const $ = cheerio.load(response.data);
-    return parserFn($, response.data, input);
+    return parserFn($, input);
     
   } catch (error: any) {
     console.error(`Error fetching from ${driver.name}: ${error.message}`);

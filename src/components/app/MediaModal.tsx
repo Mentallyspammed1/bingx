@@ -25,7 +25,7 @@ const MediaModal: React.FC<MediaModalProps> = ({ item, isOpen, onClose }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-full p-0 bg-card/80 backdrop-blur-lg border-primary/30 shadow-2xl shadow-primary/20">
+      <DialogContent className="max-w-5xl w-full p-0 bg-card/80 backdrop-blur-lg border-primary/30 shadow-2xl shadow-primary/20">
         <div className="aspect-video w-full bg-black flex items-center justify-center">
           {isVideo ? (
             <video
@@ -42,7 +42,7 @@ const MediaModal: React.FC<MediaModalProps> = ({ item, isOpen, onClose }) => {
               <Image
                 src={item.preview_video || item.thumbnail || ''}
                 alt={item.title}
-                layout="fill"
+                fill
                 objectFit="contain"
                 unoptimized
                 className="w-full h-full"

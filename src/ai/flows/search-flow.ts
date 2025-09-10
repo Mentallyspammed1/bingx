@@ -36,7 +36,7 @@ const pornhub = {
       const videoId = item.attr('data-id');
       const title = item.find('span.title a').text().trim();
       const img = item.find('img');
-      const thumbnail = makeAbsolute(img.attr('data-thumb_url'), 'https://www.pornhub.com');
+      const thumbnail = makeAbsolute(img.attr('data-mediumthumb') || img.attr('data-thumb_url'), 'https://www.pornhub.com');
       const duration = item.find('var.duration').text().trim();
       const preview_video = makeAbsolute(item.attr('data-preview_url'), 'https://www.pornhub.com');
       
@@ -140,7 +140,7 @@ const redtube = {
         const gifPageUrl = makeAbsolute(link.attr('href'), 'https://www.redtube.com');
         const gifId = item.attr('data-id');
         const title = item.find('.gif_card_title').text().trim() || 'Untitled GIF';
-        const staticThumbnailUrl = makeAbsolute(item.find('img.gif_card_thumb').attr('src'), 'https://www.redtube.com');
+        const staticThumbnailUrl = makeAbsolute(item.find('img.gif_card_thumb').attr('data-src') || item.find('img.gif_card_thumb').attr('src'), 'https://www.redtube.com');
         const animatedGifUrl = makeAbsolute(item.find('video.gif_preview_video source').attr('src'), 'https://www.redtube.com');
 
         if (gifPageUrl && title && animatedGifUrl && gifId) {
@@ -205,7 +205,7 @@ const xhamster = {
         const videoId = videoUrl?.match(/\/videos\/(.+?)-\d+/)?.[1];
         const img = item.find('img.video-thumb__img');
         const title = item.find('a.video-thumb-info__name').text().trim();
-        const thumbnail = makeAbsolute(img.attr('src'), 'https://xhamster.com');
+        const thumbnail = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://xhamster.com');
         const duration = item.find('.video-thumb__duration').text().trim();
         const preview_video = makeAbsolute(link.attr('data-preview-url'), 'https://xhamster.com');
         

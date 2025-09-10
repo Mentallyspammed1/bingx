@@ -110,87 +110,87 @@ const xvideos = {
 };
 
 const redtube = {
-  name: 'Redtube',
-  videoUrl: (query: string, page: number) => `https://www.redtube.com/?search=${encodeURIComponent(query)}&page=${page}`,
-  videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
-    const results: MediaItem[] = [];
-    $('div.video_item_wrapper').each((_, element) => {
-        const item = $(element);
-        const link = item.find('a.video_link').first();
-        const videoUrl = makeAbsolute(link.attr('href'), 'https://www.redtube.com');
-        const videoId = item.attr('data-id');
-        const title = item.find('.video_title').text().trim();
-        const img = item.find('img.video_thumb').first();
-        const thumbnail = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.redtube.com');
-        const duration = item.find('span.video_duration').text().trim();
-        const preview_video = makeAbsolute(item.find('img.preview_thumb').attr('src'), 'https://www.redtube.com');
+    name: 'Redtube',
+    videoUrl: (query: string, page: number) => `https://www.redtube.com/?search=${encodeURIComponent(query)}&page=${page}`,
+    videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
+        const results: MediaItem[] = [];
+        $('div.video_item_wrapper_red').each((_, element) => {
+            const item = $(element);
+            const link = item.find('a.video_link_red').first();
+            const videoUrl = makeAbsolute(link.attr('href'), 'https://www.redtube.com');
+            const videoId = item.attr('data-id');
+            const title = item.find('.video_title_red').text().trim();
+            const img = item.find('img.video_thumb_red').first();
+            const thumbnail = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.redtube.com');
+            const duration = item.find('span.video_duration_red').text().trim();
+            const preview_video = makeAbsolute(item.attr('data-preview-url'), 'https://www.redtube.com');
 
-        if (videoUrl && title && thumbnail && videoId) {
-            results.push({ id: videoId, title, url: videoUrl, duration, thumbnail, preview_video, source: 'Redtube', type: 'videos' });
-        }
-    });
-    return results;
-  },
-  gifUrl: (query: string, page: number) => `https://www.redtube.com/gifs/search?search=${encodeURIComponent(query)}&page=${page}`,
-  gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
-    const results: MediaItem[] = [];
-    $('div.gif_card_wrapper').each((_, element) => {
-        const item = $(element);
-        const link = item.find('a').first();
-        const gifPageUrl = makeAbsolute(link.attr('href'), 'https://www.redtube.com');
-        const gifId = item.attr('data-id');
-        const title = item.find('.gif_card_title').text().trim() || 'Untitled GIF';
-        const staticThumbnailUrl = makeAbsolute(item.find('img.gif_card_thumb').attr('data-src') || item.find('img.gif_card_thumb').attr('src'), 'https://www.redtube.com');
-        const animatedGifUrl = makeAbsolute(item.find('video.gif_preview_video source').attr('src'), 'https://www.redtube.com');
+            if (videoUrl && title && thumbnail && videoId) {
+                results.push({ id: videoId, title, url: videoUrl, duration, thumbnail, preview_video, source: 'Redtube', type: 'videos' });
+            }
+        });
+        return results;
+    },
+    gifUrl: (query: string, page: number) => `https://www.redtube.com/gifs/search?search=${encodeURIComponent(query)}&page=${page}`,
+    gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
+        const results: MediaItem[] = [];
+        $('div.gif_card_wrapper_red').each((_, element) => {
+            const item = $(element);
+            const link = item.find('a').first();
+            const gifPageUrl = makeAbsolute(link.attr('href'), 'https://www.redtube.com');
+            const gifId = item.attr('data-id');
+            const title = item.find('.gif_card_title_red').text().trim() || 'Untitled GIF';
+            const staticThumbnailUrl = makeAbsolute(item.find('img.gif_card_thumb_red').attr('data-src') || item.find('img.gif_card_thumb_red').attr('src'), 'https://www.redtube.com');
+            const animatedGifUrl = makeAbsolute(item.find('video source').attr('src'), 'https://www.redtube.com');
 
-        if (gifPageUrl && title && animatedGifUrl && gifId) {
-            results.push({ id: gifId, title, url: gifPageUrl, thumbnail: staticThumbnailUrl, preview_video: animatedGifUrl, source: 'Redtube', type: 'gifs' });
-        }
-    });
-    return results;
-  }
+            if (gifPageUrl && title && animatedGifUrl && gifId) {
+                results.push({ id: gifId, title, url: gifPageUrl, thumbnail: staticThumbnailUrl, preview_video: animatedGifUrl, source: 'Redtube', type: 'gifs' });
+            }
+        });
+        return results;
+    }
 };
 
 const sex = {
-  name: 'Sex.com',
-  videoUrl: (query: string, page: number) => `https://www.sex.com/search/videos?query=${encodeURIComponent(query)}&page=${page}`,
-  videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
-    const results: MediaItem[] = [];
-    $('div.masonry_item_video').each((_, element) => {
-        const item = $(element);
-        const link = item.find('a').first();
-        const videoUrl = makeAbsolute(link.attr('href'), 'https://www.sex.com');
-        const videoId = item.attr('data-id');
-        const title = item.find('.title').text().trim();
-        const img = item.find('img.video_thumb').first();
-        const thumbnail = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.sex.com');
-        const duration = item.find('div.duration').text().trim();
-        const preview_video = makeAbsolute(item.find('img.preview_thumb').attr('data-src'), 'https://www.sex.com');
+    name: 'Sex.com',
+    videoUrl: (query: string, page: number) => `https://www.sex.com/search/videos?query=${encodeURIComponent(query)}&page=${page}`,
+    videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
+        const results: MediaItem[] = [];
+        $('div.sex-masonry-item--video').each((_, element) => {
+            const item = $(element);
+            const link = item.find('a.sex-masonry-item__thumbnail').first();
+            const videoUrl = makeAbsolute(link.attr('href'), 'https://www.sex.com');
+            const videoId = item.attr('data-video-id');
+            const title = item.find('.sex-masonry-item__title').text().trim();
+            const img = item.find('img').first();
+            const thumbnail = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.sex.com');
+            const duration = item.find('div.sex-video-duration').text().trim();
+            const preview_video = makeAbsolute(img.attr('data-preview-url'), 'https://www.sex.com');
 
-        if (videoUrl && title && thumbnail && videoId) {
-            results.push({ id: videoId, title, url: videoUrl, duration, thumbnail, preview_video, source: 'Sex.com', type: 'videos' });
-        }
-    });
-    return results;
-  },
-  gifUrl: (query: string, page: number) => `https://www.sex.com/search/gifs?query=${encodeURIComponent(query)}&page=${page}`,
-  gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
-    const results: MediaItem[] = [];
-    $('div.masonry_item_photo').each((_, element) => {
-        const item = $(element);
-        const link = item.find('a').first();
-        const gifPageUrl = makeAbsolute(link.attr('href'), 'https://www.sex.com');
-        const gifId = item.attr('data-id');
-        const img = item.find('img').first();
-        const title = img.attr('alt') || 'Untitled GIF';
-        const animatedGifUrl = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.sex.com');
+            if (videoUrl && title && thumbnail && videoId) {
+                results.push({ id: videoId, title, url: videoUrl, duration, thumbnail, preview_video, source: 'Sex.com', type: 'videos' });
+            }
+        });
+        return results;
+    },
+    gifUrl: (query: string, page: number) => `https://www.sex.com/search/gifs?query=${encodeURIComponent(query)}&page=${page}`,
+    gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
+        const results: MediaItem[] = [];
+        $('div.sex-masonry-item--photo').each((_, element) => {
+            const item = $(element);
+            const link = item.find('a.sex-masonry-item__thumbnail').first();
+            const gifPageUrl = makeAbsolute(link.attr('href'), 'https://www.sex.com');
+            const gifId = item.attr('data-id');
+            const img = item.find('img').first();
+            const title = img.attr('alt') || 'Untitled GIF';
+            const animatedGifUrl = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.sex.com');
 
-        if (gifPageUrl && title && animatedGifUrl && gifId) {
-            results.push({ id: gifId, title, url: gifPageUrl, thumbnail: animatedGifUrl, preview_video: animatedGifUrl, source: 'Sex.com', type: 'gifs' });
-        }
-    });
-    return results;
-  }
+            if (gifPageUrl && title && animatedGifUrl && gifId) {
+                results.push({ id: gifId, title, url: gifPageUrl, thumbnail: animatedGifUrl, preview_video: animatedGifUrl, source: 'Sex.com', type: 'gifs' });
+            }
+        });
+        return results;
+    }
 };
 
 const xhamster = {

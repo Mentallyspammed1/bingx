@@ -8,7 +8,7 @@ export const SearchInputSchema = z.object({
 });
 export type SearchInput = z.infer<typeof SearchInputSchema>;
 
-const MediaResultSchema = z.object({
+export const MediaItemSchema = z.object({
     id: z.string(),
     title: z.string(),
     url: z.string(),
@@ -18,6 +18,8 @@ const MediaResultSchema = z.object({
     source: z.string(),
     type: z.string(),
 });
+export type MediaItem = z.infer<typeof MediaItemSchema>;
 
-export const SearchOutputSchema = z.array(MediaResultSchema);
+
+export const SearchOutputSchema = z.array(MediaItemSchema);
 export type SearchOutput = z.infer<typeof SearchOutputSchema>;

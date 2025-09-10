@@ -4,68 +4,57 @@
 
 @layer base {
   :root {
-    --background: 222 89% 10%;
+    --background: 265 48% 13%; /* Dark Desaturated Violet */
     --foreground: 210 40% 98%;
-    --card: 222 89% 12%;
+
+    --card: 265 48% 15%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 89% 10%;
+
+    --popover: 265 48% 13%;
     --popover-foreground: 210 40% 98%;
-    --primary: 326 100% 50%;
+
+    --primary: 284 88% 63%; /* Vivid Violet */
     --primary-foreground: 210 40% 98%;
-    --secondary: 187 100% 50%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 217 33% 17%;
+    
+    --secondary: 246 88% 64%; /* Electric Indigo */
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 246 33% 20%;
     --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
+
+    --accent: 246 33% 20%; /* Electric Indigo (darker shade for accents) */
     --accent-foreground: 210 40% 98%;
+
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 213 94% 68%;
+
+    --border: 246 33% 25%;
+    --input: 246 33% 20%;
+    --ring: 246 88% 64%; /* Electric Indigo for focus rings */
+    
     --radius: 0.5rem;
-
-    --neon-pink: 326 100% 50%;
-    --neon-cyan: 187 100% 50%;
-    --neon-green: 94 100% 46%;
-    --neon-purple: 280 100% 50%;
-
-    --dark-bg-start: 247 48% 8%;
-    --dark-bg-end: 240 60% 10%;
-    --input-bg: 240 60% 8%;
-    --text-color: #f0f0f0;
-    --card-bg: rgba(10, 10, 26, 0.8);
-    --modal-bg: rgba(5, 5, 15, 0.96);
-    --error-bg: rgba(255, 20, 100, 0.88);
-    --error-border: hsl(var(--neon-pink));
-    --disabled-opacity: 0.4;
-    --focus-outline-color: hsl(var(--neon-green));
-    --link-color: hsl(var(--neon-cyan));
-    --link-hover-color: hsl(var(--neon-green));
-    --favorite-btn-color: #aaa;
-    --favorite-btn-active-color: hsl(var(--neon-pink));
   }
 
   .dark {
-    --background: 222 89% 10%;
+    --background: 265 48% 13%;
     --foreground: 210 40% 98%;
-    --card: 222 89% 12%;
+    --card: 265 48% 15%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 89% 10%;
+    --popover: 265 48% 13%;
     --popover-foreground: 210 40% 98%;
-    --primary: 326 100% 50%;
+    --primary: 284 88% 63%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 187 100% 50%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 217 33% 17%;
+    --secondary: 246 88% 64%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 246 33% 20%;
     --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
+    --accent: 246 33% 20%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 213 94% 68%;
+    --border: 246 33% 25%;
+    --input: 246 33% 20%;
+    --ring: 246 88% 64%;
   }
 }
 
@@ -78,27 +67,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    background: linear-gradient(145deg, hsl(var(--dark-bg-start)) 0%, hsl(var(--dark-bg-end)) 100%);
-    color: var(--text-color);
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Inter', sans-serif;
     min-height: 100vh;
     overflow-x: hidden;
-    scrollbar-color: hsl(var(--neon-pink)) var(--input-bg);
-    scrollbar-width: thin;
-  }
-  ::-webkit-scrollbar {
-    width: 10px;
-  }
-  ::-webkit-scrollbar-track {
-    background: var(--input-bg);
-    border-radius: 5px;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: linear-gradient(hsl(var(--neon-pink)), hsl(var(--neon-purple)));
-    border-radius: 5px;
-    border: 1px solid hsl(var(--dark-bg-end));
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(hsl(var(--neon-purple)), hsl(var(--neon-pink)));
   }
 }

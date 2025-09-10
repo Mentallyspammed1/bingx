@@ -29,7 +29,7 @@ const pornhub = {
   videoUrl: (query: string, page: number) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(query)}&page=${page}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('ul.videos.search-video-thumbs li.pcVideoListItem').each((_, element) => {
+    $('ul#videoSearchResult li.videoBox').each((_, element) => {
       const item = $(element);
       const link = item.find('a').first();
       const videoUrl = makeAbsolute(link.attr('href'), 'https://www.pornhub.com');
@@ -198,13 +198,13 @@ const xhamster = {
   videoUrl: (query: string, page: number) => `https://xhamster.com/search/${encodeURIComponent(query)}?page=${page}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('div.video-thumb-info').each((_, element) => {
-        const item = $(element);
+    $('div.video-thumb-info__name').each((_, element) => {
+        const item = $(element).closest('.video-thumb-info');
         const link = item.find('a.video-thumb__image-container').first();
         const videoUrl = makeAbsolute(link.attr('href'), 'https://xhamster.com');
         const videoId = videoUrl?.match(/\/videos\/(.+?)-\d+/)?.[1];
         const img = item.find('img.video-thumb__img');
-        const title = img.attr('alt');
+        const title = item.find('a.video-thumb-info__name').text().trim();
         const thumbnail = makeAbsolute(img.attr('src'), 'https://xhamster.com');
         const duration = item.find('.video-thumb__duration').text().trim();
         const preview_video = makeAbsolute(link.attr('data-preview-url'), 'https://xhamster.com');

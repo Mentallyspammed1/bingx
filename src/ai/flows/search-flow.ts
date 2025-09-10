@@ -29,7 +29,7 @@ const pornhub = {
   videoUrl: (query: string, page: number) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(query)}&page=${page}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('li.videoBox').each((_, element) => {
+    $('div.phimage').each((_, element) => {
       const item = $(element);
       const link = item.find('a').first();
       const videoUrl = makeAbsolute(link.attr('href'), 'https://www.pornhub.com');
@@ -193,18 +193,26 @@ const sex = {
 
 const xhamster = {
   name: 'xHamster',
-  videoUrl: (query: string, page: number) => `https://xhamster.com/search?q=${encodeURIComponent(query)}&page=${page}`,
+  videoUrl: (query: string, page: number) => `https://xhamster.com/search/${encodeURIComponent(query)}?page=${page}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('.video-thumb-image__image').each((_, element) => {
+    $('div.video-thumb-info__container').each((_, element) => {
         const item = $(element);
-        const videoUrl = makeAbsolute(item.attr('href'), 'https://xhamster.com');
+        const link = item.find('a.video-thumb-info__image-container').first();
+        const videoUrl = makeAbsolute(link.attr('href'), 'https://xhamster.com');
         const videoId = videoUrl?.match(/\/videos\/(.+?)-\d+/)?.[1];
-        const img = item.find('img');
+        const img = link.find('img');
         const title = img.attr('alt');
         const thumbnail = makeAbsolute(img.attr('src'), 'https://xhamster.com');
-        const duration = item.closest('.video-thumb-info__container').find('.video-thumb-info__duration').text().trim();
-        const preview_video = makeAbsolute(item.attr('data-preview-video-url'), 'https://xhamster.com');
+        const duration = item.find('.video-thumb-info__duration').text().trim();
+        const preview_video_url_attr = link.attr('onmouseover');
+        let preview_video = null;
+        if(preview_video_url_attr) {
+          const match = preview_video_url_attr.match(/showVideoPreview\([^,]+,\s*'([^']+)'/);
+          if (match && match[1]) {
+            preview_video = makeAbsolute(match[1], 'https://xhamster.com');
+          }
+        }
 
         if (videoUrl && title && thumbnail && videoId) {
             results.push({ id: videoId, title, url: videoUrl, duration, thumbnail, preview_video, source: 'xHamster', type: 'videos' });
@@ -384,6 +392,9 @@ export async function search(input: SearchInput): Promise<SearchOutput> {
     
   } catch (error: any) {
     console.error(`Error fetching from ${driver.name}: ${error.message}`);
+    if (error.response?.status === 404) {
+      return [];
+    }
     throw new Error(`Failed to fetch results from ${driver.name}. The site may be down or has changed its structure.`);
   }
 }

@@ -17,36 +17,24 @@ interface NeonCardProps {
 
 const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, openModal }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+  
   const handleMouseEnter = () => {
     if (item.preview_video && videoRef.current) {
-      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-      
-      hoverTimeoutRef.current = setTimeout(() => {
-        const video = videoRef.current;
-        if (video) {
-          video.currentTime = 0;
-          const playPromise = video.play();
-          if (playPromise !== undefined) {
-            playPromise.catch(error => {
-              if (error.name !== 'AbortError') {
-                console.error('Preview video play failed:', error);
-              }
-            });
-          }
-        }
-      }, 150); // Add a small delay to allow buffering
+      const video = videoRef.current;
+      video.currentTime = 0;
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          // Auto-play was prevented
+          // We can ignore this error as it's common in browsers
+        });
+      }
     }
   };
 
   const handleMouseLeave = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-    const video = videoRef.current;
-    if (video) {
+    if (videoRef.current) {
+      const video = videoRef.current;
       video.pause();
       video.currentTime = 0;
     }
@@ -71,7 +59,7 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, o
             layout="fill"
             objectFit="cover"
             unoptimized
-            className="transition-opacity duration-300 group-hover:opacity-10"
+            className="transition-opacity duration-300 opacity-100 group-hover:opacity-0"
             onError={(e) => (e.currentTarget.style.display = 'none')}
           />
         )}
@@ -82,8 +70,9 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, o
             muted
             loop
             playsInline
-            preload="auto"
+            preload="none" // Changed from auto to none
             className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            onCanPlay={() => { /* Ready to play, but we wait for hover */ }}
           ></video>
         )}
         {item.duration && (

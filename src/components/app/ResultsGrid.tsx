@@ -47,7 +47,7 @@ const ResultsGrid: React.FC<ResultsGridProps> = ({
     if (isFavoritesView) {
       message = "You haven't saved any favorites yet.";
     } else if (hasSearched) {
-      message = "No results found. The site's structure might have changed.";
+      message = "No results found. The site may be broken.";
     }
 
     return (

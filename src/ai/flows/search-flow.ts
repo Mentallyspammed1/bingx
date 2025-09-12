@@ -114,7 +114,7 @@ const redtube = {
     videoUrl: (query: string, page: number) => `https://www.redtube.com/?search=${encodeURIComponent(query)}&page=${page}`,
     videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
         const results: MediaItem[] = [];
-        $('#redtube-popular-list-container > .video-item').each((_, element) => {
+        $('div.video-item').each((_, element) => {
             const item = $(element);
             const link = item.find('a.video-item-link').first();
             const videoUrl = makeAbsolute(link.attr('href'), 'https://www.redtube.com');

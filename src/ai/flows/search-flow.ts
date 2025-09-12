@@ -29,15 +29,15 @@ const pornhub = {
   videoUrl: (query: string, page: number) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(query)}&page=${page}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('ul.videos.search-video-thumbs > li.videoBox').each((_, element) => {
+    $('#videoSearchResult .videoBox, #videoSearchResult .pcVideoListItem').each((_, element) => {
       const item = $(element);
       const link = item.find('a').first();
       const videoUrl = makeAbsolute(link.attr('href'), 'https://www.pornhub.com');
-      const videoId = item.attr('data-id');
-      const title = item.find('span.title a').text().trim();
+      const videoId = item.attr('data-id') || item.attr('_vkey') || link.attr('href')?.split('viewkey=')[1];
+      const title = item.find('.title a').text().trim() || item.find('.videoTitle').text().trim();
       const img = item.find('img');
       const thumbnail = makeAbsolute(img.attr('data-mediumthumb') || img.attr('data-thumb_url') || img.attr('src'), 'https://www.pornhub.com');
-      const duration = item.find('var.duration').text().trim();
+      const duration = item.find('var.duration, .duration').text().trim();
       const preview_video = makeAbsolute(item.attr('data-preview_url'), 'https://www.pornhub.com');
       
       if (videoUrl && title && thumbnail && videoId && !thumbnail.includes('nothumb')) {

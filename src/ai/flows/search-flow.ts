@@ -81,8 +81,8 @@ const xvideos = {
       const img = item.find('div.thumb img').first();
       const thumbnail = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.xvideos.com');
       const duration = item.find('span.duration').text().trim();
-      const preview_video = makeAbsolute(img.attr('data-previewvideo'), 'https://www.xvideos.com');
-
+      const preview_video = makeAbsolute(item.find('.thumb-inside a').attr('data-previewvideo'), 'https://www.xvideos.com');
+      
       if (videoUrl && title && thumbnail && videoId) {
         results.push({ id: videoId, title, url: videoUrl, duration, thumbnail, preview_video, source: 'XVideos', type: 'videos' });
       }
@@ -198,16 +198,16 @@ const xhamster = {
   videoUrl: (query: string, page: number) => `https://xhamster.com/search/${encodeURIComponent(query)}?page=${page}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('div.video-thumb-info__name').each((_, element) => {
-        const item = $(element).closest('.video-thumb-info');
-        const link = item.find('a.video-thumb__image-container').first();
-        const videoUrl = makeAbsolute(link.attr('href'), 'https://xhamster.com');
+    $('a.video-thumb__image-container').each((_, element) => {
+        const item = $(element);
+        const videoUrl = makeAbsolute(item.attr('href'), 'https://xhamster.com');
         const videoId = videoUrl?.match(/\/videos\/(.+?)-\d+/)?.[1];
+        const info = item.closest('.video-thumb-container');
         const img = item.find('img.video-thumb__img');
-        const title = item.find('a.video-thumb-info__name').text().trim();
+        const title = info.find('a.video-thumb-info__name').text().trim();
         const thumbnail = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://xhamster.com');
-        const duration = item.find('.video-thumb__duration').text().trim();
-        const preview_video = makeAbsolute(link.attr('data-preview-url'), 'https://xhamster.com');
+        const duration = info.find('.video-thumb__duration').text().trim();
+        const preview_video = makeAbsolute(item.attr('data-preview-url'), 'https://xhamster.com');
         
         if (videoUrl && title && thumbnail && videoId) {
             results.push({ id: videoId, title, url: videoUrl, duration, thumbnail, preview_video, source: 'xHamster', type: 'videos' });
@@ -218,7 +218,7 @@ const xhamster = {
   gifUrl: (query: string, page: number) => `https://xhamster.com/gifs/search?q=${encodeURIComponent(query)}&page=${page}`,
   gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('div.gif-thumb__thumb-container a').each((_, element) => {
+    $('a.gif-thumb__thumb-container').each((_, element) => {
         const item = $(element);
         const gifPageUrl = makeAbsolute(item.attr('href'), 'https://xhamster.com');
         const gifId = gifPageUrl?.match(/\/gifs\/(.+)/)?.[1];

@@ -21,18 +21,22 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, o
 
   const handleMouseEnter = () => {
     if (item.preview_video && videoRef.current) {
-        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-        
-        videoRef.current.currentTime = 0;
-        const playPromise = videoRef.current.play();
-
-        if (playPromise !== undefined) {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+      
+      hoverTimeoutRef.current = setTimeout(() => {
+        const video = videoRef.current;
+        if (video) {
+          video.currentTime = 0;
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
             playPromise.catch(error => {
-                if (error.name !== 'AbortError') {
-                    console.error('Preview video play failed:', error);
-                }
+              if (error.name !== 'AbortError') {
+                console.error('Preview video play failed:', error);
+              }
             });
+          }
         }
+      }, 150); // Add a small delay to allow buffering
     }
   };
 
@@ -41,8 +45,10 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, o
       clearTimeout(hoverTimeoutRef.current);
       hoverTimeoutRef.current = null;
     }
-    if (videoRef.current) {
-      videoRef.current.pause();
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      video.currentTime = 0;
     }
   };
 

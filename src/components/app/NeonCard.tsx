@@ -23,6 +23,8 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, o
 
   const handleMouseEnter = () => {
     if (!item.preview_video || !videoRef.current) return;
+    
+    // Clear any existing timeout to prevent multiple triggers
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     
     timeoutRef.current = setTimeout(() => {
@@ -33,17 +35,21 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, o
         if (playPromise !== undefined) {
           playPromise
             .then(() => setIsPlaying(true))
-            .catch(() => setIsPlaying(false));
+            .catch((error) => {
+              // Autoplay was prevented.
+              console.error("Video play failed:", error);
+              setIsPlaying(false);
+            });
         }
       }
-    }, 150);
+    }, 150); // A small delay to prevent jerky behavior on quick hovers
   };
 
   const handleMouseLeave = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     
     const video = videoRef.current;
-    if (video) {
+    if (video && !video.paused) {
       video.pause();
       video.currentTime = 0;
       setIsPlaying(false);
@@ -54,14 +60,18 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, o
 
   return (
     <Card
-      onClick={onClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className="group relative overflow-hidden rounded-lg shadow-lg transition-all duration-300 ease-in-out cursor-pointer h-72 flex flex-col bg-card hover:shadow-primary/40 hover:border-primary/50 hover:-translate-y-1"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && onClick()}
+      className="group relative overflow-hidden rounded-lg shadow-lg transition-all duration-300 ease-in-out h-72 flex flex-col bg-card hover:shadow-primary/40 hover:border-primary/50 hover:-translate-y-1"
     >
-      <CardContent className="relative p-0 h-48 flex-shrink-0 bg-black">
+      <CardContent 
+        onClick={onClick}
+        className="relative p-0 h-48 flex-shrink-0 bg-black cursor-pointer"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && onClick()}
+        role="button"
+        aria-label={`View details for ${item.title}`}
+      >
         {item.thumbnail && (
           <Image
             src={item.thumbnail}
@@ -104,7 +114,7 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, o
             favorite && "text-primary hover:text-primary/80"
           )}
           onClick={(e) => {
-            e.stopPropagation();
+            e.stopPropagation(); // Prevent card's onClick from firing
             toggleFavorite(item);
           }}
           aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
@@ -121,5 +131,3 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, o
 };
 
 export default NeonCard;
-
-    

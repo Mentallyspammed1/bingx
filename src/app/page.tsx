@@ -70,8 +70,8 @@ function reducer(state: State, action: Action): State {
         ...state,
         isLoading: true,
         page: action.payload.page,
-        results: action.payload.page === 1 ? [] : state.results,
-        hasMore: action.payload.page === 1 ? true : state.hasMore,
+        results: action.payload.page === 1 ? [] : state.results, // Clear results only on a new search
+        hasMore: true, // Assume there are more results until a search returns none
         isFavoritesView: false,
         searchParams: action.payload.params,
       };
@@ -135,6 +135,10 @@ export default function Home() {
         try {
             const driverNames = await getDrivers();
             dispatch({ type: 'SET_DRIVERS', payload: driverNames });
+            // Set a default driver if the current one isn't in the list
+            if (driverNames.length > 0 && !driverNames.map(d => d.toLowerCase()).includes(initialState.searchParams.driver)) {
+              dispatch({ type: 'SET_SEARCH_PARAMS', payload: { driver: driverNames[0].toLowerCase() } });
+            }
         } catch (error) {
             console.error('Failed to fetch drivers', error);
         }
@@ -185,6 +189,7 @@ export default function Home() {
     }
   }, [toast]);
 
+  // Effect to handle URL changes and trigger searches
   useEffect(() => {
     const query = urlSearchParams.get('q');
     const driver = urlSearchParams.get('driver');
@@ -197,24 +202,26 @@ export default function Home() {
       type: (type === 'videos' || type === 'gifs') ? type : 'videos',
     };
     
+    // Determine if this is a new search vs. pagination
     const isNewSearch = newSearchParams.query !== searchParams.query || newSearchParams.driver !== searchParams.driver || newSearchParams.type !== searchParams.type;
 
     if (query) {
+       // Trigger search if: it's a new query, or the page number has changed.
        if (isNewSearch || pageNum !== page) {
          performSearch(newSearchParams, pageNum);
        }
-    } else {
-        if(results.length > 0) {
-            dispatch({ type: 'SET_RESULTS', payload: [] });
-        }
+    } else if (results.length > 0) {
+        // Clear results if query is removed from URL
+        dispatch({ type: 'SET_RESULTS', payload: [] });
     }
 
+    // Sync component state with URL if they diverge
     if (isNewSearch) {
         dispatch({ type: 'SET_SEARCH_PARAMS', payload: newSearchParams });
     }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlSearchParams, performSearch]);
+  }, [urlSearchParams]); // Re-run only when URL search params change. `performSearch` and `searchParams` are stable or handled.
 
 
   const updateUrl = (params: Partial<Omit<SearchInput, 'page'>> & { page?: number }) => {
@@ -235,6 +242,7 @@ export default function Home() {
       });
       return;
     }
+    // A new search always starts at page 1
     updateUrl({ ...searchParams, page: 1 });
   };
   
@@ -243,8 +251,10 @@ export default function Home() {
   };
 
   const handleLoadMore = () => {
-    const newPage = page + 1;
-    updateUrl({ page: newPage });
+    if (!isLoading && hasMore) {
+      const newPage = page + 1;
+      updateUrl({ page: newPage });
+    }
   };
 
   const isFavorite = useCallback((item: MediaItem) => {
@@ -270,7 +280,7 @@ export default function Home() {
       ? favorites.filter(fav => fav.url !== item.url)
       : [...favorites, item];
     saveFavorites(newFavorites);
-  }, [favorites, isFavorite]);
+  }, [favorites, isFavorite, saveFavorites]);
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -299,7 +309,7 @@ export default function Home() {
       <main className="mt-8">
         <ResultsGrid
           items={isFavoritesView ? favorites : results}
-          isLoading={isLoading && page === 1}
+          isLoading={isLoading && page === 1} // Only show skeleton on initial load
           isFavoritesView={isFavoritesView}
           isFavorite={isFavorite}
           toggleFavorite={toggleFavorite}
@@ -308,8 +318,8 @@ export default function Home() {
         />
         {!isFavoritesView && hasMore && results.length > 0 && !isLoading && (
           <div className="w-full flex justify-center mt-8">
-            <Button onClick={handleLoadMore} variant="secondary" size="lg" disabled={isLoading}>
-              {isLoading ? 'Loading...' : 'Load More'}
+            <Button onClick={handleLoadMore} variant="secondary" size="lg">
+              Load More
             </Button>
           </div>
         )}

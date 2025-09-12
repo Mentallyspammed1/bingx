@@ -184,11 +184,11 @@ const sex = {
     gifUrl: (query: string, page: number) => `https://www.sex.com/search/gifs?query=${encodeURIComponent(query)}&page=${page}`,
     gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
         const results: MediaItem[] = [];
-        $('.gif-item, [data-id*="gif-item-"]').each((_, element) => {
+        $('div[id^="gif-item-"]').each((_, element) => {
             const item = $(element);
             const link = item.find('a[href*="/gif/"]').first();
             const gifPageUrl = makeAbsolute(link.attr('href'), 'https://www.sex.com');
-            const gifId = item.attr('data-id') || item.attr('id')?.replace('gif-item-','');
+            const gifId = item.attr('id')?.replace('gif-item-', '');
             const img = item.find('img').first();
             const title = img.attr('alt') || 'Untitled GIF';
             const animatedGifUrl = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.sex.com');

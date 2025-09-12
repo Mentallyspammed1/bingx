@@ -89,14 +89,14 @@ const xvideos = {
     });
     return results;
   },
-  gifUrl: (query: string, page: number) => `https://www.xvideos.com/gifs/${query ? 'search/' + encodeURIComponent(query) : ''}?p=${page > 0 ? page - 1 : 0}`,
+  gifUrl: (query: string, page: number) => `https://www.xvideos.com/gifs/search/${encodeURIComponent(query)}?p=${page > 0 ? page - 1 : 0}`,
   gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
     $('div.gif-thumb-block-content').each((_, element) => {
       const item = $(element);
       const link = item.find('a').first();
       const gifPageUrl = makeAbsolute(link.attr('href'), 'https://www.xvideos.com');
-      const gifId = gifPageUrl?.match(/\/gif\/(\d+)\//)?.[1];
+      const gifId = gifPageUrl?.match(/\/gif\/(.+?)\//)?.[1];
       const title = item.find('p.gif-title').text().trim() || 'Untitled GIF';
       const img = item.find('img').first();
       const animatedGifUrl = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.xvideos.com');

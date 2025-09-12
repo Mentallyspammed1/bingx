@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,31 +12,48 @@ interface NeonCardProps {
   item: MediaItem;
   isFavorite: (item: MediaItem) => boolean;
   toggleFavorite: (item: MediaItem) => void;
-  openModal: (item: MediaItem) => void;
 }
 
-const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, openModal }) => {
+const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  
+  const [isPlaying, setIsPlaying] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleMouseEnter = () => {
-    if (item.preview_video && videoRef.current) {
-      const video = videoRef.current;
-      video.currentTime = 0;
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          // Auto-play was prevented
-          // We can ignore this error as it's common in browsers
-        });
-      }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
     }
+    timeoutRef.current = setTimeout(() => {
+      if (item.preview_video && videoRef.current) {
+        const video = videoRef.current;
+        video.currentTime = 0;
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            setIsPlaying(true);
+          }).catch(error => {
+             setIsPlaying(false);
+          });
+        }
+      }
+    }, 150); 
   };
 
   const handleMouseLeave = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
     if (videoRef.current) {
       const video = videoRef.current;
       video.pause();
       video.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
+  const handleCardClick = () => {
+    if (item.url) {
+      window.open(item.url, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -44,12 +61,12 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, o
 
   return (
     <Card
-      onClick={() => openModal(item)}
+      onClick={handleCardClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className="group relative overflow-hidden rounded-lg shadow-lg transition-all duration-300 ease-in-out cursor-pointer h-72 flex flex-col bg-card hover:shadow-primary/40 hover:border-primary/50 hover:-translate-y-1"
       tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && openModal(item)}
+      onKeyDown={(e) => e.key === 'Enter' && handleCardClick()}
     >
       <CardContent className="relative p-0 h-48 flex-shrink-0 bg-black">
         {item.thumbnail && (
@@ -59,7 +76,10 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, o
             layout="fill"
             objectFit="cover"
             unoptimized
-            className="transition-opacity duration-300 opacity-100 group-hover:opacity-0"
+            className={cn(
+              "transition-opacity duration-300",
+              isPlaying ? "opacity-0" : "opacity-100"
+            )}
             onError={(e) => (e.currentTarget.style.display = 'none')}
           />
         )}
@@ -70,9 +90,11 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, o
             muted
             loop
             playsInline
-            preload="none" // Changed from auto to none
-            className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-            onCanPlay={() => { /* Ready to play, but we wait for hover */ }}
+            preload="auto"
+            className={cn(
+              "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
+              isPlaying ? "opacity-100" : "opacity-0"
+            )}
           ></video>
         )}
         {item.duration && (

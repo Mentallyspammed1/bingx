@@ -71,7 +71,6 @@ const ResultsGrid: React.FC<ResultsGridProps> = ({
           item={item}
           isFavorite={isFavorite}
           toggleFavorite={toggleFavorite}
-          openModal={openModal}
         />
       ))}
     </div>

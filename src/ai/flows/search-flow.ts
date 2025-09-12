@@ -41,7 +41,7 @@ const pornhub = {
         const videoId = item.attr('data-id') || item.attr('_vkey') || videoUrl?.split('viewkey=')[1];
         const title = link.text().trim();
         const img = item.find('img.thumb, img.video-thumb-img');
-        const thumbnail = makeAbsolute(img.attr('data-thumb_url') || img.attr('data-src') || img.attr('src'), 'https://www.pornhub.com');
+        const thumbnail = makeAbsolute(img.attr('data-mediumthumb') || img.attr('data-thumb_url') || img.attr('data-src') || img.attr('src'), 'https://www.pornhub.com');
         const duration = item.find('.duration, .video-duration').text().trim();
         // Pornhub has complex logic for video previews, sometimes in JS. This is a best-effort extraction.
         const preview_video = makeAbsolute(item.find('a[href*="viewkey="]').attr('data-preview_url') || img.attr('data-preview_url'), 'https://www.pornhub.com');
@@ -129,7 +129,7 @@ const redtube = {
           const videoId = item.attr('data-id');
           const title = item.find('.video-item-title, .video_title').text().trim();
           const img = item.find('img.video-item-img, img.video_thumb').first();
-          const thumbnail = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.redtube.com');
+          const thumbnail = makeAbsolute(img.attr('data-mediumthumb') || img.attr('data-src') || img.attr('src'), 'https://www.redtube.com');
           const duration = item.find('.video-duration, .duration').text().trim();
           const preview_video = makeAbsolute(item.find('a[href*="/' + videoId +'"]').attr('data-preview'), 'https://www.redtube.com');
 
@@ -477,7 +477,7 @@ const suggestSelectorsFlow = ai.defineFlow(
     const { output } = await ai.generate({
       prompt,
       output: { schema: SelectorSuggestionOutputSchema },
-      model: ai.getModel('googleai/gemini-2.5-flash'), // Using a powerful model for code generation
+      model: 'googleai/gemini-pro',
     });
     
     return output!;

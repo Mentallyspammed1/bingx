@@ -34,7 +34,7 @@ const pornhub = {
   videoUrl: (query: string, page: number) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(query)}&page=${page}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('.video-grid-item, .videoBox').each((_, element) => {
+    $('li.videoBox, li.video-grid-item').each((_, element) => {
         const item = $(element);
         const link = item.find('a.video-title-link, .title a').first();
         const videoUrl = makeAbsolute(link.attr('href'), 'https://www.pornhub.com');
@@ -43,7 +43,6 @@ const pornhub = {
         const img = item.find('img.thumb, img.video-thumb-img');
         const thumbnail = makeAbsolute(img.attr('data-mediumthumb') || img.attr('data-thumb_url') || img.attr('data-src') || img.attr('src'), 'https://www.pornhub.com');
         const duration = item.find('.duration, .video-duration').text().trim();
-        // Pornhub has complex logic for video previews, sometimes in JS. This is a best-effort extraction.
         const preview_video = makeAbsolute(item.find('a[href*="viewkey="]').attr('data-preview_url') || img.attr('data-preview_url'), 'https://www.pornhub.com');
         
         if (videoUrl && title && thumbnail && videoId && !thumbnail.includes('nothumb')) {
@@ -55,13 +54,13 @@ const pornhub = {
   gifUrl: (query: string, page: number) => `https://www.pornhub.com/gifs/search?search=${encodeURIComponent(query)}&page=${page}`,
   gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('.gif-grid-item, ul.gifs.gifLink > li.gifVideoBlock').each((_, element) => {
+    $('ul.gifs.gifLink > li.gifVideoBlock').each((_, element) => {
         const item = $(element);
         const link = item.find('a').first();
         const gifPageUrl = makeAbsolute(link.attr('href'), 'https://www.pornhub.com');
         const gifId = item.attr('data-gif-id') || gifPageUrl?.match(/\/view_gif\/(\d+)/)?.[1];
         const title = link.attr('alt') || item.find('.gif-title').text().trim() || 'Untitled GIF';
-        const videoPreview = item.find('video, .gifVideo');
+        const videoPreview = item.find('video.gifVideo');
         const animatedGifUrl = makeAbsolute(videoPreview.attr('data-mp4') || videoPreview.attr('data-webm') || link.data('mp4'), 'https://www.pornhub.com');
         const staticThumbnailUrl = makeAbsolute(item.find('img').attr('data-src') || item.find('img').attr('src'), 'https://www.pornhub.com');
 
@@ -78,15 +77,15 @@ const xvideos = {
   videoUrl: (query: string, page: number) => `https://www.xvideos.com/?k=${encodeURIComponent(query.replace(/\s+/g, '+'))}&p=${page > 1 ? page - 1 : 0}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('.thumb-block, .thumb-block-v2, div.mozaique > div').each((_, element) => {
+    $('div.mozaique > div.thumb-block').each((_, element) => {
         const item = $(element);
-        if(!item.attr('data-id')) return; // Skip non-video blocks
+        if(!item.attr('data-id')) return;
         
-        const link = item.find('p.title a, .title a').first();
+        const link = item.find('p.title a').first();
         const videoUrl = makeAbsolute(link.attr('href'), 'https://www.xvideos.com');
         const videoId = item.attr('data-id');
         const title = link.attr('title') || link.text().trim();
-        const img = item.find('.thumb img, .thumb-inside img').first();
+        const img = item.find('.thumb-inside img').first();
         const thumbnail = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.xvideos.com');
         const duration = item.find('span.duration').text().trim();
         const preview_video = makeAbsolute(img.attr('data-videopreview') || item.find('video.preview-video').attr('src'), 'https://www.xvideos.com');
@@ -100,7 +99,7 @@ const xvideos = {
   gifUrl: (query: string, page: number) => `https://www.xvideos.com/gifs-best/${encodeURIComponent(query)}/${page > 1 ? `d-${page-1}` : ''}`,
   gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('.gif-thumb-block-content, .gif-card').each((_, element) => {
+    $('.gif-card').each((_, element) => {
         const item = $(element);
         const link = item.find('a').first();
         const gifPageUrl = makeAbsolute(link.attr('href'), 'https://www.xvideos.com');
@@ -122,15 +121,15 @@ const redtube = {
   videoUrl: (query: string, page: number) => `https://www.redtube.com/?search=${encodeURIComponent(query)}&page=${page}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
       const results: MediaItem[] = [];
-      $('.video-item, .video_item_wrapper').each((_, element) => {
+      $('div.video_item_wrapper').each((_, element) => {
           const item = $(element);
-          const link = item.find('a.video-item-link, a.video_link').first();
+          const link = item.find('a.video_link').first();
           const videoUrl = makeAbsolute(link.attr('href'), 'https://www.redtube.com');
           const videoId = item.attr('data-id');
-          const title = item.find('.video-item-title, .video_title').text().trim();
-          const img = item.find('img.video-item-img, img.video_thumb').first();
+          const title = item.find('.video_title').text().trim();
+          const img = item.find('img.video_thumb').first();
           const thumbnail = makeAbsolute(img.attr('data-mediumthumb') || img.attr('data-src') || img.attr('src'), 'https://www.redtube.com');
-          const duration = item.find('.video-duration, .duration').text().trim();
+          const duration = item.find('.duration').text().trim();
           const preview_video = makeAbsolute(item.find('a[href*="/' + videoId +'"]').attr('data-preview'), 'https://www.redtube.com');
 
           if (videoUrl && title && thumbnail && videoId) {
@@ -142,13 +141,13 @@ const redtube = {
   gifUrl: (query: string, page: number) => `https://www.redtube.com/gifs/search?search=${encodeURIComponent(query)}&page=${page}`,
   gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
       const results: MediaItem[] = [];
-      $('.gif-item, .gif-item-wrapper, .gif_item_wrapper').each((_, element) => {
+      $('.gif_item_wrapper').each((_, element) => {
           const item = $(element);
-          const link = item.find('a.gif-item-link').first();
+          const link = item.find('a').first();
           const gifPageUrl = makeAbsolute(link.attr('href'), 'https://www.redtube.com');
           const gifId = item.attr('data-id');
-          const title = item.find('.gif-item-title').text().trim() || 'Untitled GIF';
-          const img = item.find('img.gif-item-img, img.gif_thumb').first();
+          const title = link.find('.gif_title').text().trim() || 'Untitled GIF';
+          const img = item.find('img.gif_thumb').first();
           const staticThumbnailUrl = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.redtube.com');
           const animatedGifUrl = makeAbsolute(item.attr('data-preview'), 'https://www.redtube.com');
            
@@ -381,8 +380,6 @@ export async function search(input: SearchInput): Promise<SearchOutput> {
   }
 
   if (driverName.toLowerCase() === 'mock') {
-    // The mock parser has a different signature, so we handle it separately.
-    // In a real-world scenario, you might unify the parser signatures.
     const mockParser = isVideos ? driver.videoParser : driver.gifParser;
     return mockParser(input);
   }
@@ -413,7 +410,6 @@ export async function search(input: SearchInput): Promise<SearchOutput> {
     if (error.response?.status === 404) {
       return [];
     }
-    // Re-throwing the error to be handled by the client-side, which may trigger the AI suggestion flow.
     throw new Error(`Failed to fetch results from ${driver.name}. The site may be down or has changed its structure.`);
   }
 }
@@ -477,7 +473,7 @@ const suggestSelectorsFlow = ai.defineFlow(
     const { output } = await ai.generate({
       prompt,
       output: { schema: SelectorSuggestionOutputSchema },
-      model: 'googleai/gemini-pro',
+      model: 'googleai/gemini-1.5-flash-latest',
     });
     
     return output!;
@@ -517,5 +513,3 @@ export async function suggestSelectors(input: SelectorSuggestionInput) {
         throw new Error(`Failed to generate AI suggestions for ${driverName}. Error: ${error.message}`);
     }
 }
-
-    

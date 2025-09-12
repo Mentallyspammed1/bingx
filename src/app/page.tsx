@@ -34,7 +34,7 @@ type Action =
   | { type: 'SET_DRIVERS'; payload: string[] }
   | { type: 'SET_SEARCH_PARAMS'; payload: Partial<Omit<SearchInput, 'page'>> }
   | { type: 'START_SEARCH'; payload: { params: Omit<SearchInput, 'page'>, page: number } }
-  | { type: 'SEARCH_SUCCESS'; payload: { results: MediaItem[], newSearch: boolean } }
+  | { type: 'SEARCH_SUCCESS'; payload: { results: MediaItem[], page: number } }
   | { type: 'SEARCH_FAILURE' }
   | { type: 'LOAD_MORE' }
   | { type: 'SET_SELECTED_ITEM'; payload: MediaItem | null }
@@ -71,19 +71,22 @@ function reducer(state: State, action: Action): State {
         isLoading: true, 
         page: action.payload.page, 
         results: action.payload.page === 1 ? [] : state.results,
-        hasMore: true, 
+        hasMore: action.payload.page === 1 ? true : state.hasMore, // Reset hasMore on new search
         isFavoritesView: false, 
         searchParams: action.payload.params 
       };
     case 'SEARCH_SUCCESS':
+      const newResults = action.payload.page === 1 
+        ? action.payload.results 
+        : [...state.results, ...action.payload.results];
       return { 
         ...state, 
         isLoading: false, 
-        results: action.payload.newSearch ? action.payload.results : [...state.results, ...action.payload.results],
+        results: newResults,
         hasMore: action.payload.results.length > 0,
       };
     case 'SEARCH_FAILURE':
-      return { ...state, isLoading: false, results: state.page > 1 ? state.results : [], hasMore: false };
+      return { ...state, isLoading: false, hasMore: false };
     case 'SET_SELECTED_ITEM':
       return { ...state, selectedItem: action.payload };
     case 'TOGGLE_FAVORITES_VIEW':
@@ -149,17 +152,19 @@ export default function Home() {
   }, []);
 
   const performSearch = useCallback(async (params: Omit<SearchInput, 'page'>, searchPage: number) => {
-    dispatch({ type: 'START_SEARCH', payload: { params, page: searchPage } });
-
-    if (searchPage === 1) {
-      dispatch({ type: 'ADD_TO_HISTORY', payload: params });
+    // Only add to history on the first page of a new search
+    if (searchPage === 1 && params.query.trim()) {
+        const currentParams = { query: params.query, driver: params.driver, type: params.type };
+        dispatch({ type: 'ADD_TO_HISTORY', payload: currentParams });
     }
+
+    dispatch({ type: 'START_SEARCH', payload: { params, page: searchPage } });
 
     try {
       const searchInput: SearchInput = { ...params, page: searchPage };
       const res = await search(searchInput);
       
-      dispatch({ type: 'SEARCH_SUCCESS', payload: { results: res, newSearch: searchPage === 1 } });
+      dispatch({ type: 'SEARCH_SUCCESS', payload: { results: res, page: searchPage } });
     } catch (err: any) {
       console.error(err);
       toast({
@@ -176,16 +181,33 @@ export default function Home() {
     const driver = urlSearchParams.get('driver');
     const type = urlSearchParams.get('type');
     const pageNum = parseInt(urlSearchParams.get('page') || '1', 10);
+    
+    const newSearchParams: Omit<SearchInput, 'page'> = {
+      query: query || '',
+      driver: driver || 'redtube',
+      type: (type === 'videos' || type === 'gifs') ? type : 'videos',
+    };
 
-    if (query) {
-      const params: Omit<SearchInput, 'page'> = {
-        query,
-        driver: driver || 'redtube',
-        type: (type === 'videos' || type === 'gifs') ? type : 'videos',
-      };
-      performSearch(params, pageNum);
+    // Only perform search if query exists
+    if (newSearchParams.query) {
+       // Prevent re-fetching on back/forward navigation if results for that page already exist
+      const isNewSearch = newSearchParams.query !== searchParams.query || newSearchParams.driver !== searchParams.driver || newSearchParams.type !== searchParams.type;
+      if (isNewSearch || pageNum !== page) {
+         performSearch(newSearchParams, pageNum);
+      }
+    } else {
+        // Clear results if query is removed from URL
+        if(results.length > 0) {
+            dispatch({ type: 'SEARCH_SUCCESS', payload: { results: [], page: 1 } });
+        }
     }
-  }, [urlSearchParams, performSearch]);
+     // Update state's searchParams if they differ from URL
+    if (newSearchParams.query !== searchParams.query || newSearchParams.driver !== searchParams.driver || newSearchParams.type !== searchParams.type) {
+        dispatch({ type: 'SET_SEARCH_PARAMS', payload: newSearchParams });
+    }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlSearchParams]);
 
 
   const updateUrl = (params: Partial<Omit<SearchInput, 'page'>> & { page?: number }) => {
@@ -216,7 +238,7 @@ export default function Home() {
 
   const handleLoadMore = () => {
     const newPage = page + 1;
-    updateUrl({ page: newPage });
+    updateUrl({ ...searchParams, page: newPage });
   };
 
   const isFavorite = useCallback((item: MediaItem) => {

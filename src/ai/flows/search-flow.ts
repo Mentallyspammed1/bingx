@@ -36,7 +36,7 @@ const pornhub = {
       const videoId = item.attr('data-id');
       const title = item.find('span.title a').text().trim();
       const img = item.find('img');
-      const thumbnail = makeAbsolute(img.attr('data-mediumthumb') || img.attr('data-thumb_url'), 'https://www.pornhub.com');
+      const thumbnail = makeAbsolute(img.attr('data-mediumthumb') || img.attr('data-thumb_url') || img.attr('src'), 'https://www.pornhub.com');
       const duration = item.find('var.duration').text().trim();
       const preview_video = makeAbsolute(item.attr('data-preview_url'), 'https://www.pornhub.com');
       
@@ -57,7 +57,7 @@ const pornhub = {
       const title = link.attr('data-gif-title') || 'Untitled GIF';
       const videoPreview = item.find('video');
       const animatedGifUrl = makeAbsolute(videoPreview.attr('data-mp4') || videoPreview.attr('data-webm'), 'https://www.pornhub.com');
-      const staticThumbnailUrl = makeAbsolute(item.find('img').attr('data-src'), 'https://www.pornhub.com');
+      const staticThumbnailUrl = makeAbsolute(item.find('img').attr('data-src') || item.find('img').attr('src'), 'https://www.pornhub.com');
 
       if (gifPageUrl && title && animatedGifUrl && gifId) {
         results.push({ id: gifId, title, url: gifPageUrl, thumbnail: staticThumbnailUrl, preview_video: animatedGifUrl, source: 'Pornhub', type: 'gifs' });
@@ -89,7 +89,7 @@ const xvideos = {
     });
     return results;
   },
-  gifUrl: (query: string, page: number) => `https://www.xvideos.com/gifs/${query ? 'search/' + encodeURIComponent(query) : ''}?p=${page - 1}`,
+  gifUrl: (query: string, page: number) => `https://www.xvideos.com/gifs/${query ? 'search/' + encodeURIComponent(query) : ''}?p=${page > 0 ? page - 1 : 0}`,
   gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
     $('div.gif-thumb-block-content').each((_, element) => {
@@ -99,7 +99,7 @@ const xvideos = {
       const gifId = gifPageUrl?.match(/\/gif\/(\d+)\//)?.[1];
       const title = item.find('p.gif-title').text().trim() || 'Untitled GIF';
       const img = item.find('img').first();
-      const animatedGifUrl = makeAbsolute(img.attr('data-src'), 'https://www.xvideos.com');
+      const animatedGifUrl = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.xvideos.com');
       
       if (gifPageUrl && title && animatedGifUrl && gifId) {
         results.push({ id: gifId, title, url: gifPageUrl, thumbnail: animatedGifUrl, preview_video: animatedGifUrl, source: 'XVideos', type: 'gifs' });
@@ -114,15 +114,15 @@ const redtube = {
     videoUrl: (query: string, page: number) => `https://www.redtube.com/?search=${encodeURIComponent(query)}&page=${page}`,
     videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
         const results: MediaItem[] = [];
-        $('div.video_item_wrapper_red').each((_, element) => {
+        $('div.video_item_wrapper_red, .video_item_wrapper').each((_, element) => {
             const item = $(element);
-            const link = item.find('a.video_link_red').first();
+            const link = item.find('a.video_link_red, a.video_link').first();
             const videoUrl = makeAbsolute(link.attr('href'), 'https://www.redtube.com');
             const videoId = item.attr('data-id');
-            const title = item.find('.video_title_red').text().trim();
-            const img = item.find('img.video_thumb_red').first();
+            const title = item.find('.video_title_red, .video_title').text().trim();
+            const img = item.find('img.video_thumb_red, img.video_thumb').first();
             const thumbnail = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://www.redtube.com');
-            const duration = item.find('span.video_duration_red').text().trim();
+            const duration = item.find('span.video_duration_red, span.duration').text().trim();
             const preview_video = makeAbsolute(item.attr('data-preview-url'), 'https://www.redtube.com');
 
             if (videoUrl && title && thumbnail && videoId) {
@@ -134,13 +134,13 @@ const redtube = {
     gifUrl: (query: string, page: number) => `https://www.redtube.com/gifs/search?search=${encodeURIComponent(query)}&page=${page}`,
     gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
         const results: MediaItem[] = [];
-        $('div.gif_card_wrapper_red').each((_, element) => {
+        $('.gif_card_wrapper_red, .gif_card_wrapper').each((_, element) => {
             const item = $(element);
             const link = item.find('a').first();
             const gifPageUrl = makeAbsolute(link.attr('href'), 'https://www.redtube.com');
             const gifId = item.attr('data-id');
-            const title = item.find('.gif_card_title_red').text().trim() || 'Untitled GIF';
-            const staticThumbnailUrl = makeAbsolute(item.find('img.gif_card_thumb_red').attr('data-src') || item.find('img.gif_card_thumb_red').attr('src'), 'https://www.redtube.com');
+            const title = item.find('.gif_card_title_red, .gif_card_title').text().trim() || 'Untitled GIF';
+            const staticThumbnailUrl = makeAbsolute(item.find('img.gif_card_thumb_red, img.gif_card_thumb').attr('data-src') || item.find('img').attr('src'), 'https://www.redtube.com');
             const animatedGifUrl = makeAbsolute(item.find('video source').attr('src'), 'https://www.redtube.com');
 
             if (gifPageUrl && title && animatedGifUrl && gifId) {
@@ -198,15 +198,15 @@ const xhamster = {
   videoUrl: (query: string, page: number) => `https://xhamster.com/search/${encodeURIComponent(query)}?page=${page}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('a.video-thumb__image-container').each((_, element) => {
+    $('.video-thumb-container__link').each((_, element) => {
         const item = $(element);
         const videoUrl = makeAbsolute(item.attr('href'), 'https://xhamster.com');
         const videoId = videoUrl?.match(/\/videos\/(.+?)-\d+/)?.[1];
-        const info = item.closest('.video-thumb-container');
+        const container = item.closest('.video-thumb-container');
         const img = item.find('img.video-thumb__img');
-        const title = info.find('a.video-thumb-info__name').text().trim();
+        const title = container.find('.video-thumb-info__name').text().trim();
         const thumbnail = makeAbsolute(img.attr('data-src') || img.attr('src'), 'https://xhamster.com');
-        const duration = info.find('.video-thumb__duration').text().trim();
+        const duration = container.find('.video-thumb__duration').text().trim();
         const preview_video = makeAbsolute(item.attr('data-preview-url'), 'https://xhamster.com');
         
         if (videoUrl && title && thumbnail && videoId) {
@@ -240,7 +240,7 @@ const youporn = {
   videoUrl: (query: string, page: number) => `https://www.youporn.com/search/?query=${encodeURIComponent(query)}&page=${page}`,
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('div.video-box').each((_, element) => {
+    $('.video-box-wrapper, div.video-box').each((_, element) => {
         const item = $(element);
         const link = item.find('a').first();
         const videoUrl = makeAbsolute(link.attr('href'), 'https://www.youporn.com');
@@ -260,13 +260,13 @@ const youporn = {
   gifUrl: (query: string, page: number) => `https://www.youporn.com/search/gifs/?query=${encodeURIComponent(query)}&page=${page}`,
   gifParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
-    $('div.gif-box').each((_, element) => {
+    $('.gif-box-wrapper, div.gif-box').each((_, element) => {
         const item = $(element);
         const link = item.find('a').first();
         const gifPageUrl = makeAbsolute(link.attr('href'), 'https://www.youporn.com');
         const gifId = gifPageUrl?.match(/\/gif\/(\d+)\//)?.[1];
         const title = link.attr('title') || 'Untitled GIF';
-        const animatedGifUrl = makeAbsolute(item.find('img').attr('data-src'), 'https://www.youporn.com');
+        const animatedGifUrl = makeAbsolute(item.find('img').attr('data-src')  || item.find('img').attr('src'), 'https://www.youporn.com');
 
         if (gifPageUrl && title && animatedGifUrl && gifId) {
             results.push({ id: gifId, title, url: gifPageUrl, thumbnail: animatedGifUrl, preview_video: animatedGifUrl, source: 'YouPorn', type: 'gifs' });

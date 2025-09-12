@@ -1,0 +1,6 @@
+bing-image-downloader
+colorama
+Pillow
+tqdm
+imagehash
+requests

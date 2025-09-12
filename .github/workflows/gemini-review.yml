@@ -1,0 +1,201 @@
+name: Gemini AI Code Review and Auto-Fix
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pull_request_number:
+        description: 'Pull Request Number to Review (optional)'
+        required: false
+        type: number
+      files:
+        description: 'Comma-separated list of files to review (e.g., src/main.py,src/utils.py)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  review-and-fix:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+
+      # Fetch all remote branches
+      - name: Fetch All Remote Branches
+        run: |
+          git fetch origin +refs/heads/*:refs/remotes/origin/*
+          git branch -r
+
+      # Get the pull request or file-specific diff
+      - name: Get Diff
+        id: get_diff
+        env:
+          PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          PULL_REQUEST_BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+          FILES: ${{ github.event.inputs.files }}
+        run: |
+          if [ -z "$PULL_REQUEST_BASE_REF" ]; then
+            echo "PULL_REQUEST_BASE_REF is empty. Defaulting to 'main'."
+            PULL_REQUEST_BASE_REF="main"
+          fi
+          if ! git show-ref --verify --quiet "refs/remotes/origin/$PULL_REQUEST_BASE_REF"; then
+            echo "Error: Base branch 'origin/$PULL_REQUEST_BASE_REF' does not exist."
+            exit 1
+          fi
+          git checkout "$PULL_REQUEST_HEAD_REF"
+          if [ -n "$FILES" ]; then
+            echo "Generating diff for specified files: $FILES"
+            FILE_LIST=$(echo "$FILES" | tr ',' ' ')
+            git diff "origin/$PULL_REQUEST_BASE_REF" -- $FILE_LIST > diff.txt
+          else
+            echo "Generating diff for pull request"
+            git diff "origin/$PULL_REQUEST_BASE_REF" > diff.txt
+          fi
+          echo "pull_request_diff<<EOF" >> $GITHUB_OUTPUT
+          cat diff.txt >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
+      # Validate input files
+      - name: Validate Input Files
+        if: github.event.inputs.files
+        run: |
+          for file in $(echo "${{ github.event.inputs.files }}" | tr ',' ' '); do
+            if [ ! -f "$file" ]; then
+              echo "Error: File $file does not exist."
+              exit 1
+            fi
+          done
+
+      # Estimate token usage
+      - name: Estimate Token Usage
+        id: estimate_tokens
+        run: |
+          DIFF_SIZE=$(wc -c < diff.txt)
+          ESTIMATED_TOKENS=$((DIFF_SIZE / 4))
+          echo "Estimated tokens: $ESTIMATED_TOKENS"
+          echo "estimated_tokens=$ESTIMATED_TOKENS" >> $GITHUB_OUTPUT
+          if [ "$ESTIMATED_TOKENS" -gt 1000000 ]; then
+            echo "Error: Estimated tokens ($ESTIMATED_TOKENS) exceed 1M token limit for free tier."
+            exit 1
+          fi
+
+      # Install Python and dependencies
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      # Run Gemini AI Code Review (synchronous with retry)
+      - name: Gemini AI Code Review
+        id: review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          pip install google-generativeai && python - <<EOF
+          import google.generativeai as genai
+          import time
+          import json
+          import os
+          from google.api_core import retry
+
+          genai.configure(api_key="${{ secrets.GEMINI_API_KEY }}")
+          model = genai.GenerativeModel('gemini-1.5-flash-latest')
+
+          # Read diff
+          with open('diff.txt', 'r') as f:
+              diff_content = f.read()
+
+          # Define prompt
+          prompt = """Review the provided code diff and suggest improvements for correctness, efficiency, maintainability, and security. Provide specific, actionable code changes in the following format:
+          File: <path>
+          Suggested Improvement: <description>
+          Code:
+          ```
+          <improved code>
+          ```
+          Ensure suggestions are clear and ready to apply."""
+
+          # Retry logic for quota errors
+          @retry.Retry(predicate=retry.if_exception_type(google.api_core.exceptions.ResourceExhausted), initial=2, maximum=60, multiplier=2)
+          def generate_content():
+              return model.generate_content(prompt + "\n\n" + diff_content)
+
+          try:
+              response = generate_content()
+              review_comments = response.text
+              with open('review_comments.txt', 'w') as f:
+                  f.write(review_comments)
+              print("Review completed successfully")
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write(f"review_comments=review_comments.txt\n")
+          except Exception as e:
+              print(f"Error: {str(e)}")
+              exit(1)
+          EOF
+
+      # Apply suggested improvements
+      - name: Apply Gemini Suggested Improvements
+        if: steps.review.outcome == 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<EOF
+          import re
+          import os
+
+          # Parse review comments
+          with open('${{ steps.review.outputs.review_comments }}', 'r') as f:
+              text = f.read()
+
+          pattern = r'File: (.*?)\\nSuggested Improvement: .*?\\nCode:\\n```(?:.*?\\n)?(.*?)```'
+          for match in re.finditer(pattern, text, re.DOTALL):
+              file = match.group(1).strip()
+              code = match.group(2).strip()
+              if file and code:
+                  with open(file, 'w') as f:
+                      f.write(code)
+                  print(f"Applied improvement to {file}")
+
+          # Commit changes
+          os.system('git config --global user.name "Gemini Code Assist"')
+          os.system('git config --global user.email "gemini-code-assist@users.noreply.github.com"')
+          os.system('git add .')
+          if os.system('git status --porcelain | grep .') == 0:
+              os.system('git commit -m "Apply Gemini AI suggested improvements"')
+              os.system('git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}')
+          else:
+              print("No improvements applied")
+          EOF
+
+      # Post review summary as a comment
+      - name: Post Review Summary
+        if: steps.review.outcome == 'success'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const reviewComments = fs.readFileSync('${{ steps.review.outputs.review_comments }}', 'utf8');
+            const pullRequestNumber = ${{ github.event.pull_request.number || inputs.pull_request_number }};
+            const files = "${{ github.event.inputs.files }}";
+            const commentBody = files
+              ? `Gemini AI Code Review Summary for files: ${files}\n\n${reviewComments || 'No issues found.'}`
+              : `Gemini AI Code Review Summary:\n\n${reviewComments || 'No issues found.'}`;
+            if (pullRequestNumber) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pullRequestNumber,
+                body: commentBody
+              });
+            } else {
+                console.log("No pull request number provided, skipping comment.")
+            }

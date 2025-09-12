@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>take turns deepthroat - pornhub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #16213e;
+            --accent-cyan: #00d4ff;
+            --accent-pink: #ff006e;
+            --accent-purple: #8b5cf6;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666;
+            --border: #2a2a3e;
+            --shadow: rgba(0, 212, 255, 0.1);
+            --gradient: linear-gradient(135deg, var(--accent-cyan), var(--accent-pink));
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            margin-top: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 4px;
+            background: var(--gradient);
+            border-radius: 2px;
+        }
+
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px var(--shadow);
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 1.5rem 0;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            background: var(--bg-card);
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            border: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .video-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .video-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px var(--shadow);
+            border-color: var(--accent-cyan);
+        }
+
+        .video-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .video-card:hover::before { opacity: 1; }
+
+        .thumbnail {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            background: var(--bg-primary);
+        }
+
+        .thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .video-card:hover .thumbnail img { transform: scale(1.1); }
+
+        .play-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 212, 255, 0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .video-card:hover .play-overlay {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        .play-overlay::before {
+            content: '▶';
+            color: white;
+            font-size: 1.2rem;
+            margin-left: 3px;
+        }
+
+        .video-info {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .video-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-title a {
+            color: inherit;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .video-title a:hover { color: var(--accent-cyan); }
+
+        .video-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        .meta-item {
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--accent-cyan);
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .meta-item a {
+            color: inherit;
+            text-decoration: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .meta-item a:hover { opacity: 0.8; }
+
+        .loading-placeholder {
+            background: linear-gradient(90deg, var(--bg-card) 25%, rgba(255,255,255,0.05) 50%, var(--bg-card) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .error-placeholder {
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .container { margin: 1rem; padding: 1rem; border-radius: 12px; }
+            h1 { font-size: 2rem; }
+            .video-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+            .stats { gap: 1rem; }
+            .stat { padding: 0.5rem 1rem; font-size: 0.8rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>take turns deepthroat</h1>
+            <p class="subtitle">Search results from Pornhub</p>
+            <div class="stats">
+                <div class="stat">🎬 30 videos</div>
+                <div class="stat">🔍 Pornhub</div>
+                <div class="stat">⏰ 2025-08-01 07:51</div>
+            </div>
+        </header>
+        <main class="video-grid">
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=68654a915de2a" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Hot_Fitness_Girl_Loves_Football_And_Fuck_Outdoors__0.jpg" alt="Hot Fitness Girl Loves Football And Fuck Outdoors - Sweetie Fox" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=68654a915de2a" target="_blank" rel="noopener noreferrer">
+                            Hot Fitness Girl Loves Football And Fuck Outdoors - Sweetie Fox
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 13:47</span><span class="meta-item"><a href="https://www.pornhub.com/model/sweetie-fox" target="_blank" rel="noopener noreferrer">👤 Sweetie Fox</a></span><span class="meta-item">👁️ 2.3Mviews</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=686159e6d7be5" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Over_35000000_views_-_Most_viewed_quotPETITE_PUSSY_1.jpg" alt="Over 35,000,000 views! - Most viewed &amp;quot;PETITE PUSSY PUMPED FULL OF CUM&amp;quot; videos" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=686159e6d7be5" target="_blank" rel="noopener noreferrer">
+                            Over 35,000,000 views! - Most viewed &amp;quot;PETITE PUSSY PUMPED FULL OF CUM&amp;quot; videos
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 42:02</span><span class="meta-item"><a href="https://www.pornhub.com/model/bella-bates" target="_blank" rel="noopener noreferrer">👤 Bella Bates</a></span><span class="meta-item">👁️ 1.1Mviews</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=668a368fa3a44" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Husband_and_friend_take_turns_sharing_hotwife_Jayl_2.jpg" alt="Husband and friend take turns sharing hotwife JayleneXO and use her holes for their pleasure" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=668a368fa3a44" target="_blank" rel="noopener noreferrer">
+                            Husband and friend take turns sharing hotwife JayleneXO and use her holes for their pleasure
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 7:52</span><span class="meta-item"><a href="https://www.pornhub.com/model/hotwife-jay" target="_blank" rel="noopener noreferrer">👤 Hotwife Jay</a></span><span class="meta-item">👁️ 525K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=65a0c49186d60" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/OOPSIE_-_Real_Life_Futanari_PAWG_Siri_Dahl_amp_Cod_3.jpg" alt="OOPSIE - Real Life Futanari PAWG Siri Dahl &amp;amp; Codi Vore Take Turns With Their New Cocks! HUGE CUMSHOT" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=65a0c49186d60" target="_blank" rel="noopener noreferrer">
+                            OOPSIE - Real Life Futanari PAWG Siri Dahl &amp;amp; Codi Vore Take Turns With Their New Cocks! HUGE CUMSHOT
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 12:01</span><span class="meta-item"><a href="https://www.pornhub.com/channels/oopsie" target="_blank" rel="noopener noreferrer">👤 Oopsie</a></span><span class="meta-item">👁️ 15.5M</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=66db9edcc2c2c" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/MFF_Threesome_-_Two_Curvy_Babes_Take_Turns_on_My_H_4.jpg" alt="MFF Threesome - Two Curvy Babes Take Turns on My Huge Cock - Steve Rickz, Paige Steele, Bea York" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=66db9edcc2c2c" target="_blank" rel="noopener noreferrer">
+                            MFF Threesome - Two Curvy Babes Take Turns on My Huge Cock - Steve Rickz, Paige Steele, Bea York
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:10</span><span class="meta-item"><a href="https://www.pornhub.com/pornstar/steve-rickz" target="_blank" rel="noopener noreferrer">👤 Steve Rickz</a></span><span class="meta-item">👁️ 4.6M</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=68452bb377843" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Bros_Share_Everything_-_Taking_Turns_On_Busty_Teen_5.jpg" alt="Bros Share Everything - Taking Turns On Busty Teen" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=68452bb377843" target="_blank" rel="noopener noreferrer">
+                            Bros Share Everything - Taking Turns On Busty Teen
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:16</span><span class="meta-item"><a href="https://www.pornhub.com/model/porn-force" target="_blank" rel="noopener noreferrer">👤 Porn Force</a></span><span class="meta-item">👁️ 646K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=657be2733e854" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/MOMMYx27S_BOY_-_MILFs_Lauren_Phillips_amp_Syren_De_6.jpg" alt="MOMMY&amp;#x27;S BOY - MILFs Lauren Phillips &amp;amp; Syren De Mer Take Turns On Teen&amp;#x27;s Cock During Reverse Gangbang" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=657be2733e854" target="_blank" rel="noopener noreferrer">
+                            MOMMY&amp;#x27;S BOY - MILFs Lauren Phillips &amp;amp; Syren De Mer Take Turns On Teen&amp;#x27;s Cock During Reverse Gangbang
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 17:25</span><span class="meta-item"><a href="https://www.pornhub.com/channels/mommys-boy" target="_blank" rel="noopener noreferrer">👤 Mommys Boy</a></span><span class="meta-item">👁️ 9.4M</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=65083d7020446" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/BRAZZERS_-_Jordi_amp_Potro_Take_Turns_Fucking_Sara_7.jpg" alt="BRAZZERS - Jordi &amp;amp; Potro Take Turns Fucking Sara Retali&amp;#x27;s Eager Ass As She Gags On Their Cocks" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=65083d7020446" target="_blank" rel="noopener noreferrer">
+                            BRAZZERS - Jordi &amp;amp; Potro Take Turns Fucking Sara Retali&amp;#x27;s Eager Ass As She Gags On Their Cocks
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 43:21</span><span class="meta-item"><a href="https://www.pornhub.com/channels/brazzers" target="_blank" rel="noopener noreferrer">👤 Brazzers</a></span><span class="meta-item">👁️ 1.6M</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=64fb27b86060d" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/BRAZZERS_-_Hotties_Joslyn_James_Sophia_Locke_amp_L_8.jpg" alt="BRAZZERS - Hotties Joslyn James, Sophia Locke &amp;amp; Lia Lovely Take Turns On Lucky Dante Colle&amp;#x27;s Dick" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=64fb27b86060d" target="_blank" rel="noopener noreferrer">
+                            BRAZZERS - Hotties Joslyn James, Sophia Locke &amp;amp; Lia Lovely Take Turns On Lucky Dante Colle&amp;#x27;s Dick
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:43</span><span class="meta-item"><a href="https://www.pornhub.com/channels/brazzers" target="_blank" rel="noopener noreferrer">👤 Brazzers</a></span><span class="meta-item">👁️ 3.4M</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=64a0f16b213de" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/DEVILS_TGIRLS_-_Two_Gorgeous_Trans_Roommates_Take__9.jpg" alt="DEVILS TGIRLS - Two Gorgeous Trans Roommates Take Turns Fucking Each Other&amp;#x27;s Assholes" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=64a0f16b213de" target="_blank" rel="noopener noreferrer">
+                            DEVILS TGIRLS - Two Gorgeous Trans Roommates Take Turns Fucking Each Other&amp;#x27;s Assholes
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 12:00</span><span class="meta-item"><a href="https://www.pornhub.com/channels/devils-tgirls" target="_blank" rel="noopener noreferrer">👤 Devils TGirls</a></span><span class="meta-item">👁️ 838K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=64a2d0094978a" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Intense_CUCKOLD_OMFG_After_Date_Night_My_Husband_L_10.jpg" alt="Intense CUCKOLD! OMFG🤯😍! After Date Night My Husband Let 2 BBC’s Take Turns In My Ass &amp;amp; Pussy!" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=64a2d0094978a" target="_blank" rel="noopener noreferrer">
+                            Intense CUCKOLD! OMFG🤯😍! After Date Night My Husband Let 2 BBC’s Take Turns In My Ass &amp;amp; Pussy!
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 7:09</span><span class="meta-item"><a href="https://www.pornhub.com/model/nevaehcreamz" target="_blank" rel="noopener noreferrer">👤 NevaehCreamz</a></span><span class="meta-item">👁️ 657K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=686c649fd2d38" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Big_Tits_MILFs_take_turns_on_his_cock_and_each_oth_11.jpg" alt="Big Tits MILFs take turns on his cock and each other. Wife shares husband with Busty MILF friend" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=686c649fd2d38" target="_blank" rel="noopener noreferrer">
+                            Big Tits MILFs take turns on his cock and each other. Wife shares husband with Busty MILF friend
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 7:07</span><span class="meta-item"><a href="https://www.pornhub.com/model/hotwife-jay" target="_blank" rel="noopener noreferrer">👤 Hotwife Jay</a></span><span class="meta-item">👁️ 15K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=658abd2ddd318" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/REALITY_KINGS_-_Scarlett_Jones_amp_Matty_Deepthroa_12.jpg" alt="REALITY KINGS - Scarlett Jones &amp;amp; Matty Deepthroat Jordi&amp;#x27;s Boner &amp;amp; Take Turns Riding His Dick" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=658abd2ddd318" target="_blank" rel="noopener noreferrer">
+                            REALITY KINGS - Scarlett Jones &amp;amp; Matty Deepthroat Jordi&amp;#x27;s Boner &amp;amp; Take Turns Riding His Dick
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 45:55</span><span class="meta-item"><a href="https://www.pornhub.com/channels/realitykings" target="_blank" rel="noopener noreferrer">👤 Reality Kings</a></span><span class="meta-item">👁️ 544K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=64c1b4d20deed" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/ADULT_TIME_-_Phat_Ass_Hunnies_Jewelz_Blu_and_Conni_13.jpg" alt="ADULT TIME - Phat Ass Hunnies Jewelz Blu and Connie Perignon Take Turns Getting Fucked! FFM 3-WAY!" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=64c1b4d20deed" target="_blank" rel="noopener noreferrer">
+                            ADULT TIME - Phat Ass Hunnies Jewelz Blu and Connie Perignon Take Turns Getting Fucked! FFM 3-WAY!
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 14:18</span><span class="meta-item"><a href="https://www.pornhub.com/channels/adulttime" target="_blank" rel="noopener noreferrer">👤 Adult Time</a></span><span class="meta-item">👁️ 495K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=64e8a8a96605c" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/BRAZZERS_-_Petite_Hotties_Janice_Griffith_amp_Ruby_14.jpg" alt="BRAZZERS - Petite Hotties Janice Griffith &amp;amp; Ruby Sims Take Turns Having Danny Fucking Their Pussies" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=64e8a8a96605c" target="_blank" rel="noopener noreferrer">
+                            BRAZZERS - Petite Hotties Janice Griffith &amp;amp; Ruby Sims Take Turns Having Danny Fucking Their Pussies
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:43</span><span class="meta-item"><a href="https://www.pornhub.com/channels/brazzers" target="_blank" rel="noopener noreferrer">👤 Brazzers</a></span><span class="meta-item">👁️ 369K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=64ba7313248df" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/BRAZZERS_-_Hotties_Gianna_Dior_amp_Carmen_Caliente_15.jpg" alt="BRAZZERS - Hotties Gianna Dior &amp;amp; Carmen Caliente Take Turns On Scott&amp;#x27;s Dick In A Steamy 3some" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=64ba7313248df" target="_blank" rel="noopener noreferrer">
+                            BRAZZERS - Hotties Gianna Dior &amp;amp; Carmen Caliente Take Turns On Scott&amp;#x27;s Dick In A Steamy 3some
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:43</span><span class="meta-item"><a href="https://www.pornhub.com/channels/brazzers" target="_blank" rel="noopener noreferrer">👤 Brazzers</a></span><span class="meta-item">👁️ 342K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=66a772a7b8d23" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Deeper._Kendra_amp_Jennifer_Take_Turns_With_Jasonx_16.jpg" alt="Deeper. Kendra &amp;amp; Jennifer Take Turns With Jason&amp;#x27;s Thick BBC" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=66a772a7b8d23" target="_blank" rel="noopener noreferrer">
+                            Deeper. Kendra &amp;amp; Jennifer Take Turns With Jason&amp;#x27;s Thick BBC
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 15:36</span><span class="meta-item"><a href="https://www.pornhub.com/channels/deeper" target="_blank" rel="noopener noreferrer">👤 Deeper</a></span><span class="meta-item">👁️ 292K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=67867e9700075" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/BFFs_Caught_Scissoring_Take_Turns_Being_Cum_Dumps__17.jpg" alt="BFFs Caught Scissoring Take Turns Being Cum Dumps - Abella Danger, Eliza Ibarra" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=67867e9700075" target="_blank" rel="noopener noreferrer">
+                            BFFs Caught Scissoring Take Turns Being Cum Dumps - Abella Danger, Eliza Ibarra
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 15:07</span><span class="meta-item"><a href="https://www.pornhub.com/channels/cum4k" target="_blank" rel="noopener noreferrer">👤 Cum4K</a></span><span class="meta-item">👁️ 268K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=673b18a35dc1d" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/My_Horny_Blonde_Step_Mom_amp_Step_Sis_Take_Turns_W_18.jpg" alt="My Horny Blonde Step Mom &amp;amp; Step Sis Take Turns With My Big Dick ~ Family Strokes Full Movie" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=673b18a35dc1d" target="_blank" rel="noopener noreferrer">
+                            My Horny Blonde Step Mom &amp;amp; Step Sis Take Turns With My Big Dick ~ Family Strokes Full Movie
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 45:24</span><span class="meta-item"><a href="https://www.pornhub.com/channels/family-strokes" target="_blank" rel="noopener noreferrer">👤 Family Strokes</a></span><span class="meta-item">👁️ 227K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=676aaf9ac9a9b" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/BRAZZERS_-_Fitness_Instructors_Violet_Starr_And_Al_19.jpg" alt="BRAZZERS - Fitness Instructors Violet Starr And Alexis Tae Take Turns Sucking Off Their New Student" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=676aaf9ac9a9b" target="_blank" rel="noopener noreferrer">
+                            BRAZZERS - Fitness Instructors Violet Starr And Alexis Tae Take Turns Sucking Off Their New Student
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 15:30</span><span class="meta-item"><a href="https://www.pornhub.com/channels/brazzers" target="_blank" rel="noopener noreferrer">👤 Brazzers</a></span><span class="meta-item">👁️ 238K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=6650a8d41915d" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Hot_Step_Mom_Aaliyah_Love_amp_Her_Milf_Step_Sis_Ka_20.jpg" alt="Hot Step Mom Aaliyah Love &amp;amp; Her Milf Step Sis Karla Kush Take Turns Riding Young Dick - PervMom" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=6650a8d41915d" target="_blank" rel="noopener noreferrer">
+                            Hot Step Mom Aaliyah Love &amp;amp; Her Milf Step Sis Karla Kush Take Turns Riding Young Dick - PervMom
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 16:54</span><span class="meta-item"><a href="https://www.pornhub.com/channels/perv-mom" target="_blank" rel="noopener noreferrer">👤 Perv Mom</a></span><span class="meta-item">👁️ 251K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=656300b2da96b" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/ADULT_TIME_-_Submissive_Baddies_Abella_Danger_amp__21.jpg" alt="ADULT TIME - Submissive Baddies Abella Danger &amp;amp; AJ Applegate Take Turns Getting DOMINATED! 3-WAY!" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=656300b2da96b" target="_blank" rel="noopener noreferrer">
+                            ADULT TIME - Submissive Baddies Abella Danger &amp;amp; AJ Applegate Take Turns Getting DOMINATED! 3-WAY!
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 12:22</span><span class="meta-item"><a href="https://www.pornhub.com/channels/adulttime" target="_blank" rel="noopener noreferrer">👤 Adult Time</a></span><span class="meta-item">👁️ 249K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=66a7522982c5e" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/21_SEXTURY_-_Two_Stunning_Babes_Take_Turns_Getting_22.jpg" alt="21 SEXTURY - Two Stunning Babes Take Turns Getting Their Tight Asses Fucked Hard" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=66a7522982c5e" target="_blank" rel="noopener noreferrer">
+                            21 SEXTURY - Two Stunning Babes Take Turns Getting Their Tight Asses Fucked Hard
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 12:37</span><span class="meta-item"><a href="https://www.pornhub.com/channels/21sextury" target="_blank" rel="noopener noreferrer">👤 21 Sextury</a></span><span class="meta-item">👁️ 190K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=66beac7389e65" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/DEVILS_TGIRLS_-_Gorgeous_Gracie_Jane_And_Sexy_Izzy_23.jpg" alt="DEVILS TGIRLS - Gorgeous Gracie Jane And Sexy Izzy Wilde Take Turns Banging Each Other&amp;#x27;s Assholes" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=66beac7389e65" target="_blank" rel="noopener noreferrer">
+                            DEVILS TGIRLS - Gorgeous Gracie Jane And Sexy Izzy Wilde Take Turns Banging Each Other&amp;#x27;s Assholes
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 12:39</span><span class="meta-item"><a href="https://www.pornhub.com/channels/devils-tgirls" target="_blank" rel="noopener noreferrer">👤 Devils TGirls</a></span><span class="meta-item">👁️ 198K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=6611c2f4085b3" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/BRAZZERS_-_Sneaky_Lookalike_Camgirls_Jazmin_Luv_am_24.jpg" alt="BRAZZERS - Sneaky Lookalike Camgirls Jazmin Luv &amp;amp; Bella Luna Take Turns Enjoying Bruce&amp;#x27;s Dick" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=6611c2f4085b3" target="_blank" rel="noopener noreferrer">
+                            BRAZZERS - Sneaky Lookalike Camgirls Jazmin Luv &amp;amp; Bella Luna Take Turns Enjoying Bruce&amp;#x27;s Dick
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:43</span><span class="meta-item"><a href="https://www.pornhub.com/channels/brazzers" target="_blank" rel="noopener noreferrer">👤 Brazzers</a></span><span class="meta-item">👁️ 194K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=659a5d4565d01" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Tomboy_Girlfriend_and_Cheerleader_Stepsis_Take_Tur_25.jpg" alt="Tomboy Girlfriend and Cheerleader Stepsis Take Turns Fucking You | ASMR Audio Roleplay" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=659a5d4565d01" target="_blank" rel="noopener noreferrer">
+                            Tomboy Girlfriend and Cheerleader Stepsis Take Turns Fucking You | ASMR Audio Roleplay
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 38:42</span><span class="meta-item"><a href="https://www.pornhub.com/model/alekirser" target="_blank" rel="noopener noreferrer">👤 alekirser</a></span><span class="meta-item">👁️ 174K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=67b870755dbb8" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/REALITY_KINGS_-_College_Girls_Nicole_Kitt_amp_Gal__26.jpg" alt="REALITY KINGS - College Girls Nicole Kitt &amp;amp; Gal Ritchie Take Turns Riding Ricky&amp;#x27;s Eager Cock" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=67b870755dbb8" target="_blank" rel="noopener noreferrer">
+                            REALITY KINGS - College Girls Nicole Kitt &amp;amp; Gal Ritchie Take Turns Riding Ricky&amp;#x27;s Eager Cock
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 15:30</span><span class="meta-item"><a href="https://www.pornhub.com/channels/realitykings" target="_blank" rel="noopener noreferrer">👤 Reality Kings</a></span><span class="meta-item">👁️ 156K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=684c0768b2d68" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/VIXEN_Insatiable_Besties_Valentina_Nappi_And_Vicki_27.jpg" alt="VIXEN Insatiable Besties Valentina Nappi And Vicki Chase Take Turns Using Young Stud&amp;#x27;s Cock" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=684c0768b2d68" target="_blank" rel="noopener noreferrer">
+                            VIXEN Insatiable Besties Valentina Nappi And Vicki Chase Take Turns Using Young Stud&amp;#x27;s Cock
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 15:33</span><span class="meta-item"><a href="https://www.pornhub.com/channels/vixen" target="_blank" rel="noopener noreferrer">👤 Vixen</a></span><span class="meta-item">👁️ 156K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=67e4fa5ac9504" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Petites_Veronica_Leal_Vanna_Bardot_amp_Lina_Luxa_T_28.jpg" alt="Petites Veronica Leal, Vanna Bardot, &amp;amp; Lina Luxa Take Turns ASSFUCKING Each Other With HUGE DILDOS" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=67e4fa5ac9504" target="_blank" rel="noopener noreferrer">
+                            Petites Veronica Leal, Vanna Bardot, &amp;amp; Lina Luxa Take Turns ASSFUCKING Each Other With HUGE DILDOS
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 15:52</span><span class="meta-item"><a href="https://www.pornhub.com/channels/webyoung" target="_blank" rel="noopener noreferrer">👤 Web Young</a></span><span class="meta-item">👁️ 118K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://www.pornhub.com/view_video.php?viewkey=657672a8bc8f0" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/LEZ_BE_BAD_-_Horny_Dominant_Babes_Take_Turns_At_Ro_29.jpg" alt="LEZ BE BAD - Horny Dominant Babes Take Turns At Rough Fucking Each Other&amp;#x27;s Pussy With BIG STRAP-ONS" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://www.pornhub.com/view_video.php?viewkey=657672a8bc8f0" target="_blank" rel="noopener noreferrer">
+                            LEZ BE BAD - Horny Dominant Babes Take Turns At Rough Fucking Each Other&amp;#x27;s Pussy With BIG STRAP-ONS
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 8:36</span><span class="meta-item"><a href="https://www.pornhub.com/channels/lez-be-bad" target="_blank" rel="noopener noreferrer">👤 Lez Be Bad</a></span><span class="meta-item">👁️ 148K</span>
+                    </div>
+                </div>
+            </div>
+                    </main>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {{
+            const images = document.querySelectorAll('img[data-src]');
+            const imageObserver = new IntersectionObserver((entries, observer) => {{
+                entries.forEach(entry => {{
+                    if (entry.isIntersecting) {{
+                        const img = entry.target;
+                        const placeholder = img.parentElement;
+                        
+                        placeholder.classList.add('loading-placeholder');
+                        
+                        img.src = img.dataset.src;
+                        img.onload = () => {{
+                            img.removeAttribute('data-src');
+                            placeholder.classList.remove('loading-placeholder');
+                        }};
+                        img.onerror = () => {{
+                            placeholder.innerHTML = '<div class="error-placeholder">❌</div>';
+                        }};
+                        imageObserver.unobserve(img);
+                    }}
+                }});
+            }});
+
+            images.forEach(img => imageObserver.observe(img));
+        }});
+    </script>
+</body>
+</html>

@@ -1,0 +1,410 @@
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, master]
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.txt'
+      - '**/*.json'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number for manual review (outside PR branches)'
+        required: false
+      dry_run:
+        description: 'Analyze only; do not apply fixes or push'
+        type: boolean
+        default: false
+      full_scan:
+        description: 'Analyze all files, not only changed ones'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: write
+  actions: read # Needed for listComments etc.
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+  # Consider 'gemini-1.5-flash' or 'gemini-pro' for stable production use.
+  # Preview models might change.
+  GEMINI_MODEL: 'gemini-1.5-flash' # Changed for stability example
+
+jobs:
+  prepare:
+    name: Prepare Environment & Install Deps
+    runs-on: ubuntu-latest
+    outputs:
+      node_cache_hit: ${{ steps.cache-node.outputs.cache-hit }}
+      python_cache_hit: ${{ steps.cache-pip.outputs.cache-hit }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Node cache key
+        id: node-cache-key
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "key=node-modules-cache-$(sha256sum package-lock.json | cut -d ' ' -f1)" >> $GITHUB_OUTPUT
+          elif [ -f yarn.lock ]; then
+            echo "key=node-modules-cache-$(sha256sum yarn.lock | cut -d ' ' -f1)" >> $GITHUB_OUTPUT
+          else
+            echo "key=node-modules-cache-latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Python cache key
+        id: python-cache-key
+        run: |
+          if [ -f requirements.txt ]; then
+            echo "key=pip-cache-$(sha256sum requirements.txt | cut -d ' ' -f1)" >> $GITHUB_OUTPUT
+          else
+            echo "key=pip-cache-latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Restore Node.js modules
+        id: cache-node
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ steps.node-cache-key.outputs.key }}
+          restore-keys: |
+            node-modules-cache-
+
+      - name: Restore pip packages
+        id: cache-pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ steps.python-cache-key.outputs.key }}
+          restore-keys: |
+            pip-cache-
+
+      - name: Install project deps (Node.js)
+        if: steps.cache-node.outputs.cache-hit != 'true' && ( -f package.json || -f yarn.lock )
+        run: npm ci
+
+      - name: Install project deps (Python)
+        if: steps.cache-pip.outputs.cache-hit != 'true' && -f requirements.txt
+        run: pip install -r requirements.txt
+
+  lint-format:
+    name: Lint & Auto-Format
+    runs-on: ubuntu-latest
+    needs: prepare
+    permissions:
+      contents: write # Needed for committing changes
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install project deps (Node.js)
+        # Re-install project deps if not cached in previous job, needed for ESLint
+        if: needs.prepare.outputs.node_cache_hit != 'true' && ( -f package.json || -f yarn.lock )
+        run: npm ci
+
+      - name: Install project deps (Python)
+        # Re-install project deps if not cached in previous job, needed for Ruff/Black
+        if: needs.prepare.outputs.python_cache_hit != 'true' && -f requirements.txt
+        run: pip install -r requirements.txt
+
+      - name: Install ESLint (if not project dep)
+        run: |
+          if ! command -v eslint &> /dev/null && [ ! -f node_modules/.bin/eslint ]; then
+            npm install eslint --no-save
+          fi
+        continue-on-error: true # Allow this step to fail if npm is not used
+
+      - name: Install Ruff and Black (if not project dep)
+        run: pip install ruff black || true
+        continue-on-error: true # Allow this step to fail if python is not used
+
+      - name: Run ESLint auto-fix (JS/TS)
+        run: npx eslint . --ext .js,.ts,.jsx,.tsx --fix || echo "ESLint errors found but continuing."
+        continue-on-error: true
+        if: success() || failure() # Always run if ESLint is installed
+
+      - name: Run Ruff and Black (Python)
+        run: |
+          ruff check . --fix || echo "Ruff issues found but continuing."
+          black . || echo "Black issues found but continuing."
+        continue-on-error: true
+        if: success() || failure() # Always run if tools are installed
+
+      - name: Commit and push lint/format changes
+        id: commit_lint
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "No lint or format changes to commit"
+            echo "committed=false" >> $GITHUB_OUTPUT
+          else
+            git add .
+            git commit -m "chore: auto-fix lint/format issues [skip ci]"
+            git push origin HEAD:${{ github.head_ref || github.ref }}
+            echo "committed=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  gemini-code-review:
+    name: Gemini AI Code Review & Auto-Fix
+    runs-on: ubuntu-latest
+    needs: lint-format # Ensure linting/formatting runs first
+    timeout-minutes: 25
+    concurrency:
+      group: gemini-review-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.ref }}
+      cancel-in-progress: true
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Use the head ref for PRs, or current ref for push/workflow_dispatch
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          fetch-depth: 0 # Needed for git diff and commit history
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Gemini config file
+        run: |
+          mkdir -p .gemini/logs .gemini/results
+          cat << 'EOF' > .gemini/config.yaml
+          # This configuration is read by the custom action at ./.github/actions/gemini-code-reviewer
+          version: 1.0 # Version of this config schema
+          debug:
+            auto_apply_fixes: true
+            auto_debug: true
+            log_level: INFO # DEBUG, INFO, WARNING, ERROR, CRITICAL
+            log_output_file: .gemini/logs/gemini_codeassist.log
+          analysis:
+            enhancement_suggestions:
+              auto_apply_enhancements: true
+              max_suggestions_per_file: 10
+            code_quality:
+              enforce_style_guides: true
+              style_guides:
+                - pep8
+                - eslint
+            security_scanning:
+              enabled: true
+              severity_threshold: medium # low, medium, high, critical
+              scan_tools: # Placeholder for potential future integration (action itself won't run these directly)
+                - bandit
+                - semgrep
+                - dependabot
+                - snyk
+          source_control:
+            auto_commit_push:
+              enabled: true
+              commit_on_fix_applied: true
+              commit_on_enhancement_applied: true
+              push_after_commit: true
+              commit_author_name: "Gemini AI Assistant"
+              commit_author_email: "gemini-ai-assistant[bot]@users.noreply.github.com"
+              commit_message_template: "feat(gemini): AI auto-fix and enhancements for {{file_count}} files. {{issue_summary}}"
+              conflict_resolution_strategy: "ours" # "ours" or "theirs" or "abort"
+          file_filters:
+            include_patterns:
+              - "**/*.js"
+              - "**/*.ts"
+              - "**/*.py"
+              - "**/*.jsx"
+              - "**/*.tsx"
+              - "**/*.java"
+              - "**/*.go"
+              - "**/*.rb"
+              - "**/*.php"
+              - "**/*.cs"
+              - "**/*.c"
+              - "**/*.cpp"
+              - "**/*.sh"
+              - "**/*.yaml"
+              - "**/*.yml"
+              - "**/*.html"
+              - "**/*.css"
+            exclude_patterns:
+              - "**/dist/"
+              - "**/build/"
+              - "**/coverage/"
+              - "**/node_modules/"
+              - "**/venv/"
+              - "**/__pycache__/"
+              - "**/*.min.js"
+              - "**/*.map"
+              - "**/*.lock"
+              - "**/*.log"
+              - "**/*.md"
+              - "**/*.json"
+              - "**/tmp/"
+              - "**/vendor/"
+              - "**/docs/"
+              - "**/examples/"
+              - ".github/" # Exclude workflow files and action directories
+          review_prompt: |
+            You are an expert AI code reviewer and auto-fix bot named Gemini.
+            Analyze the provided code for quality, bugs, security vulnerabilities, performance, maintainability, and consistency.
+            Provide detailed suggestions for improvements and enhancements, explaining *why* they are beneficial. Indicate specific line numbers if applicable.
+            If there are no issues or clear enhancement opportunities, state "No issues or enhancements found." clearly at the beginning of your response.
+          fix_prompt: |
+            You are an expert AI code refactoring and automatic fix bot named Gemini.
+            Given the original code and the review suggestions, rewrite the code to incorporate ALL the suggested fixes and enhancements.
+            Crucially: Ensure the output is *only* the complete, fixed, and enhanced code. Do not include any additional text, comments, explanations, or markdown code block delimiters (like ```js). Just the raw, updated code. Maintain original formatting, comments, and overall structure as much as possible, only changing what's necessary for the fixes/enhancements.
+          api_parameters:
+            temperature: 0.7
+            top_p: 0.95
+            top_k: 64
+            max_output_tokens: 8192
+          EOF
+
+      - name: Run Gemini AI Code Review Action
+        id: gemini_review
+        uses: ./.github/actions/gemini-code-reviewer # Calls the custom action
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MODEL_NAME: ${{ env.GEMINI_MODEL }}
+          CONFIG_FILE: .gemini/config.yaml # Pass the generated config file
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          FULL_SCAN: ${{ github.event.inputs.full_scan }}
+          # Pass the target branch for push operations directly to the action
+          TARGET_BRANCH: ${{ github.event.pull_request.head.ref || github.ref }}
+
+      - name: Upload Gemini review logs/artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-review-logs-${{ github.run_id }}
+          path: |
+            .gemini/logs/
+            .gemini/results/
+          retention-days: 7
+
+      - name: Create GitHub Check for Gemini Review
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const reviewResult = '${{ steps.gemini_review.outputs.review_result }}';
+            let conclusion = 'neutral';
+            if (reviewResult === 'success') conclusion = 'success';
+            else if (reviewResult === 'failure') conclusion = 'failure';
+            else if (reviewResult === 'skipped') conclusion = 'skipped'; // New conclusion for skipped runs
+
+            const head_sha = context.payload.pull_request ? context.payload.pull_request.head.sha : context.sha;
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'Gemini AI Code Review',
+              head_sha: head_sha,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: `Gemini AI Code Review Results: ${reviewResult.toUpperCase()}`,
+                summary: `${{ steps.gemini_review.outputs.review_summary }}` || 'No summary available.',
+                text: `${{ steps.gemini_review.outputs.review_details }}` || ''
+              }
+            });
+
+      - name: Post Gemini Review Summary Comment on PR
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const reviewSummary = `${{ steps.gemini_review.outputs.review_summary }}`.trim();
+            const filesModifiedCount = parseInt('${{ steps.gemini_review.outputs.files_modified_count }}', 10);
+            const autoCommitted = '${{ steps.gemini_review.outputs.auto_committed }}' === 'true';
+            const dryRun = '${{ github.event.inputs.dry_run }}' === 'true';
+
+            let commentBody = `## 🤖 Gemini AI Code Review Results
+
+${reviewSummary}
+
+`;
+
+            if (filesModifiedCount > 0 && autoCommitted && !dryRun) {
+              commentBody += `✅ Successfully auto-fixed and pushed changes for **${filesModifiedCount} files**.
+`;
+            } else if (filesModifiedCount > 0 && dryRun) {
+              commentBody += `⚠️ Detected **${filesModifiedCount} files** with potential fixes/enhancements (dry-run mode, no changes pushed).
+`;
+            } else if (filesModifiedCount === 0 && autoCommitted && !dryRun) {
+              commentBody += `✨ No changes needed or applied.
+`;
+            } else if (filesModifiedCount === 0 && dryRun) {
+              commentBody += `✨ No changes needed or applied (dry-run mode).
+`;
+            }
+
+            commentBody += `
+[View detailed check run](https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${context.issue.number}/checks)`;
+
+            // Check if a previous comment by Gemini exists to update it
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100
+            });
+            const geminiComment = comments.find(c => c.user.login === 'github-actions[bot]' && c.body.includes('## 🤖 Gemini AI Code Review Results'));
+
+            if (geminiComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: geminiComment.id,
+                body: commentBody
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            }
+
+      - name: Fail workflow on critical issues (non-dry-run)
+        if: ${{ steps.gemini_review.outputs.review_result == 'failure' && github.event.inputs.dry_run != 'true' }}
+        run: |
+          echo "::error::Critical issues found by Gemini AI code review. Workflow failing."
+          exit 1

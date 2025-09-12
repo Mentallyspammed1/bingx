@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinder date bj - xhamster</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #16213e;
+            --accent-cyan: #00d4ff;
+            --accent-pink: #ff006e;
+            --accent-purple: #8b5cf6;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666;
+            --border: #2a2a3e;
+            --shadow: rgba(0, 212, 255, 0.1);
+            --gradient: linear-gradient(135deg, var(--accent-cyan), var(--accent-pink));
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            margin-top: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 4px;
+            background: var(--gradient);
+            border-radius: 2px;
+        }
+
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px var(--shadow);
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 1.5rem 0;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            background: var(--bg-card);
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            border: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .video-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .video-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px var(--shadow);
+            border-color: var(--accent-cyan);
+        }
+
+        .video-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .video-card:hover::before { opacity: 1; }
+
+        .thumbnail {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            background: var(--bg-primary);
+        }
+
+        .thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .video-card:hover .thumbnail img { transform: scale(1.1); }
+
+        .play-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 212, 255, 0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .video-card:hover .play-overlay {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        .play-overlay::before {
+            content: '▶';
+            color: white;
+            font-size: 1.2rem;
+            margin-left: 3px;
+        }
+
+        .video-info {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .video-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-title a {
+            color: inherit;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .video-title a:hover { color: var(--accent-cyan); }
+
+        .video-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        .meta-item {
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--accent-cyan);
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .meta-item a {
+            color: inherit;
+            text-decoration: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .meta-item a:hover { opacity: 0.8; }
+
+        .loading-placeholder {
+            background: linear-gradient(90deg, var(--bg-card) 25%, rgba(255,255,255,0.05) 50%, var(--bg-card) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .error-placeholder {
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .container { margin: 1rem; padding: 1rem; border-radius: 12px; }
+            h1 { font-size: 2rem; }
+            .video-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+            .stats { gap: 1rem; }
+            .stat { padding: 0.5rem 1rem; font-size: 0.8rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>tinder date bj</h1>
+            <p class="subtitle">Search results from Xhamster</p>
+            <div class="stats">
+                <div class="stat">🎬 30 videos</div>
+                <div class="stat">🔍 Xhamster</div>
+                <div class="stat">⏰ 2025-08-01 09:06</div>
+            </div>
+        </header>
+        <main class="video-grid">
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/innocent-blonde-tinder-date-fucked-until-shes-messy-xhd3AqV" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Innocent_blonde_tinder_date_fucked_until_shex27s_m_0.jpg" alt="Innocent blonde tinder date fucked until she&amp;#x27;s messy" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/innocent-blonde-tinder-date-fucked-until-shes-messy-xhd3AqV" target="_blank" rel="noopener noreferrer">
+                            Innocent blonde tinder date fucked until she&amp;#x27;s messy
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 18:58</span><span class="meta-item"><a href="https://xhamster.com/creators/sammm-next-door" target="_blank" rel="noopener noreferrer">👤 Sammm Next Door</a></span><span class="meta-item">👁️ 1.4M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/fakehub-babe-catfished-on-tinder-date-but-hes-got-a-huge-cock-to-creampie-her-see-inside-pussy-xhYPIMn" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/FAKEhub_-_Babe_catfished_on_tinder_date_but_hes_go_1.v1689855265" alt="FAKEhub - Babe catfished on tinder date but hes got a huge cock to creampie her - see inside pussy" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/fakehub-babe-catfished-on-tinder-date-but-hes-got-a-huge-cock-to-creampie-her-see-inside-pussy-xhYPIMn" target="_blank" rel="noopener noreferrer">
+                            FAKEhub - Babe catfished on tinder date but hes got a huge cock to creampie her - see inside pussy
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 12:06</span><span class="meta-item"><a href="https://xhamster.com/channels/fake-hub" target="_blank" rel="noopener noreferrer">👤 Fake Hub</a></span><span class="meta-item">👁️ 3M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/tinder-date-ends-with-slut-fucked-hard-and-creampied-xhDodKf" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Tinder_date_ends_with_slut_fucked_hard_and_creampi_2.webp" alt="Tinder date ends with slut fucked hard and creampied" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/tinder-date-ends-with-slut-fucked-hard-and-creampied-xhDodKf" target="_blank" rel="noopener noreferrer">
+                            Tinder date ends with slut fucked hard and creampied
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 04:55</span><span class="meta-item">👁️ 2.4M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/tinder-date-turns-into-threesome-14088840" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Tinder_Date_Turns_Into_Threesome_3.webp" alt="Tinder Date Turns Into Threesome" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/tinder-date-turns-into-threesome-14088840" target="_blank" rel="noopener noreferrer">
+                            Tinder Date Turns Into Threesome
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 09:24</span><span class="meta-item">👁️ 2.5M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/tinder-date-goes-well-xhNmjIK" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Tinder_Date_goes_Well_4.jpg" alt="Tinder Date goes Well" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/tinder-date-goes-well-xhNmjIK" target="_blank" rel="noopener noreferrer">
+                            Tinder Date goes Well
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 17:53</span><span class="meta-item"><a href="https://xhamster.com/creators/sbg-media" target="_blank" rel="noopener noreferrer">👤 SBG Media</a></span><span class="meta-item">👁️ 435K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/first-tinder-date-ends-with-sex-in-car-she-allowed-me-to-cum-inside-her-pussy-xhmVDYm" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/First_Tinder_date_ends_with_sex_in_car_She_allowed_5.jpg" alt="First Tinder date ends with sex in car! She allowed me to cum inside her pussy" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/first-tinder-date-ends-with-sex-in-car-she-allowed-me-to-cum-inside-her-pussy-xhmVDYm" target="_blank" rel="noopener noreferrer">
+                            First Tinder date ends with sex in car! She allowed me to cum inside her pussy
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 13:18</span><span class="meta-item"><a href="https://xhamster.com/creators/niiikey" target="_blank" rel="noopener noreferrer">👤 niiikey</a></span><span class="meta-item">👁️ 596.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/tinder-date-started-with-a-blowjob-xhRzEfZ" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Tinder_date_started_with_a_blowjob_6.webp" alt="Tinder date started with a blowjob" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/tinder-date-started-with-a-blowjob-xhRzEfZ" target="_blank" rel="noopener noreferrer">
+                            Tinder date started with a blowjob
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 06:09</span><span class="meta-item">👁️ 435.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/private-tinder-date-with-a-teen-in-a-hotel-xhjWTHQ" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Private_Tinder_Date_with_a_Teen_in_a_Hotel_7.webp" alt="Private Tinder Date with a Teen in a Hotel" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/private-tinder-date-with-a-teen-in-a-hotel-xhjWTHQ" target="_blank" rel="noopener noreferrer">
+                            Private Tinder Date with a Teen in a Hotel
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 16:49</span><span class="meta-item"><a href="https://xhamster.com/users/eroticplanetgermany/videos" target="_blank" rel="noopener noreferrer">👤 EroticPlanetGermany</a></span><span class="meta-item">👁️ 75.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lucky-tinder-date-with-2-sluts-sucking-big-cock-and-facial-13646849" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lucky_tinder_date_with_2_sluts_sucking_big_cock_an_8.webp" alt="Lucky tinder date with 2 sluts,  sucking big cock and facial" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lucky-tinder-date-with-2-sluts-sucking-big-cock-and-facial-13646849" target="_blank" rel="noopener noreferrer">
+                            Lucky tinder date with 2 sluts,  sucking big cock and facial
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 06:01</span><span class="meta-item">👁️ 920K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/tinder-date-with-talula-ends-with-amazing-sex-xh0vUVs" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Tinder_Date_with_Talula_Ends_with_Amazing_Sex_9.webp" alt="Tinder Date with Talula Ends with Amazing Sex" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/tinder-date-with-talula-ends-with-amazing-sex-xh0vUVs" target="_blank" rel="noopener noreferrer">
+                            Tinder Date with Talula Ends with Amazing Sex
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 07:01</span><span class="meta-item"><a href="https://xhamster.com/creators/mattyfacial" target="_blank" rel="noopener noreferrer">👤 MattyFacial</a></span><span class="meta-item">👁️ 1.2M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/my-tinder-date-ended-very-quickly-and-i-had-to-masturbate-to-get-an-orgasm-xhwVD1u" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/My_Tinder_date_ended_very_quickly_and_I_had_to_mas_10.jpg" alt="My Tinder date ended very quickly and I had to masturbate to get an orgasm" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/my-tinder-date-ended-very-quickly-and-i-had-to-masturbate-to-get-an-orgasm-xhwVD1u" target="_blank" rel="noopener noreferrer">
+                            My Tinder date ended very quickly and I had to masturbate to get an orgasm
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 23:59</span><span class="meta-item"><a href="https://xhamster.com/creators/ladyroma" target="_blank" rel="noopener noreferrer">👤 LadyRoma</a></span><span class="meta-item">👁️ 106K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/redhead-tinder-date-xhmVkTh" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Redhead_Tinder_Date_11.webp" alt="Redhead Tinder Date" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/redhead-tinder-date-xhmVkTh" target="_blank" rel="noopener noreferrer">
+                            Redhead Tinder Date
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 14:45</span><span class="meta-item">👁️ 843.2K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/tinder-date-bbc-facefucking-niyukee-cruz-facial-on-southbeach-by-kingbbc-xh5nkk9" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Tinder_Date_BBC_Facefucking_Niyukee_Cruz_amp_Facia_12.webp" alt="Tinder Date! BBC Facefucking Niyukee Cruz &amp;amp; Facial on SouthBeach by KingBBC" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/tinder-date-bbc-facefucking-niyukee-cruz-facial-on-southbeach-by-kingbbc-xh5nkk9" target="_blank" rel="noopener noreferrer">
+                            Tinder Date! BBC Facefucking Niyukee Cruz &amp;amp; Facial on SouthBeach by KingBBC
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 04:19</span><span class="meta-item"><a href="https://xhamster.com/channels/kingbbc" target="_blank" rel="noopener noreferrer">👤 KingBBC</a></span><span class="meta-item">👁️ 282.6K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/tinder-date-with-lesbian-couple-mff-xhVeA65" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Tinder_date_with_lesbian_couple_MFF_13.webp" alt="Tinder date with lesbian couple – MFF" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/tinder-date-with-lesbian-couple-mff-xhVeA65" target="_blank" rel="noopener noreferrer">
+                            Tinder date with lesbian couple – MFF
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 06:10</span><span class="meta-item">👁️ 1.1M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/french-tinder-date-na-jamais-eu-une-bite-aussi-grosse-xhSSJvy" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/French_Tinder_Date_na_jamais_eu_une_bite_aussi_gro_14.webp" alt="French Tinder Date na jamais eu une bite aussi grosse" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/french-tinder-date-na-jamais-eu-une-bite-aussi-grosse-xhSSJvy" target="_blank" rel="noopener noreferrer">
+                            French Tinder Date na jamais eu une bite aussi grosse
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 06:44</span><span class="meta-item">👁️ 85.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/bbc-tinder-date-fucks-me-hard-and-long-until-he-gets-sucked-dry-xhrE8Di" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/BBC_Tinder_Date_Fucks_me_Hard_and_Long_until_he_ge_15.webp" alt="BBC Tinder Date Fucks me Hard and Long until he gets Sucked Dry" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/bbc-tinder-date-fucks-me-hard-and-long-until-he-gets-sucked-dry-xhrE8Di" target="_blank" rel="noopener noreferrer">
+                            BBC Tinder Date Fucks me Hard and Long until he gets Sucked Dry
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 41:35</span><span class="meta-item">👁️ 395.4K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/fucking-my-tinder-date-after-dinner-a-super-cute-blonde-with-an-amazing-ass-xhvPt0I" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Fucking_my_Tinder_date_after_dinner_-_a_super_cute_16.v1664975013" alt="Fucking my Tinder date after dinner - a super cute blonde with an amazing ass" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/fucking-my-tinder-date-after-dinner-a-super-cute-blonde-with-an-amazing-ass-xhvPt0I" target="_blank" rel="noopener noreferrer">
+                            Fucking my Tinder date after dinner - a super cute blonde with an amazing ass
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 07:20</span><span class="meta-item"><a href="https://xhamster.com/channels/lustfeed" target="_blank" rel="noopener noreferrer">👤 LustFeed</a></span><span class="meta-item">👁️ 541.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/tinder-date-ends-with-amazing-sex-xhoul1L" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Tinder_date_ends_with_amazing_sex_17.webp" alt="Tinder date ends with amazing sex" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/tinder-date-ends-with-amazing-sex-xhoul1L" target="_blank" rel="noopener noreferrer">
+                            Tinder date ends with amazing sex
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 11:01</span><span class="meta-item"><a href="https://xhamster.com/creators/mattyfacial" target="_blank" rel="noopener noreferrer">👤 MattyFacial</a></span><span class="meta-item">👁️ 57.2K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/big-butt-tinder-date-gets-fucked-infront-of-cuckold-wife-xh9dDsH" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Big_Butt_Tinder_Date_Gets_Fucked_infront_of_Cuckol_18.v1694453995" alt="Big Butt Tinder Date Gets Fucked infront of Cuckold Wife" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/big-butt-tinder-date-gets-fucked-infront-of-cuckold-wife-xh9dDsH" target="_blank" rel="noopener noreferrer">
+                            Big Butt Tinder Date Gets Fucked infront of Cuckold Wife
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 05:32</span><span class="meta-item"><a href="https://xhamster.com/creators/big-butt-solo" target="_blank" rel="noopener noreferrer">👤 Big_Butt_Solo</a></span><span class="meta-item">👁️ 2.3M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/outdoor-tinder-date-fucked-in-the-woods-and-cumshot-2-times-hard-juicyamateurtits-xhrqTIv" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/OUTDOOR_Tinder_Date_Fucked_In_The_Woods_And_Cumsho_19.webp" alt="OUTDOOR Tinder Date Fucked In The Woods And Cumshot 2 Times Hard - JuicyAmateurTits" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/outdoor-tinder-date-fucked-in-the-woods-and-cumshot-2-times-hard-juicyamateurtits-xhrqTIv" target="_blank" rel="noopener noreferrer">
+                            OUTDOOR Tinder Date Fucked In The Woods And Cumshot 2 Times Hard - JuicyAmateurTits
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:18</span><span class="meta-item"><a href="https://xhamster.com/creators/juicy-amateur" target="_blank" rel="noopener noreferrer">👤 Juicy Amateur</a></span><span class="meta-item">👁️ 107.5K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/tinder-date-my-asian-pussy-wasnt-ready-for-his-cock-full-version-4k-hd-tim-team-xhld6st" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Tinder_Date._My_Asian_Pussy_Wasnx27t_Ready_For_His_20.jpg" alt="Tinder Date. My Asian Pussy Wasn&amp;#x27;t Ready For His Cock. Full Version 4K HD Tim Team" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/tinder-date-my-asian-pussy-wasnt-ready-for-his-cock-full-version-4k-hd-tim-team-xhld6st" target="_blank" rel="noopener noreferrer">
+                            Tinder Date. My Asian Pussy Wasn&amp;#x27;t Ready For His Cock. Full Version 4K HD Tim Team
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 13:40</span><span class="meta-item"><a href="https://xhamster.com/creators/kwini-kim" target="_blank" rel="noopener noreferrer">👤 Kwini Kim</a></span><span class="meta-item">👁️ 64.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/blowjob-by-my-tinder-date-8017881" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Blowjob_by_My_Tinder_Date_21.webp" alt="Blowjob by My Tinder Date" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/blowjob-by-my-tinder-date-8017881" target="_blank" rel="noopener noreferrer">
+                            Blowjob by My Tinder Date
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 02:27</span><span class="meta-item">👁️ 524.6K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/teen-colombian-tinder-date-gets-dessert-slammed-hard-at-hotel-xhOmcCQ" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Teen_Colombian_tinder_date_gets_dessert_slammed_ha_22.jpg" alt="Teen Colombian tinder date gets dessert slammed hard at hotel" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/teen-colombian-tinder-date-gets-dessert-slammed-hard-at-hotel-xhOmcCQ" target="_blank" rel="noopener noreferrer">
+                            Teen Colombian tinder date gets dessert slammed hard at hotel
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 06:06</span><span class="meta-item"><a href="https://xhamster.com/channels/latina-fuck-tour" target="_blank" rel="noopener noreferrer">👤 Latina Fuck Tour</a></span><span class="meta-item">👁️ 794.4K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/real-first-tinder-date-in-her-car-with-cum-in-mouth-xhesTw1" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Real_first_tinder_date_in_her_car_with_cum_in_mout_23.webp" alt="Real first tinder date in her car with cum in mouth" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/real-first-tinder-date-in-her-car-with-cum-in-mouth-xhesTw1" target="_blank" rel="noopener noreferrer">
+                            Real first tinder date in her car with cum in mouth
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 04:22</span><span class="meta-item"><a href="https://xhamster.com/creators/mamicolombiana" target="_blank" rel="noopener noreferrer">👤 Mamicolombiana</a></span><span class="meta-item">👁️ 660.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/fucking-a-big-tits-thai-milf-on-my-tinder-date-xhy66en" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Fucking_a_Big_Tits_Thai_MILF_on_My_Tinder_Date_24.jpg" alt="Fucking a Big Tits Thai MILF on My Tinder Date" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/fucking-a-big-tits-thai-milf-on-my-tinder-date-xhy66en" target="_blank" rel="noopener noreferrer">
+                            Fucking a Big Tits Thai MILF on My Tinder Date
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 08:12</span><span class="meta-item"><a href="https://xhamster.com/creators/antonio-mallorca" target="_blank" rel="noopener noreferrer">👤 Antonio Mallorca</a></span><span class="meta-item">👁️ 352.9K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/married-tinder-date-takes-step-daddys-cum-like-a-dirty-cum-slut-12922025" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Married_Tinder_Date_Takes_Step_Daddys_Cum_Like_A_D_25.webp" alt="Married Tinder Date Takes Step Daddys Cum Like A Dirty Cum Slut" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/married-tinder-date-takes-step-daddys-cum-like-a-dirty-cum-slut-12922025" target="_blank" rel="noopener noreferrer">
+                            Married Tinder Date Takes Step Daddys Cum Like A Dirty Cum Slut
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 04:22</span><span class="meta-item">👁️ 458.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/my-tinder-date-to-watch-a-movie-asks-me-to-put-shrek-and-she-doesnt-watch-it-xho6qrR" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/My_Tinder_Date_to_Watch_a_Movie_Asks_Me_to_Put_Shr_26.webp" alt="My Tinder Date to Watch a Movie Asks Me to Put Shrek and She Doesn&amp;#x27;t Watch It" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/my-tinder-date-to-watch-a-movie-asks-me-to-put-shrek-and-she-doesnt-watch-it-xho6qrR" target="_blank" rel="noopener noreferrer">
+                            My Tinder Date to Watch a Movie Asks Me to Put Shrek and She Doesn&amp;#x27;t Watch It
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 27:51</span><span class="meta-item"><a href="https://xhamster.com/creators/cherry-lips" target="_blank" rel="noopener noreferrer">👤 Cherry Lips</a></span><span class="meta-item">👁️ 154K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/my-tinder-date-goes-straight-cumshot-xhL1HiA" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/My_Tinder_Date_Goes_Straight_CUMSHOT_27.webp" alt="My Tinder Date Goes Straight CUMSHOT" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/my-tinder-date-goes-straight-cumshot-xhL1HiA" target="_blank" rel="noopener noreferrer">
+                            My Tinder Date Goes Straight CUMSHOT
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 12:57</span><span class="meta-item"><a href="https://xhamster.com/creators/bellewithbeast" target="_blank" rel="noopener noreferrer">👤 Bellewithbeast</a></span><span class="meta-item">👁️ 44.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/a-tinder-date-ended-with-sex-in-the-park-xh8sUxK" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/A_TINDER_DATE_ENDED_WITH_SEX_IN_THE_PARK_28.webp" alt="A TINDER DATE ENDED WITH SEX IN THE PARK" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/a-tinder-date-ended-with-sex-in-the-park-xh8sUxK" target="_blank" rel="noopener noreferrer">
+                            A TINDER DATE ENDED WITH SEX IN THE PARK
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 08:39</span><span class="meta-item"><a href="https://xhamster.com/creators/asukakamila-x-smorekx" target="_blank" rel="noopener noreferrer">👤 AsukaKamila x Smorekx</a></span><span class="meta-item">👁️ 617K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/my-tinder-date-horny-internet-girl-sucks-my-cock-9173751" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/My_Tinder_Date_Horny_Internet_Girl_Sucks_My_Cock_29.webp" alt="My Tinder Date! Horny Internet Girl Sucks My Cock." loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/my-tinder-date-horny-internet-girl-sucks-my-cock-9173751" target="_blank" rel="noopener noreferrer">
+                            My Tinder Date! Horny Internet Girl Sucks My Cock.
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 02:01</span><span class="meta-item">👁️ 238.1K views</span>
+                    </div>
+                </div>
+            </div>
+                    </main>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {{
+            const images = document.querySelectorAll('img[data-src]');
+            const imageObserver = new IntersectionObserver((entries, observer) => {{
+                entries.forEach(entry => {{
+                    if (entry.isIntersecting) {{
+                        const img = entry.target;
+                        const placeholder = img.parentElement;
+                        
+                        placeholder.classList.add('loading-placeholder');
+                        
+                        img.src = img.dataset.src;
+                        img.onload = () => {{
+                            img.removeAttribute('data-src');
+                            placeholder.classList.remove('loading-placeholder');
+                        }};
+                        img.onerror = () => {{
+                            placeholder.innerHTML = '<div class="error-placeholder">❌</div>';
+                        }};
+                        imageObserver.unobserve(img);
+                    }}
+                }});
+            }});
+
+            images.forEach(img => imageObserver.observe(img));
+        }});
+    </script>
+</body>
+</html>

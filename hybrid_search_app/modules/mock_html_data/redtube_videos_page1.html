@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock Redtube Video Search Results</title>
+</head>
+<body>
+    <div id="search_results_block_list_view" class="video_listing">
+        <!-- Item 1: Uses div.video_bloc -->
+        <div class="video_bloc" data-id="rt1001">
+            <div class="video_thumb_wrap">
+                <a href="https://www.redtube.com/1001234" class="video_link track_trigger" title="Mock Redtube Video One">
+                    <img class="video_thumbnail_img" src="/thumbs_static/rt_thumb1.jpg" data-src="/thumbs_dynamic/rt_thumb1.jpg" alt="Mock Video 1 Alt">
+                    <var class="duration">12:30</var>
+                </a>
+                <!-- Redtube often has complex hover previews, data-previewvideo is a guess -->
+                <script type="text/template" class="hidden_overlay_template" data-previewvideo="/previews/rt_preview1.mp4"></script>
+            </div>
+            <div class="video_title_box">
+                <a href="https://www.redtube.com/1001234" class="video_title_link">
+                    <span class="video_title_text">Mock Redtube Video One</span>
+                </a>
+            </div>
+            <div class="video_details">
+                <span class="views_count">2.5M views</span>
+            </div>
+        </div>
+
+        <!-- Item 2: Uses li.video_item -->
+        <li class="video_item" data-id="rt1002">
+            <a href="https://www.redtube.com/1002345" class="video_link" title="Second Redtube Mock Video">
+                <img class="video_thumbnail_img" src="/thumbs_static/rt_thumb2.jpg" alt="Second Mock Video">
+                <span class="video_duration">09:45</span>
+            </a>
+            <strong class="video_title_strong"><a href="https://www.redtube.com/1002345">Second Redtube Mock Video</a></strong>
+             <!-- No explicit preview in this variation -->
+        </li>
+
+        <!-- Item 3: Uses div.video-tile (another common pattern) -->
+        <div class="video-tile" data-video_id="rt1003">
+            <a href="https://www.redtube.com/1003456" class="video-tile_thumbnail_link" title="Redtube Video Tile Example" data-preview="/previews/rt_preview3.webm">
+                <img class="video-tile_thumbnail_img" src="/thumbs_static/rt_thumb3.jpg" data-src="/thumbs_dynamic/rt_thumb3.jpg">
+                <span class="video-tile_duration">07:10</span>
+            </a>
+            <p class="video-tile_title">
+                <a href="https://www.redtube.com/1003456">Redtube Video Tile Example</a>
+            </p>
+        </div>
+
+        <!-- Item 4: Uses div.videoBlock (seen on some layouts) -->
+        <div class="videoBlock" data-id="rt1004">
+             <a href="https://www.redtube.com/1004567" class="videoLink" title="Fourth Video Redtube">
+                <img class="thumb" data-src="/thumbs_dynamic/rt_thumb4.jpg" src="/thumbs_static/rt_thumb4.jpg">
+                <var class="duration">11:00</var>
+            </a>
+            <div class="videoTitle"><a href="https://www.redtube.com/1004567">Fourth Video Redtube</a></div>
+        </div>
+    </div>
+</body>
+</html>

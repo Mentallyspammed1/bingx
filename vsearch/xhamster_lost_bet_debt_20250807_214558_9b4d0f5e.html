@@ -1,0 +1,2216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>lost bet debt - xhamster</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #16213e;
+            --accent-cyan: #00d4ff;
+            --accent-pink: #ff006e;
+            --accent-purple: #8b5cf6;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666;
+            --border: #2a2a3e;
+            --shadow: rgba(0, 212, 255, 0.1);
+            --gradient: linear-gradient(135deg, var(--accent-cyan), var(--accent-pink));
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            margin-top: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 4px;
+            background: var(--gradient);
+            border-radius: 2px;
+        }
+
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px var(--shadow);
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 1.5rem 0;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            background: var(--bg-card);
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            border: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .video-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .video-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px var(--shadow);
+            border-color: var(--accent-cyan);
+        }
+
+        .video-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .video-card:hover::before { opacity: 1; }
+
+        .thumbnail {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            background: var(--bg-primary);
+        }
+
+        .thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .video-card:hover .thumbnail img { transform: scale(1.1); }
+
+        .play-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 212, 255, 0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .video-card:hover .play-overlay {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        .play-overlay::before {
+            content: '▶';
+            color: white;
+            font-size: 1.2rem;
+            margin-left: 3px;
+        }
+
+        .video-info {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .video-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-title a {
+            color: inherit;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .video-title a:hover { color: var(--accent-cyan); }
+
+        .video-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        .meta-item {
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--accent-cyan);
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .meta-item a {
+            color: inherit;
+            text-decoration: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .meta-item a:hover { opacity: 0.8; }
+
+        .loading-placeholder {
+            background: linear-gradient(90deg, var(--bg-card) 25%, rgba(255,255,255,0.05) 50%, var(--bg-card) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .error-placeholder {
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .container { margin: 1rem; padding: 1rem; border-radius: 12px; }
+            h1 { font-size: 2rem; }
+            .video-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+            .stats { gap: 1rem; }
+            .stat { padding: 0.5rem 1rem; font-size: 0.8rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>lost bet debt</h1>
+            <p class="subtitle">Search results from Xhamster</p>
+            <div class="stats">
+                <div class="stat">📹 100 videos</div>
+                <div class="stat">🔍 Xhamster</div>
+                <div class="stat">⏰ 2025-08-07 21:46</div>
+            </div>
+        </header>
+        <main class="video-grid">
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/neighbors-wife-fucks-to-pay-for-husbands-lost-bet-xhxTXB6" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Neighborx27s_wife_fucks_to_pay_for_husbandx27s_los_0.webp" alt="Neighbor&amp;#x27;s wife fucks to pay for husband&amp;#x27;s lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/neighbors-wife-fucks-to-pay-for-husbands-lost-bet-xhxTXB6" target="_blank" rel="noopener noreferrer">
+                            Neighbor&amp;#x27;s wife fucks to pay for husband&amp;#x27;s lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:30</span><span class="meta-item"><a href="https://xhamster.com/channels/erin-electra" target="_blank" rel="noopener noreferrer">👤 Erin Electra</a></span><span class="meta-item">📊 698.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/neighbors-wife-pays-lost-bet-xhDVPXB" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Neighborx27s_wife_pays_lost_bet_1.webp" alt="Neighbor&amp;#x27;s wife pays lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/neighbors-wife-pays-lost-bet-xhDVPXB" target="_blank" rel="noopener noreferrer">
+                            Neighbor&amp;#x27;s wife pays lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 11:34</span><span class="meta-item"><a href="https://xhamster.com/channels/erin-electra" target="_blank" rel="noopener noreferrer">👤 Erin Electra</a></span><span class="meta-item">📊 19.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/my-husbands-friend-busts-my-pussy-and-cums-paying-my-husbands-lost-bet-xhoc1Mg" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/My_husbandx27s_friend_busts_my_pussy_and_cums._Pay_2.webp" alt="My husband&amp;#x27;s friend busts my pussy and cums. Paying my husband&amp;#x27;s lost bet." loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/my-husbands-friend-busts-my-pussy-and-cums-paying-my-husbands-lost-bet-xhoc1Mg" target="_blank" rel="noopener noreferrer">
+                            My husband&amp;#x27;s friend busts my pussy and cums. Paying my husband&amp;#x27;s lost bet.
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 06:17</span><span class="meta-item"><a href="https://xhamster.com/creators/dulce-lou" target="_blank" rel="noopener noreferrer">👤 Dulce_Lou</a></span><span class="meta-item">📊 52.6K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/he-gives-his-wife-to-pay-a-debt-divinamaruuu-x-jorge-woh-x-burning-blue-xh6dAn6" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/He_Gives_His_Wife_to_Pay_a_Debt_-_DivinaMaruuu_X_J_3.webp" alt="He Gives His Wife to Pay a Debt - DivinaMaruuu X Jorge Woh X Burning Blue" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/he-gives-his-wife-to-pay-a-debt-divinamaruuu-x-jorge-woh-x-burning-blue-xh6dAn6" target="_blank" rel="noopener noreferrer">
+                            He Gives His Wife to Pay a Debt - DivinaMaruuu X Jorge Woh X Burning Blue
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 22:15</span><span class="meta-item"><a href="https://xhamster.com/creators/divinamaruuu" target="_blank" rel="noopener noreferrer">👤 DivinaMaruuu</a></span><span class="meta-item">📊 3.2M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/stepmom-loses-and-has-to-pay-up-xhZwhyI" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Stepmom_loses_and_has_to_pay_up_4.webp" alt="Stepmom loses and has to pay up" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/stepmom-loses-and-has-to-pay-up-xhZwhyI" target="_blank" rel="noopener noreferrer">
+                            Stepmom loses and has to pay up
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 11:05</span><span class="meta-item"><a href="https://xhamster.com/channels/erin-electra" target="_blank" rel="noopener noreferrer">👤 Erin Electra</a></span><span class="meta-item">📊 1.4M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/brockton-blackmailed-gf-step-mom-must-blow-my-friends-on-command-12080310" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Brockton_Blackmailed_GF_STEP_MOM_Must_Blow_my_Frie_5.webp" alt="Brockton Blackmailed GF STEP MOM Must Blow my Friends on Command" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/brockton-blackmailed-gf-step-mom-must-blow-my-friends-on-command-12080310" target="_blank" rel="noopener noreferrer">
+                            Brockton Blackmailed GF STEP MOM Must Blow my Friends on Command
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 01:12</span><span class="meta-item">📊 603.5K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/wife-pay-debit-poker-xhntwkc" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Wife_Pay_Debit_Poker_6.webp" alt="Wife Pay Debit Poker" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/wife-pay-debit-poker-xhntwkc" target="_blank" rel="noopener noreferrer">
+                            Wife Pay Debit Poker
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 18:26</span><span class="meta-item"><a href="https://xhamster.com/creators/casalgresopio" target="_blank" rel="noopener noreferrer">👤 CasalGresopio</a></span><span class="meta-item">📊 103.6K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/wife-fucking-to-pay-husbands-debt-caught-on-home-cam-xhYR7EB" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Wife_fucking_to_pay_husbandx27s_debt_caught_on_hom_7.webp" alt="Wife fucking to pay husband&amp;#x27;s debt caught on home cam" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/wife-fucking-to-pay-husbands-debt-caught-on-home-cam-xhYR7EB" target="_blank" rel="noopener noreferrer">
+                            Wife fucking to pay husband&amp;#x27;s debt caught on home cam
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:18</span><span class="meta-item"><a href="https://xhamster.com/channels/erin-electra" target="_blank" rel="noopener noreferrer">👤 Erin Electra</a></span><span class="meta-item">📊 44.6K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/paying-my-husbands-debt-i-give-my-pussy-to-his-best-friend-and-he-cums-inside-me-oh-no-he-accidentally-empties-me-xhNzi8x" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Paying_my_husbandx27s_debt_I_give_my_pussy_to_his__8.webp" alt="Paying my husband&amp;#x27;s debt, I give my pussy to his best friend and he cums inside me, Oh no, he accidentally empties me." loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/paying-my-husbands-debt-i-give-my-pussy-to-his-best-friend-and-he-cums-inside-me-oh-no-he-accidentally-empties-me-xhNzi8x" target="_blank" rel="noopener noreferrer">
+                            Paying my husband&amp;#x27;s debt, I give my pussy to his best friend and he cums inside me, Oh no, he accidentally empties me.
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 06:07</span><span class="meta-item"><a href="https://xhamster.com/creators/dulce-lou" target="_blank" rel="noopener noreferrer">👤 Dulce_Lou</a></span><span class="meta-item">📊 47.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/paying-the-rent-debt-with-my-pussy-suckling-lambs-in-the-ass-my-husband-will-be-happy-xha1oLF" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Paying_the_rent_debt_with_my_pussy._Suckling_lambs_9.webp" alt="Paying the rent debt with my pussy. Suckling lambs in the ass. My husband will be happy" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/paying-the-rent-debt-with-my-pussy-suckling-lambs-in-the-ass-my-husband-will-be-happy-xha1oLF" target="_blank" rel="noopener noreferrer">
+                            Paying the rent debt with my pussy. Suckling lambs in the ass. My husband will be happy
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 05:06</span><span class="meta-item"><a href="https://xhamster.com/creators/dulce-lou" target="_blank" rel="noopener noreferrer">👤 Dulce_Lou</a></span><span class="meta-item">📊 18.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/wife-pays-a-bet-by-sucking-a-cock-xhaw3C4" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/WIFE_PAYS_A_BET_BY_SUCKING_A_COCK_10.webp" alt="WIFE PAYS A BET BY SUCKING A COCK" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/wife-pays-a-bet-by-sucking-a-cock-xhaw3C4" target="_blank" rel="noopener noreferrer">
+                            WIFE PAYS A BET BY SUCKING A COCK
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 03:06</span><span class="meta-item"><a href="https://xhamster.com/creators/veronikax" target="_blank" rel="noopener noreferrer">👤 veronikax</a></span><span class="meta-item">📊 1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/nunca-apuestes-a-tu-esposa-xhyuJz4" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Nunca_apuestes_a_tu_esposa_11.jpg" alt="Nunca apuestes a tu esposa" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/nunca-apuestes-a-tu-esposa-xhyuJz4" target="_blank" rel="noopener noreferrer">
+                            Nunca apuestes a tu esposa
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 35:53</span><span class="meta-item">📊 15.5K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/tiktoker-argentina-loses-bet-and-pays-with-her-ass-divinamaruuu-xhalmxN" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/TikToker_Argentina_Loses_Bet_and_Pays_with_her_Ass_12.v1673809832" alt="TikToker Argentina Loses Bet and Pays with her Ass - DivinaMaruuu" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/tiktoker-argentina-loses-bet-and-pays-with-her-ass-divinamaruuu-xhalmxN" target="_blank" rel="noopener noreferrer">
+                            TikToker Argentina Loses Bet and Pays with her Ass - DivinaMaruuu
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 14:52</span><span class="meta-item"><a href="https://xhamster.com/creators/divinamaruuu" target="_blank" rel="noopener noreferrer">👤 DivinaMaruuu</a></span><span class="meta-item">📊 60.6K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/my-husbands-friend-fucks-me-without-a-condom-and-cums-in-my-ass-my-husband-allowed-him-to-break-my-pussy-to-pay-off-his-debt-xhpP2DX" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/My_husbandx27s_friend_fucks_me_without_a_condom_an_13.webp" alt="My husband&amp;#x27;s friend fucks me without a condom and cums in my ass, my husband allowed him to break my pussy to pay off his debt." loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/my-husbands-friend-fucks-me-without-a-condom-and-cums-in-my-ass-my-husband-allowed-him-to-break-my-pussy-to-pay-off-his-debt-xhpP2DX" target="_blank" rel="noopener noreferrer">
+                            My husband&amp;#x27;s friend fucks me without a condom and cums in my ass, my husband allowed him to break my pussy to pay off his debt.
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 06:09</span><span class="meta-item"><a href="https://xhamster.com/creators/dulce-lou" target="_blank" rel="noopener noreferrer">👤 Dulce_Lou</a></span><span class="meta-item">📊 31.2K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/yumeko-jabami-lets-her-dentist-fuck-her-face-after-losing-a-gamble-sdt-xhuvR5p" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Yumeko_Jabami_lets_her_dentist_fuck_her_face_after_14.webp" alt="Yumeko Jabami lets her dentist fuck her face after losing a gamble - SDT" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/yumeko-jabami-lets-her-dentist-fuck-her-face-after-losing-a-gamble-sdt-xhuvR5p" target="_blank" rel="noopener noreferrer">
+                            Yumeko Jabami lets her dentist fuck her face after losing a gamble - SDT
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 08:38</span><span class="meta-item"><a href="https://xhamster.com/creators/hentaiproduce" target="_blank" rel="noopener noreferrer">👤 Hentaiproduce</a></span><span class="meta-item">📊 30K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/paying-the-rent-debt-the-owner-gets-paid-by-fucking-my-juicy-pussy-until-he-cums-xhi3iOe" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Paying_the_rent_debt._The_owner_gets_paid_by_fucki_15.webp" alt="Paying the rent debt. The owner gets paid by fucking my juicy pussy until he cums" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/paying-the-rent-debt-the-owner-gets-paid-by-fucking-my-juicy-pussy-until-he-cums-xhi3iOe" target="_blank" rel="noopener noreferrer">
+                            Paying the rent debt. The owner gets paid by fucking my juicy pussy until he cums
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 06:32</span><span class="meta-item"><a href="https://xhamster.com/creators/dulce-lou" target="_blank" rel="noopener noreferrer">👤 Dulce_Lou</a></span><span class="meta-item">📊 10.9K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/fairy-fixer-juiceshooters-winx-part-10-flora-and-musa-by-loveskysan69-xhA4gWr" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Fairy_Fixer_JuiceShooters_-_Winx_Part_10_Flora_and_16.webp" alt="Fairy Fixer (JuiceShooters) - Winx Part 10 Flora and Musa By LoveSkySan69" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/fairy-fixer-juiceshooters-winx-part-10-flora-and-musa-by-loveskysan69-xhA4gWr" target="_blank" rel="noopener noreferrer">
+                            Fairy Fixer (JuiceShooters) - Winx Part 10 Flora and Musa By LoveSkySan69
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:09</span><span class="meta-item"><a href="https://xhamster.com/creators/loveskysan69real" target="_blank" rel="noopener noreferrer">👤 LoveSkySan69Real</a></span><span class="meta-item">📊 2.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/mistress-turns-you-into-one-of-her-bunny-girls-and-lets-you-suck-your-first-client-femdom-roleplay-ai-generated-xhorBBh" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Mistress_turns_you_into_one_of_her_bunny_girls_and_17.webp" alt="Mistress turns you into one of her bunny girls and lets you suck your first client (FEMDOM ROLEPLAY - AI GENERATED)" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/mistress-turns-you-into-one-of-her-bunny-girls-and-lets-you-suck-your-first-client-femdom-roleplay-ai-generated-xhorBBh" target="_blank" rel="noopener noreferrer">
+                            Mistress turns you into one of her bunny girls and lets you suck your first client (FEMDOM ROLEPLAY - AI GENERATED)
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 07:28</span><span class="meta-item"><a href="https://xhamster.com/creators/melissa-wet-tales" target="_blank" rel="noopener noreferrer">👤 Melissa Wet Tales</a></span><span class="meta-item">📊 12.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/rich-anal-that-i-did-after-a-bet-xhEJC8W" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Rich_Anal_That_I_Did_After_a_Bet_18.webp" alt="Rich Anal That I Did After a Bet!" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/rich-anal-that-i-did-after-a-bet-xhEJC8W" target="_blank" rel="noopener noreferrer">
+                            Rich Anal That I Did After a Bet!
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 08:04</span><span class="meta-item"><a href="https://xhamster.com/creators/divinamaruuu" target="_blank" rel="noopener noreferrer">👤 DivinaMaruuu</a></span><span class="meta-item">📊 6.2K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/paying-betting-debt-to-daddy-xhZY4bQ" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Paying_betting_debt_to_Daddy_19.jpg" alt="Paying betting debt to Daddy" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/paying-betting-debt-to-daddy-xhZY4bQ" target="_blank" rel="noopener noreferrer">
+                            Paying betting debt to Daddy
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 02:02</span><span class="meta-item"><a href="https://xhamster.com/creators/dannita-tabooimvu" target="_blank" rel="noopener noreferrer">👤 Dannita TabooImvu</a></span><span class="meta-item">📊 30.5K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/in-debt-cougar-deauxma-fucks-hard-cock-bookie-to-repay-bet-12515800" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/In_Debt_Cougar_Deauxma_Fucks_Hard_Cock_Bookie_To_R_20.webp" alt="In Debt Cougar Deauxma Fucks Hard Cock Bookie To Repay Bet!" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/in-debt-cougar-deauxma-fucks-hard-cock-bookie-to-repay-bet-12515800" target="_blank" rel="noopener noreferrer">
+                            In Debt Cougar Deauxma Fucks Hard Cock Bookie To Repay Bet!
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 09:58</span><span class="meta-item"><a href="https://xhamster.com/channels/deauxma-live" target="_blank" rel="noopener noreferrer">👤 Deauxma Live</a></span><span class="meta-item">📊 48.6K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/squid-game-final-vitoria-beatriz-brazilian-busty-and-big-ass-participates-in-the-squid-games-and-is-fucked-by-some-dwarfs-xh9kOFu" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/SQUID_GAME_FINAL_-_Vitoria_Beatriz_Brazilian_busty_21.jpg" alt="SQUID GAME FINAL - Vitoria Beatriz Brazilian busty and big ass participates in the squid games and is fucked by some DWARFS." loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/squid-game-final-vitoria-beatriz-brazilian-busty-and-big-ass-participates-in-the-squid-games-and-is-fucked-by-some-dwarfs-xh9kOFu" target="_blank" rel="noopener noreferrer">
+                            SQUID GAME FINAL - Vitoria Beatriz Brazilian busty and big ass participates in the squid games and is fucked by some DWARFS.
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 12:05</span><span class="meta-item"><a href="https://xhamster.com/channels/inkasex" target="_blank" rel="noopener noreferrer">👤 InkaSex</a></span><span class="meta-item">📊 975.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/squid-game-final-vitoria-beatriz-brazilian-busty-and-big-ass-participates-in-the-squid-games-and-is-fucked-by-some-dwarfs-xhIDBol" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/SQUID_GAME_FINAL_-_Vitoria_Beatriz_Brazilian_busty_22.jpg" alt="SQUID GAME FINAL - Vitoria Beatriz Brazilian busty and big ass participates in the squid games and is fucked by some DWARFS." loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/squid-game-final-vitoria-beatriz-brazilian-busty-and-big-ass-participates-in-the-squid-games-and-is-fucked-by-some-dwarfs-xhIDBol" target="_blank" rel="noopener noreferrer">
+                            SQUID GAME FINAL - Vitoria Beatriz Brazilian busty and big ass participates in the squid games and is fucked by some DWARFS.
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 12:05</span><span class="meta-item"><a href="https://xhamster.com/channels/inkasex" target="_blank" rel="noopener noreferrer">👤 InkaSex</a></span><span class="meta-item">📊 605.5K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/work-off-debts-xh4yfma" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Work_off_debts_23.webp" alt="Work off debts" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/work-off-debts-xh4yfma" target="_blank" rel="noopener noreferrer">
+                            Work off debts
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 21:45</span><span class="meta-item">📊 387.6K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/i-lost-at-cards-and-my-girlfriend-lesbian-illusion-xhazVBF" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/I_lost_at_cards_and_my_girlfriend_.-_Lesbian-illus_24.webp" alt="I lost at cards and my girlfriend .- Lesbian-illusion" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/i-lost-at-cards-and-my-girlfriend-lesbian-illusion-xhazVBF" target="_blank" rel="noopener noreferrer">
+                            I lost at cards and my girlfriend .- Lesbian-illusion
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 07:29</span><span class="meta-item"><a href="https://xhamster.com/creators/lesbian-illusion" target="_blank" rel="noopener noreferrer">👤 Lesbian-illusion</a></span><span class="meta-item">📊 135.9K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/big-dick-or-big-debt-stepsister-lost-at-cards-xhQwJQC" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Big_dick_or_big_debt_Stepsister_lost_at_cards_25.jpg" alt="Big dick or big debt? Stepsister lost at cards" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/big-dick-or-big-debt-stepsister-lost-at-cards-xhQwJQC" target="_blank" rel="noopener noreferrer">
+                            Big dick or big debt? Stepsister lost at cards
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 16:45</span><span class="meta-item"><a href="https://xhamster.com/creators/emilia-shot" target="_blank" rel="noopener noreferrer">👤 Emilia Shot</a></span><span class="meta-item">📊 137.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/strip-poker-game-xh3hgjd" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Strip_poker_game_26.v1634724120" alt="Strip poker game" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/strip-poker-game-xh3hgjd" target="_blank" rel="noopener noreferrer">
+                            Strip poker game
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 08:41</span><span class="meta-item"><a href="https://xhamster.com/creators/regina-noir" target="_blank" rel="noopener noreferrer">👤 Regina Noir</a></span><span class="meta-item">📊 97.5K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-at-cards-a-former-classmate-repaid-a-card-debt-with-sex-dirty-talk-xhyBNSi" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_at_Cards._a_Former_Classmate_Repaid_a_Card_De_27.webp" alt="Lost at Cards. a Former Classmate Repaid a Card Debt with Sex - Dirty Talk" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-at-cards-a-former-classmate-repaid-a-card-debt-with-sex-dirty-talk-xhyBNSi" target="_blank" rel="noopener noreferrer">
+                            Lost at Cards. a Former Classmate Repaid a Card Debt with Sex - Dirty Talk
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 11:52</span><span class="meta-item"><a href="https://xhamster.com/creators/anstralia" target="_blank" rel="noopener noreferrer">👤 Anstralia</a></span><span class="meta-item">📊 8.2K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/i-lost-all-my-money-xh2jV0t" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/I_lost_all_my_money_and_am_paying_off_my_debts_28.jpg" alt="I lost all my money and am paying off my debts" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/i-lost-all-my-money-xh2jV0t" target="_blank" rel="noopener noreferrer">
+                            I lost all my money and am paying off my debts
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 07:33</span><span class="meta-item"><a href="https://xhamster.com/creators/bemyeyes" target="_blank" rel="noopener noreferrer">👤 BeMyEyes</a></span><span class="meta-item">📊 13K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/myredfoxgirl-lost-at-cards-and-repaid-off-her-debt-with-her-mouth-and-pussy-xhn95Bs" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/MyRedFoxGirl_Lost_At_Cards_And_rePaid_Off_Her_Debt_29.jpg" alt="MyRedFoxGirl Lost At Cards And rePaid Off Her Debt With Her Mouth And Pussy" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/myredfoxgirl-lost-at-cards-and-repaid-off-her-debt-with-her-mouth-and-pussy-xhn95Bs" target="_blank" rel="noopener noreferrer">
+                            MyRedFoxGirl Lost At Cards And rePaid Off Her Debt With Her Mouth And Pussy
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 08:06</span><span class="meta-item"><a href="https://xhamster.com/creators/myredfoxgirl" target="_blank" rel="noopener noreferrer">👤 Myredfoxgirl</a></span><span class="meta-item">📊 6.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-i-had-to-hold-out-my-ass-xhuECyX" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_I_had_to_hold_out_my_ass_30.v1648806180" alt="Lost bet! I had to hold out my ass!" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-i-had-to-hold-out-my-ass-xhuECyX" target="_blank" rel="noopener noreferrer">
+                            Lost bet! I had to hold out my ass!
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 07:33</span><span class="meta-item"><a href="https://xhamster.com/creators/daddys-luder" target="_blank" rel="noopener noreferrer">👤 Daddys Luder</a></span><span class="meta-item">📊 9.7M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/toothless-brockton-step-mom-blackmaled-lost-bet-12036089" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Toothless_Brockton_STEP_MOM_Blackmaled_LOST_BET_31.webp" alt="Toothless Brockton STEP MOM Blackmaled LOST BET" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/toothless-brockton-step-mom-blackmaled-lost-bet-12036089" target="_blank" rel="noopener noreferrer">
+                            Toothless Brockton STEP MOM Blackmaled LOST BET
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 08:53</span><span class="meta-item">📊 2M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/sister-lost-bet-and-gets-seduced-to-first-creampie-fuck-by-stepbrother-xhMA449" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/SISTER_LOST_BET_AND_GETS_SEDUCED_TO_FIRST_CREAMPIE_32.v1646859124" alt="SISTER LOST BET AND GETS SEDUCED TO FIRST CREAMPIE FUCK BY STEPBROTHER" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/sister-lost-bet-and-gets-seduced-to-first-creampie-fuck-by-stepbrother-xhMA449" target="_blank" rel="noopener noreferrer">
+                            SISTER LOST BET AND GETS SEDUCED TO FIRST CREAMPIE FUCK BY STEPBROTHER
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 20:50</span><span class="meta-item"><a href="https://xhamster.com/channels/scout-69" target="_blank" rel="noopener noreferrer">👤 Scout 69</a></span><span class="meta-item">📊 983K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/first-anal-sex-for-petite-german-teen-18-by-her-classmate-after-lost-bet-xhBWpJw" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/First_Anal_Sex_for_Petite_German_Teen_18_by_her_Cl_33.v1690196514" alt="First Anal Sex for Petite German Teen 18 by her Classmate after lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/first-anal-sex-for-petite-german-teen-18-by-her-classmate-after-lost-bet-xhBWpJw" target="_blank" rel="noopener noreferrer">
+                            First Anal Sex for Petite German Teen 18 by her Classmate after lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 16:35</span><span class="meta-item"><a href="https://xhamster.com/channels/scout-69" target="_blank" rel="noopener noreferrer">👤 Scout 69</a></span><span class="meta-item">📊 510.6K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/paying-the-lost-bet-cheating-with-cum-in-the-mouth-xhzuNcY" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Paying_the_lost_bet._Cheating_with_cum_in_the_mout_34.jpg" alt="Paying the lost bet. Cheating with cum in the mouth." loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/paying-the-lost-bet-cheating-with-cum-in-the-mouth-xhzuNcY" target="_blank" rel="noopener noreferrer">
+                            Paying the lost bet. Cheating with cum in the mouth.
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:10</span><span class="meta-item"><a href="https://xhamster.com/creators/branquinha-de-leite" target="_blank" rel="noopener noreferrer">👤 Branquinha De Leite</a></span><span class="meta-item">📊 438.4K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/wife-lost-bet-2764084" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Wife_lost_bet_35.webp" alt="Wife lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/wife-lost-bet-2764084" target="_blank" rel="noopener noreferrer">
+                            Wife lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 00:32</span><span class="meta-item">📊 1.5M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-to-pervert-step-brother-4142937" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_Bet_to_Pervert_Step_Brother_36.webp" alt="Lost Bet to Pervert (Step) Brother" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-to-pervert-step-brother-4142937" target="_blank" rel="noopener noreferrer">
+                            Lost Bet to Pervert (Step) Brother
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 09:58</span><span class="meta-item"><a href="https://xhamster.com/channels/mandy-flores" target="_blank" rel="noopener noreferrer">👤 Mandy Flores</a></span><span class="meta-item">📊 2.4M views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-tied-gagged-and-3-holes-hard-fucked-alexandra-wett-xhmwbQV" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_Tied_Gagged_and_3_Holes_hard_fucked_Alexa_37.v1649390280" alt="Lost bet! Tied, Gagged, and 3 Holes hard fucked!  Alexandra Wett" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-tied-gagged-and-3-holes-hard-fucked-alexandra-wett-xhmwbQV" target="_blank" rel="noopener noreferrer">
+                            Lost bet! Tied, Gagged, and 3 Holes hard fucked!  Alexandra Wett
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 08:10</span><span class="meta-item"><a href="https://xhamster.com/creators/alexandra-wett" target="_blank" rel="noopener noreferrer">👤 Alexandra Wett</a></span><span class="meta-item">📊 261.6K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/old-mature-lost-bet-and-seduced-stranger-to-fuck-at-nude-beach-xhaf5SH" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Old_Mature_Lost_Bet_And_Seduced_Stranger_To_Fuck_A_38.v1658225970" alt="Old Mature Lost Bet And Seduced Stranger To Fuck At Nude Beach" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/old-mature-lost-bet-and-seduced-stranger-to-fuck-at-nude-beach-xhaf5SH" target="_blank" rel="noopener noreferrer">
+                            Old Mature Lost Bet And Seduced Stranger To Fuck At Nude Beach
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 20:57</span><span class="meta-item"><a href="https://xhamster.com/channels/scout-69" target="_blank" rel="noopener noreferrer">👤 Scout 69</a></span><span class="meta-item">📊 250.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-mature-guy-gets-to-fuck-his-buddys-daughter-xhPJ3yP" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_Mature_guy_gets_to_fuck_his_buddyx27s_dau_39.v1674659131" alt="Lost bet! Mature guy gets to fuck his buddy&amp;#x27;s daughter" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-mature-guy-gets-to-fuck-his-buddys-daughter-xhPJ3yP" target="_blank" rel="noopener noreferrer">
+                            Lost bet! Mature guy gets to fuck his buddy&amp;#x27;s daughter
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 18:31</span><span class="meta-item"><a href="https://xhamster.com/channels/hornyheaven" target="_blank" rel="noopener noreferrer">👤 HornyHeaven</a></span><span class="meta-item">📊 172.3K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-again-and-jerked-off-horny-roommates-big-fat-cock-huge-load-big-cumshot-pov-xh0aumF" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/LOST_BET_x27AGAINx27_AND_JERKED_OFF_HORNY_ROOMMATE_40.jpg" alt="LOST BET &amp;#x27;AGAIN&amp;#x27; AND JERKED OFF HORNY ROOMMATE&amp;#x27;S BIG FAT COCK. HUGE LOAD 💦 BIG CUMSHOT POV" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-again-and-jerked-off-horny-roommates-big-fat-cock-huge-load-big-cumshot-pov-xh0aumF" target="_blank" rel="noopener noreferrer">
+                            LOST BET &amp;#x27;AGAIN&amp;#x27; AND JERKED OFF HORNY ROOMMATE&amp;#x27;S BIG FAT COCK. HUGE LOAD 💦 BIG CUMSHOT POV
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 07:14</span><span class="meta-item"><a href="https://xhamster.com/creators/abby-dickinson" target="_blank" rel="noopener noreferrer">👤 Abby Dickinson</a></span><span class="meta-item">📊 119.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-and-had-to-sit-on-the-dick-xhg0flS" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_and_had_to_sit_on_the_dick_41.webp" alt="Lost bet and had to sit on the dick." loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-and-had-to-sit-on-the-dick-xhg0flS" target="_blank" rel="noopener noreferrer">
+                            Lost bet and had to sit on the dick.
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 02:26</span><span class="meta-item"><a href="https://xhamster.com/creators/branquinha-de-leite" target="_blank" rel="noopener noreferrer">👤 Branquinha De Leite</a></span><span class="meta-item">📊 153.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-sucked-cock-in-the-back-of-the-party-xhN0pD8" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet._Sucked_cock_in_the_back_of_the_party_42.webp" alt="Lost bet. Sucked cock in the back of the party." loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-sucked-cock-in-the-back-of-the-party-xhN0pD8" target="_blank" rel="noopener noreferrer">
+                            Lost bet. Sucked cock in the back of the party.
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 02:46</span><span class="meta-item"><a href="https://xhamster.com/creators/branquinha-de-leite" target="_blank" rel="noopener noreferrer">👤 Branquinha De Leite</a></span><span class="meta-item">📊 219.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/coworker-lost-bet-she-paid-on-lunch-14651784" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Coworker_Lost_Bet_She_Paid_On_Lunch_43.webp" alt="Coworker Lost Bet She Paid On Lunch" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/coworker-lost-bet-she-paid-on-lunch-14651784" target="_blank" rel="noopener noreferrer">
+                            Coworker Lost Bet She Paid On Lunch
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 09:34</span><span class="meta-item">📊 921.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/wife-lost-bet-10762281" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Wife_lost_bet_44.jpg" alt="Wife lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/wife-lost-bet-10762281" target="_blank" rel="noopener noreferrer">
+                            Wife lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 01:22</span><span class="meta-item">📊 240.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/built-to-fuck-bj-lost-bet-by-buddys-girl-14471196" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Built_to_Fuck_-_BJ_Lost_Bet_by_Buddyx27s_girl_45.webp" alt="Built to Fuck - BJ Lost Bet by Buddy&amp;#x27;s girl" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/built-to-fuck-bj-lost-bet-by-buddys-girl-14471196" target="_blank" rel="noopener noreferrer">
+                            Built to Fuck - BJ Lost Bet by Buddy&amp;#x27;s girl
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 02:42</span><span class="meta-item">📊 605.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-friend-cums-on-girlfriends-pussy-7980670" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_Bet_-_Friend_cums_on_girlfriends_pussy_46.webp" alt="Lost Bet - Friend cums on girlfriends pussy" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-friend-cums-on-girlfriends-pussy-7980670" target="_blank" rel="noopener noreferrer">
+                            Lost Bet - Friend cums on girlfriends pussy
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 01:23</span><span class="meta-item">📊 240.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-older-stepbrother-gets-to-fuck-me-and-my-best-friend-in-the-ass-xhFIC8S" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_Older_stepbrother_gets_to_fuck_me_and_my__47.v1661163977" alt="Lost bet! Older stepbrother gets to fuck me and my best friend in the ass!" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-older-stepbrother-gets-to-fuck-me-and-my-best-friend-in-the-ass-xhFIC8S" target="_blank" rel="noopener noreferrer">
+                            Lost bet! Older stepbrother gets to fuck me and my best friend in the ass!
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 22:19</span><span class="meta-item"><a href="https://xhamster.com/channels/my-porn-king" target="_blank" rel="noopener noreferrer">👤 My Porn King</a></span><span class="meta-item">📊 129.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/wife-lost-bet-to-our-friend-9479906" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Wife_lost_bet_to_our_friend_48.webp" alt="Wife lost bet to our friend" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/wife-lost-bet-to-our-friend-9479906" target="_blank" rel="noopener noreferrer">
+                            Wife lost bet to our friend
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 02:53</span><span class="meta-item">📊 349.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-now-she-had-to-fuck-3-guys-at-the-same-time-xhOkSrk" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_now_she_had_to_fuck_3_guys_at_the_same_ti_49.webp" alt="Lost bet, now she had to fuck 3 guys at the same time" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-now-she-had-to-fuck-3-guys-at-the-same-time-xhOkSrk" target="_blank" rel="noopener noreferrer">
+                            Lost bet, now she had to fuck 3 guys at the same time
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 39:07</span><span class="meta-item"><a href="https://xhamster.com/users/xmelix/videos" target="_blank" rel="noopener noreferrer">👤 XMeliX</a></span><span class="meta-item">📊 470.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/brockton-mom-lost-bet-on-the-patriots-again-better-than-truth-or-dare-xh3HEn7" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Brockton_Mom_Lost_Bet_On_The_Patriots_Again._Bette_50.webp" alt="Brockton Mom Lost Bet On The Patriots Again. Better than Truth or Dare" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/brockton-mom-lost-bet-on-the-patriots-again-better-than-truth-or-dare-xh3HEn7" target="_blank" rel="noopener noreferrer">
+                            Brockton Mom Lost Bet On The Patriots Again. Better than Truth or Dare
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 07:35</span><span class="meta-item">📊 152.9K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/husband-lost-bet-let-friend-fuck-his-wife-xhMfGGN" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Husband_lost_bet_let_friend_fuck_his_wife_51.jpg" alt="Husband lost bet, let friend fuck his wife" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/husband-lost-bet-let-friend-fuck-his-wife-xhMfGGN" target="_blank" rel="noopener noreferrer">
+                            Husband lost bet, let friend fuck his wife
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 01:00</span><span class="meta-item">📊 108.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-3239711" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_52.webp" alt="Lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-3239711" target="_blank" rel="noopener noreferrer">
+                            Lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 02:39</span><span class="meta-item">📊 376.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/girl-lost-bet-and-gave-me-a-great-blowjob-xh1ClPd" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/GIRL_LOST_BET_AND_GAVE_ME_A_GREAT_BLOWJOB_53.webp" alt="GIRL LOST BET AND GAVE ME A GREAT BLOWJOB" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/girl-lost-bet-and-gave-me-a-great-blowjob-xh1ClPd" target="_blank" rel="noopener noreferrer">
+                            GIRL LOST BET AND GAVE ME A GREAT BLOWJOB
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:12</span><span class="meta-item"><a href="https://xhamster.com/creators/tonymartinez" target="_blank" rel="noopener noreferrer">👤 TonyMartinez</a></span><span class="meta-item">📊 112.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/shy-brunette-fucks-cock-after-lost-bet-xhmO7cS" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Shy_brunette_fucks_cock_after_lost_bet_54.webp" alt="Shy brunette fucks cock after lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/shy-brunette-fucks-cock-after-lost-bet-xhmO7cS" target="_blank" rel="noopener noreferrer">
+                            Shy brunette fucks cock after lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 27:42</span><span class="meta-item"><a href="https://xhamster.com/users/teencoreclub/videos" target="_blank" rel="noopener noreferrer">👤 TeenCoreClub</a></span><span class="meta-item">📊 529.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/18yr-german-teens-lost-bet-and-do-first-time-lesbian-sex-10772872" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/18yr_German_Teens_lost_Bet_and_do_First_Time_Lesbi_55.v1546548901" alt="18yr German Teens lost Bet and do First Time Lesbian Sex" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/18yr-german-teens-lost-bet-and-do-first-time-lesbian-sex-10772872" target="_blank" rel="noopener noreferrer">
+                            18yr German Teens lost Bet and do First Time Lesbian Sex
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 23:31</span><span class="meta-item"><a href="https://xhamster.com/channels/scout-69" target="_blank" rel="noopener noreferrer">👤 Scout 69</a></span><span class="meta-item">📊 362.2K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-blowjob-6100411" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_Bet_Blowjob_56.webp" alt="Lost Bet Blowjob" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-blowjob-6100411" target="_blank" rel="noopener noreferrer">
+                            Lost Bet Blowjob
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 01:29</span><span class="meta-item">📊 850K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-1-7732853" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_Bet_1_57.jpg" alt="Lost Bet 1" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-1-7732853" target="_blank" rel="noopener noreferrer">
+                            Lost Bet 1
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 01:39</span><span class="meta-item">📊 138.2K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-2-7732858" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_Bet_2_58.webp" alt="Lost Bet 2" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-2-7732858" target="_blank" rel="noopener noreferrer">
+                            Lost Bet 2
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 02:24</span><span class="meta-item">📊 160.6K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/stepmoms-lost-bet-xhglDrp" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Stepmomx27s_lost_bet_59.webp" alt="Stepmom&amp;#x27;s lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/stepmoms-lost-bet-xhglDrp" target="_blank" rel="noopener noreferrer">
+                            Stepmom&amp;#x27;s lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 09:46</span><span class="meta-item"><a href="https://xhamster.com/channels/erin-electra" target="_blank" rel="noopener noreferrer">👤 Erin Electra</a></span><span class="meta-item">📊 106.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/neighbors-wife-getting-fucked-in-the-ass-to-pay-husbands-lost-bet-xhK0o1P" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Neighborx27s_wife_getting_fucked_in_the_ass_to_pay_60.webp" alt="Neighbor&amp;#x27;s wife getting fucked in the ass to pay husband&amp;#x27;s lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/neighbors-wife-getting-fucked-in-the-ass-to-pay-husbands-lost-bet-xhK0o1P" target="_blank" rel="noopener noreferrer">
+                            Neighbor&amp;#x27;s wife getting fucked in the ass to pay husband&amp;#x27;s lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 18:09</span><span class="meta-item"><a href="https://xhamster.com/channels/erin-electra" target="_blank" rel="noopener noreferrer">👤 Erin Electra</a></span><span class="meta-item">📊 48.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/after-a-lost-bet-mel-has-to-touch-her-stepbrothers-cock-xhgOiEi" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/After_a_lost_bet_Mel_has_to_touch_her_stepbrotherx_61.webp" alt="After a lost bet, Mel has to touch her stepbrother&amp;#x27;s cock!" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/after-a-lost-bet-mel-has-to-touch-her-stepbrothers-cock-xhgOiEi" target="_blank" rel="noopener noreferrer">
+                            After a lost bet, Mel has to touch her stepbrother&amp;#x27;s cock!
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 03:41</span><span class="meta-item"><a href="https://xhamster.com/creators/dolls-cult" target="_blank" rel="noopener noreferrer">👤 Dolls Cult</a></span><span class="meta-item">📊 305.9K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-13345154" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_62.jpg" alt="Lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-13345154" target="_blank" rel="noopener noreferrer">
+                            Lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 00:56</span><span class="meta-item">📊 106.4K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/sexy-blonde-lost-bet-and-gets-to-tied-down-by-her-step-brother-xhbAKDO" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Sexy_blonde_lost_bet_and_gets_to_tied_down_by_her__63.webp" alt="Sexy blonde lost bet and gets to tied down by her step brother" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/sexy-blonde-lost-bet-and-gets-to-tied-down-by-her-step-brother-xhbAKDO" target="_blank" rel="noopener noreferrer">
+                            Sexy blonde lost bet and gets to tied down by her step brother
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 15:16</span><span class="meta-item"><a href="https://xhamster.com/channels/ferr-art" target="_blank" rel="noopener noreferrer">👤 Ferr-Art</a></span><span class="meta-item">📊 10.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/may-the-spanking-commence-lost-bet-losers-get-spanked-11603161" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/May_the_Spanking_Commence_Lost_Bet_Losers_Get_Span_64.webp" alt="May the Spanking Commence! Lost Bet Losers Get Spanked" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/may-the-spanking-commence-lost-bet-losers-get-spanked-11603161" target="_blank" rel="noopener noreferrer">
+                            May the Spanking Commence! Lost Bet Losers Get Spanked
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 05:47</span><span class="meta-item"><a href="https://xhamster.com/channels/lost-bets-games" target="_blank" rel="noopener noreferrer">👤 Lost Bets Games</a></span><span class="meta-item">📊 341.2K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-buddys-wife-blows-me-7945754" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_buddyx27s_wife_blows_me_65.webp" alt="Lost bet, buddy&amp;#x27;s wife blows me." loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-buddys-wife-blows-me-7945754" target="_blank" rel="noopener noreferrer">
+                            Lost bet, buddy&amp;#x27;s wife blows me.
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 01:32</span><span class="meta-item">📊 173.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/married-woman-paying-lost-bet-blowjob-on-the-doorstep-xh7lYlT" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Married_woman_paying_lost_bet._Blowjob_on_the_door_66.v1696005934" alt="Married woman paying lost bet. Blowjob on the doorstep." loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/married-woman-paying-lost-bet-blowjob-on-the-doorstep-xh7lYlT" target="_blank" rel="noopener noreferrer">
+                            Married woman paying lost bet. Blowjob on the doorstep.
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 05:23</span><span class="meta-item"><a href="https://xhamster.com/creators/branquinha-de-leite" target="_blank" rel="noopener noreferrer">👤 Branquinha De Leite</a></span><span class="meta-item">📊 54.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-again-13354281" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_again_67.webp" alt="Lost bet again" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-again-13354281" target="_blank" rel="noopener noreferrer">
+                            Lost bet again
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 00:37</span><span class="meta-item">📊 120.5K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/german-mother-lost-bet-and-let-him-fuck-her-in-playarea-10488126" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/GERMAN_MOTHER_lost_bet_and_let_him_Fuck_her_in_Pla_68.jpg" alt="GERMAN MOTHER lost bet and let him Fuck her in PlayArea" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/german-mother-lost-bet-and-let-him-fuck-her-in-playarea-10488126" target="_blank" rel="noopener noreferrer">
+                            GERMAN MOTHER lost bet and let him Fuck her in PlayArea
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 08:15</span><span class="meta-item"><a href="https://xhamster.com/channels/scout-69" target="_blank" rel="noopener noreferrer">👤 Scout 69</a></span><span class="meta-item">📊 62.4K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/wife-lost-bet-13761244" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Wife_Lost_Bet_69.webp" alt="Wife Lost Bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/wife-lost-bet-13761244" target="_blank" rel="noopener noreferrer">
+                            Wife Lost Bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 05:55</span><span class="meta-item">📊 72.3K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/extreme-threesome-anal-dp-lucy-lost-bet-against-her-step-brother-see-what-happens-xhrAbFf" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Extreme_Threesome_Anal_DP_Lucy_lost_bet_against_he_70.v1661364437" alt="Extreme Threesome Anal DP! Lucy lost bet against her step brother.... see what happens!" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/extreme-threesome-anal-dp-lucy-lost-bet-against-her-step-brother-see-what-happens-xhrAbFf" target="_blank" rel="noopener noreferrer">
+                            Extreme Threesome Anal DP! Lucy lost bet against her step brother.... see what happens!
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 55:59</span><span class="meta-item"><a href="https://xhamster.com/users/teencoreclub/videos" target="_blank" rel="noopener noreferrer">👤 TeenCoreClub</a></span><span class="meta-item">📊 67.5K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/mixedx-big-titties-wife-gets-double-penetrated-in-hot-lost-bet-threesome-xhQTmw1" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/MIXEDX_-_Big_Titties_Wife_Gets_Double_Penetrated_I_71.v1676685142" alt="MIXEDX - Big Titties Wife Gets Double Penetrated In Hot Lost Bet Threesome" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/mixedx-big-titties-wife-gets-double-penetrated-in-hot-lost-bet-threesome-xhQTmw1" target="_blank" rel="noopener noreferrer">
+                            MIXEDX - Big Titties Wife Gets Double Penetrated In Hot Lost Bet Threesome
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 12:52</span><span class="meta-item"><a href="https://xhamster.com/channels/mixedx" target="_blank" rel="noopener noreferrer">👤 MixedX</a></span><span class="meta-item">📊 24.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lesliepixx-pool-hall-lost-bet-xhvXWVz" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/LesliePixx_-_Pool_Hall_Lost_Bet_72.webp" alt="LesliePixx - Pool Hall Lost Bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lesliepixx-pool-hall-lost-bet-xhvXWVz" target="_blank" rel="noopener noreferrer">
+                            LesliePixx - Pool Hall Lost Bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 03:10</span><span class="meta-item">📊 115.9K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/brockton-champions-gf-daughter-lost-bet-truth-or-dare-game-xhLxypI" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Brockton_Champions_GF_Daughter_Lost_Bet_Truth_or_D_73.webp" alt="Brockton Champions GF Daughter Lost Bet  Truth or Dare Game" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/brockton-champions-gf-daughter-lost-bet-truth-or-dare-game-xhLxypI" target="_blank" rel="noopener noreferrer">
+                            Brockton Champions GF Daughter Lost Bet  Truth or Dare Game
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 25:41</span><span class="meta-item">📊 68.4K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/tiny-teen-aris-dark-lost-bet-and-has-to-fuck-hard-xhtjwE0" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Tiny_Teen_Aris_Dark_Lost_Bet_And_Has_To_Fuck_Hard_74.v1657812050" alt="Tiny Teen Aris Dark Lost Bet And Has To Fuck Hard" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/tiny-teen-aris-dark-lost-bet-and-has-to-fuck-hard-xhtjwE0" target="_blank" rel="noopener noreferrer">
+                            Tiny Teen Aris Dark Lost Bet And Has To Fuck Hard
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 20:52</span><span class="meta-item"><a href="https://xhamster.com/channels/scout-69" target="_blank" rel="noopener noreferrer">👤 Scout 69</a></span><span class="meta-item">📊 42.3K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/real-homemade-wife-husband-lost-bet-has-to-let-friends-fuck-my-tight-pussy-xhI8bL2" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Real_Homemade_Wife_-_Husband_Lost_Bet_Has_to_Let_F_75.webp" alt="Real Homemade Wife - Husband Lost Bet Has to Let Friends Fuck My Tight Pussy" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/real-homemade-wife-husband-lost-bet-has-to-let-friends-fuck-my-tight-pussy-xhI8bL2" target="_blank" rel="noopener noreferrer">
+                            Real Homemade Wife - Husband Lost Bet Has to Let Friends Fuck My Tight Pussy
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 05:31</span><span class="meta-item"><a href="https://xhamster.com/creators/scarletxoxo" target="_blank" rel="noopener noreferrer">👤 ScarletXoXo</a></span><span class="meta-item">📊 19.3K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-to-rival-team-foot-worship-pov-xhR5frL" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_to_rival_team_-_foot_worship_POV_76.webp" alt="Lost bet to rival team - foot worship POV" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-to-rival-team-foot-worship-pov-xhR5frL" target="_blank" rel="noopener noreferrer">
+                            Lost bet to rival team - foot worship POV
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 05:15</span><span class="meta-item">📊 30.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/sweet-blonde-virgin-teen-lost-bet-and-gets-fucked-by-her-2-friends-xhDjYuI" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Sweet_blonde_virgin_teen_lost_bet_and_gets_fucked__77.webp" alt="Sweet blonde virgin teen lost bet and gets fucked by her 2 friends!" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/sweet-blonde-virgin-teen-lost-bet-and-gets-fucked-by-her-2-friends-xhDjYuI" target="_blank" rel="noopener noreferrer">
+                            Sweet blonde virgin teen lost bet and gets fucked by her 2 friends!
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 34:54</span><span class="meta-item"><a href="https://xhamster.com/channels/vintagex" target="_blank" rel="noopener noreferrer">👤 Vintagex</a></span><span class="meta-item">📊 20.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/sis-loves-me-sexy-blonde-step-sis-lost-bet-and-lets-her-horny-step-brother-to-pound-her-pink-pussy-xhPnI66" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Sis_Loves_Me_-_Sexy_Blonde_Step_Sis_Lost_Bet_And_L_78.webp" alt="Sis Loves Me - Sexy Blonde Step Sis Lost Bet And Lets Her Horny Step Brother To Pound Her Pink Pussy" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/sis-loves-me-sexy-blonde-step-sis-lost-bet-and-lets-her-horny-step-brother-to-pound-her-pink-pussy-xhPnI66" target="_blank" rel="noopener noreferrer">
+                            Sis Loves Me - Sexy Blonde Step Sis Lost Bet And Lets Her Horny Step Brother To Pound Her Pink Pussy
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 13:31</span><span class="meta-item"><a href="https://xhamster.com/channels/sis-loves-me" target="_blank" rel="noopener noreferrer">👤 Sis Loves Me</a></span><span class="meta-item">📊 236.2K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/his-blonde-girlfriend-lost-bet-and-rides-another-cock-xhWFk42" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/His_blonde_girlfriend_lost_bet_and_rides_another_c_79.webp" alt="His blonde girlfriend lost bet and rides another cock" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/his-blonde-girlfriend-lost-bet-and-rides-another-cock-xhWFk42" target="_blank" rel="noopener noreferrer">
+                            His blonde girlfriend lost bet and rides another cock
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 06:09</span><span class="meta-item"><a href="https://xhamster.com/channels/my-bros-gf" target="_blank" rel="noopener noreferrer">👤 My Bros GF</a></span><span class="meta-item">📊 79.9K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-on-holiday-7556689" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/lost_bet_on_holiday_80.webp" alt="lost bet on  holiday" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-on-holiday-7556689" target="_blank" rel="noopener noreferrer">
+                            lost bet on  holiday
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 00:55</span><span class="meta-item">📊 229.3K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/wife-lost-bet-with-her-husbands-friend-xhkKdyQ" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Wife_lost_bet_with_her_Husbands_Friend_81.webp" alt="Wife lost bet with her Husbands Friend" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/wife-lost-bet-with-her-husbands-friend-xhkKdyQ" target="_blank" rel="noopener noreferrer">
+                            Wife lost bet with her Husbands Friend
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 01:26</span><span class="meta-item">📊 101.9K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/unable-to-up-pay-after-a-lost-bet-the-blonde-has-to-scissor-the-lesbian-brunette-xhMt8M7" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Unable_to_up_pay_after_a_lost_bet_the_blonde_has_t_82.webp" alt="Unable to up pay after a lost bet the blonde has to scissor the lesbian brunette" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/unable-to-up-pay-after-a-lost-bet-the-blonde-has-to-scissor-the-lesbian-brunette-xhMt8M7" target="_blank" rel="noopener noreferrer">
+                            Unable to up pay after a lost bet the blonde has to scissor the lesbian brunette
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 23:55</span><span class="meta-item"><a href="https://xhamster.com/channels/teasing-angels" target="_blank" rel="noopener noreferrer">👤 Teasing Angels</a></span><span class="meta-item">📊 17.8K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-xh7FGDz" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_Bet_83.jpg" alt="Lost Bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-xh7FGDz" target="_blank" rel="noopener noreferrer">
+                            Lost Bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 08:19</span><span class="meta-item">📊 43K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/being-a-dik-episode-11-busty-goth-girl-lost-bet-and-sucks-big-dick-she-gets-horny-and-wants-her-tight-pussy-fucked-too-89-xhhzxlE" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Being_A_DIK_Episode_11_-_Busty_Goth_Girl_Lost_Bet__84.jpg" alt="Being A DIK Episode 11 - Busty Goth Girl Lost Bet And Sucks Big Dick. She Gets Horny And Wants Her Tight Pussy Fucked Too - #89" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/being-a-dik-episode-11-busty-goth-girl-lost-bet-and-sucks-big-dick-she-gets-horny-and-wants-her-tight-pussy-fucked-too-89-xhhzxlE" target="_blank" rel="noopener noreferrer">
+                            Being A DIK Episode 11 - Busty Goth Girl Lost Bet And Sucks Big Dick. She Gets Horny And Wants Her Tight Pussy Fucked Too - #89
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 10:51</span><span class="meta-item"><a href="https://xhamster.com/creators/vaniikos" target="_blank" rel="noopener noreferrer">👤 Vaniikos</a></span><span class="meta-item">📊 10.1K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/paying-off-the-big-lost-bet-to-my-perverted-stepdad-xhDUKEQ" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Paying_off_the_Big_Lost_Bet_to_My_Perverted_Stepda_85.webp" alt="Paying off the Big Lost Bet to My Perverted Stepdad." loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/paying-off-the-big-lost-bet-to-my-perverted-stepdad-xhDUKEQ" target="_blank" rel="noopener noreferrer">
+                            Paying off the Big Lost Bet to My Perverted Stepdad.
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 12:17</span><span class="meta-item"><a href="https://xhamster.com/creators/karely-ruiz-68" target="_blank" rel="noopener noreferrer">👤 Karely Ruiz 68</a></span><span class="meta-item">📊 3.9K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/femdom-lost-bet-xhQlAIG" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Femdom_lost_bet_86.jpg" alt="Femdom lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/femdom-lost-bet-xhQlAIG" target="_blank" rel="noopener noreferrer">
+                            Femdom lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 05:42</span><span class="meta-item"><a href="https://xhamster.com/creators/kmarcouple" target="_blank" rel="noopener noreferrer">👤 Kmarcouple</a></span><span class="meta-item">📊 21.3K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/stepsister-lost-bet-and-gets-seduced-to-first-bbc-british-interracial-xhRkaAE" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/STEPSISTER_LOST_BET_AND_GETS_SEDUCED_TO_FIRST_BBC__87.v1663772386" alt="STEPSISTER LOST BET AND GETS SEDUCED TO FIRST BBC BRITISH INTERRACIAL" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/stepsister-lost-bet-and-gets-seduced-to-first-bbc-british-interracial-xhRkaAE" target="_blank" rel="noopener noreferrer">
+                            STEPSISTER LOST BET AND GETS SEDUCED TO FIRST BBC BRITISH INTERRACIAL
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 22:51</span><span class="meta-item"><a href="https://xhamster.com/channels/eroticonly" target="_blank" rel="noopener noreferrer">👤 EroticOnly</a></span><span class="meta-item">📊 19.3K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/my-girlfriend-lost-bet-xhtzKfp" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/My_girlfriend_lost_bet_88.webp" alt="My girlfriend lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/my-girlfriend-lost-bet-xhtzKfp" target="_blank" rel="noopener noreferrer">
+                            My girlfriend lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 13:44</span><span class="meta-item">📊 38K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-10081925" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_89.webp" alt="Lost bet !" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-10081925" target="_blank" rel="noopener noreferrer">
+                            Lost bet !
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 02:16</span><span class="meta-item">📊 103.5K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/sislovesme-tiny-blonde-stepsis-krissy-knight-lost-bet-with-stepbro-and-fully-obeys-his-needs-pov-xhBNAt3" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/SisLovesMe_-_Tiny_Blonde_Stepsis_Krissy_Knight_Los_90.jpg" alt="SisLovesMe - Tiny Blonde Stepsis Krissy Knight Lost Bet With Stepbro And Fully Obeys His Needs POV" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/sislovesme-tiny-blonde-stepsis-krissy-knight-lost-bet-with-stepbro-and-fully-obeys-his-needs-pov-xhBNAt3" target="_blank" rel="noopener noreferrer">
+                            SisLovesMe - Tiny Blonde Stepsis Krissy Knight Lost Bet With Stepbro And Fully Obeys His Needs POV
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 17:05</span><span class="meta-item"><a href="https://xhamster.com/channels/sis-loves-me" target="_blank" rel="noopener noreferrer">👤 Sis Loves Me</a></span><span class="meta-item">📊 15.3K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/sensual-fuck-session-after-a-lost-bet-4605398" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Sensual_fuck_session_after_a_lost_bet_91.webp" alt="Sensual fuck session after a lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/sensual-fuck-session-after-a-lost-bet-4605398" target="_blank" rel="noopener noreferrer">
+                            Sensual fuck session after a lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 05:01</span><span class="meta-item"><a href="https://xhamster.com/channels/lost-bets-games" target="_blank" rel="noopener noreferrer">👤 Lost Bets Games</a></span><span class="meta-item">📊 181K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-xhzAQAl" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_92.jpg" alt="Lost bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-xhzAQAl" target="_blank" rel="noopener noreferrer">
+                            Lost bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 00:59</span><span class="meta-item">📊 20.6K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/husband-at-work-neighbor-lost-bet-and-get-put-in-milking-table-xhmfztZ" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/husband_at_work_neighbor_lost_bet_and_get_put_in_m_93.webp" alt="husband at work neighbor lost bet and get put in milking table" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/husband-at-work-neighbor-lost-bet-and-get-put-in-milking-table-xhmfztZ" target="_blank" rel="noopener noreferrer">
+                            husband at work neighbor lost bet and get put in milking table
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 14:11</span><span class="meta-item"><a href="https://xhamster.com/creators/kinkycouple4176" target="_blank" rel="noopener noreferrer">👤 Kinkycouple4176</a></span><span class="meta-item">📊 2.7K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/brunette-lost-bet-and-squirts-while-getting-facesitted-and-ass-fucked-by-gf-xhbHZhS" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Brunette_lost_bet_and_squirts_while_getting_facesi_94.webp" alt="Brunette lost bet and squirts while getting facesitted and ass fucked by gf" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/brunette-lost-bet-and-squirts-while-getting-facesitted-and-ass-fucked-by-gf-xhbHZhS" target="_blank" rel="noopener noreferrer">
+                            Brunette lost bet and squirts while getting facesitted and ass fucked by gf
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 06:10</span><span class="meta-item">📊 52K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/latina-milf-tricked-neighbour-to-fuck-in-lost-bet-challenge-xhpZLBw" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Latina_MILF_tricked_Neighbour_to_Fuck_in_lost_Bet__95.v1643044380" alt="Latina MILF tricked Neighbour to Fuck in lost Bet Challenge" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/latina-milf-tricked-neighbour-to-fuck-in-lost-bet-challenge-xhpZLBw" target="_blank" rel="noopener noreferrer">
+                            Latina MILF tricked Neighbour to Fuck in lost Bet Challenge
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 19:47</span><span class="meta-item"><a href="https://xhamster.com/channels/scout-69" target="_blank" rel="noopener noreferrer">👤 Scout 69</a></span><span class="meta-item">📊 29.5K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/built-to-fuck-lost-bet-bj-14470810" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Built_to_Fuck_-_Lost_Bet_BJ_96.webp" alt="Built to Fuck - Lost Bet BJ" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/built-to-fuck-lost-bet-bj-14470810" target="_blank" rel="noopener noreferrer">
+                            Built to Fuck - Lost Bet BJ
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 01:26</span><span class="meta-item">📊 138.3K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/lost-bet-threesome-fuck-with-best-friend-xhUYmxY" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Lost_bet_threesome_fuck_with_best_friend_97.jpg" alt="Lost bet, threesome fuck with best friend" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/lost-bet-threesome-fuck-with-best-friend-xhUYmxY" target="_blank" rel="noopener noreferrer">
+                            Lost bet, threesome fuck with best friend
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 37:53</span><span class="meta-item"><a href="https://xhamster.com/users/xmelix/videos" target="_blank" rel="noopener noreferrer">👤 XMeliX</a></span><span class="meta-item">📊 17K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/another-lost-bet-fuck-this-dude-xhm8THz" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/another_lost_bet_fuck_this_dude_98.webp" alt="another lost bet – fuck this dude" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/another-lost-bet-fuck-this-dude-xhm8THz" target="_blank" rel="noopener noreferrer">
+                            another lost bet – fuck this dude
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 02:03</span><span class="meta-item">📊 53.5K views</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-card">
+                <a href="https://xhamster.com/videos/busty-nerd-pays-the-price-for-losing-a-lost-bet-12042079" target="_blank" rel="noopener noreferrer">
+                    <div class="thumbnail">
+                        <img src="" data-src="downloaded_thumbnails/Busty_Nerd_Pays_the_Price_for_Losing_a_Lost_Bet_99.webp" alt="Busty Nerd Pays the Price for Losing a Lost Bet" loading="lazy">
+                        <div class="play-overlay"></div>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="https://xhamster.com/videos/busty-nerd-pays-the-price-for-losing-a-lost-bet-12042079" target="_blank" rel="noopener noreferrer">
+                            Busty Nerd Pays the Price for Losing a Lost Bet
+                        </a>
+                    </h3>
+                    <div class="video-meta">
+                        <span class="meta-item">⏱️ 03:31</span><span class="meta-item"><a href="https://xhamster.com/channels/lost-bets-games" target="_blank" rel="noopener noreferrer">👤 Lost Bets Games</a></span><span class="meta-item">📊 90K views</span>
+                    </div>
+                </div>
+            </div>
+                    </main>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {{
+            const images = document.querySelectorAll('img[data-src]');
+            const imageObserver = new IntersectionObserver((entries, observer) => {{
+                entries.forEach(entry => {{
+                    if (entry.isIntersecting) {{
+                        const img = entry.target;
+                        const placeholder = img.parentElement;
+                        
+                        placeholder.classList.add('loading-placeholder');
+                        
+                        img.src = img.dataset.src;
+                        img.onload = () => {{
+                            img.removeAttribute('data-src');
+                            placeholder.classList.remove('loading-placeholder');
+                        }};
+                        img.onerror = () => {{
+                            placeholder.innerHTML = '<div class="error-placeholder">❌</div>';
+                        }};
+                        imageObserver.unobserve(img);
+                    }}
+                }});
+            }});
+
+            images.forEach(img => imageObserver.observe(img));
+        }});
+    </script>
+</body>
+</html>

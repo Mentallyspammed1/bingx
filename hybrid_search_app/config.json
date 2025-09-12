@@ -1,0 +1,12 @@
+{
+  "defaultStrategy": "custom",
+  "siteOverrides": {
+    "xvideos": "custom",
+    "pornhub": "custom",
+    // Add more site-specific strategies here if needed
+  },
+  "customScrapersMap": {
+    "xvideos": "./scrapers/xvideosScraper.js",
+    "pornhub": "./scrapers/pornhubScraper.js"
+  }
+}

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock Pornhub GIF Search Results</title>
+</head>
+<body>
+    <ul class="gifs gifLink">
+        <!-- Item 1 -->
+        <li class="gifVideoBlock" data-id="ph_gif_2001">
+            <a href="/gif/2001pqr" title="Mock Pornhub GIF One Title">
+                <img src="/path/to/gif_poster1.jpg" alt="Mock Pornhub GIF One Title" style="display:none;" />
+                <video poster="/path/to/gif_poster1.jpg" data-webm="/path/to/animated_gif1.webm" loop muted></video>
+                <span class="title">Mock Pornhub GIF One Title (from span)</span>
+            </a>
+        </li>
+
+        <!-- Item 2 - Image based thumb -->
+        <li class="gifVideoBlock" data-id="ph_gif_2002">
+            <a href="/gif/2002stu" title="Second Mock PH GIF">
+                <img class="thumb" src="/path/to/gif_thumb_static2.jpg" data-src="/path/to/animated_gif2.gif" alt="Second Mock PH GIF Alt">
+                 <!-- No explicit video tag, preview might be from img data-src if it's a gif -->
+            </a>
+             <div class="title">Second Mock PH GIF (div title)</div>
+        </li>
+
+        <!-- Item 3 - Video tag with source element -->
+        <li class="gifVideoBlock" data-id="ph_gif_2003">
+            <a href="/gif/2003vwx" title="Third Mock PH GIF with Source Tag">
+                <img src="/path/to/gif_poster3.jpg" alt="Third Mock PH GIF with Source Tag" style="display:none;" />
+                <video poster="/path/to/gif_poster3.jpg" loop muted>
+                    <source src="/path/to/animated_gif3.webm" type="video/webm">
+                    <source src="/path/to/animated_gif3.mp4" type="video/mp4">
+                </video>
+            </a>
+            <!-- Title might be only on the main <a> link's title attribute -->
+        </li>
+
+        <!-- Item 4 - Minimal, title from link only -->
+        <li class="gifVideoBlock" data-id="ph_gif_2004">
+            <a href="/gif/2004yz0" title="Minimal GIF Four">
+                <img class="thumb" src="/path/to/animated_gif4.gif" alt="Minimal GIF Four">
+            </a>
+        </li>
+    </ul>
+</body>
+</html>

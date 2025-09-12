@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pyrmethus's Scrying Pool: Local Image Manifestations</title>
+    <style>
+        /* Pyrmethus's Mystical CSS Enchantments */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0d1117; /* The deep void of Termux */
+            color: #c9d1d9; /* Whispers of light */
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh; /* Ensure body takes full height */
+        }
+        .container {
+            width: 100%;
+            max-width: 1200px;
+        }
+        h1 {
+            color: #56F000; /* Verdant glow for headers */
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 0 0 10px #56F000, 0 0 20px #56F000; /* Aura of power */
+        }
+        .controls-container {
+            margin-bottom: 30px;
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+            justify-content: center;
+            gap: 15px; /* Increased gap for better spacing */
+            padding: 10px;
+            background-color: #161b22;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 255, 255, 0.2);
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+        }
+        .control-group label {
+            font-size: 0.9em;
+            color: #00FFFF; /* Luminous cyan for labels */
+            font-weight: bold;
+        }
+        #searchInput, #typeFilter, #sortSelect {
+            padding: 10px 12px;
+            border: 1px solid #00FFFF; /* Luminous cyan border */
+            border-radius: 8px;
+            background-color: #1e242b; /* Slightly lighter dark for contrast */
+            color: #c9d1d9;
+            font-size: 0.95em;
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.3); /* Subtle glow */
+            transition: all 0.3s ease;
+            min-width: 180px; /* Ensure inputs have a minimum width */
+        }
+        #searchInput:focus, #typeFilter:focus, #sortSelect:focus {
+            outline: none;
+            border-color: #FF00FF; /* Mystical magenta on focus */
+            box-shadow: 0 0 12px rgba(255, 0, 255, 0.7); /* Enhanced glow */
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 20px 0;
+            justify-items: center;
+        }
+        .image-item {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            width: 100%;
+            max-width: 300px;
+            cursor: pointer; /* Indicate clickable */
+        }
+        .image-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 255, 255, 0.6); /* Luminous cyan glow on hover */
+        }
+        .image-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+            border-bottom: 1px solid #30363d;
+        }
+        .image-info {
+            padding: 15px;
+            text-align: center;
+        }
+        .image-info p {
+            margin: 5px 0;
+            font-size: 0.9em;
+            color: #b0b0b0;
+            word-wrap: break-word;
+        }
+        .image-info .filename {
+            font-weight: bold;
+            color: #00FFFF; /* Luminous cyan for filename */
+        }
+        .image-info .query-folder {
+            font-style: italic;
+            color: #FF00FF; /* Mystical magenta for query folder */
+            font-size: 0.85em;
+        }
+        .image-info .metadata-line {
+            font-size: 0.8em;
+            color: #888;
+        }
+        .no-results, #loadingMessage, #errorMessage {
+            text-align: center;
+            color: #FF6600; /* Fiery orange for no results */
+            font-size: 1.2em;
+            margin-top: 50px;
+        }
+        #errorMessage {
+            color: #FF0000; /* Fiery red for errors */
+        }
+
+        /* Lightbox/Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.9); /* Black w/ opacity */
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s forwards;
+        }
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain; /* Ensure image fits within bounds */
+        }
+        .modal-caption {
+            margin: 15px auto;
+            display: block;
+            width: 80%;
+            max-width: 700px;
+            text-align: center;
+            color: #ccc;
+            padding: 10px 0;
+            font-size: 1.2em;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+        .modal-close:hover,
+        .modal-close:focus {
+            color: #bbb;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        .modal.fade-out {
+            animation: fadeOut 0.3s forwards;
+        }
+
+        /* Basic Dark Mode Scrollbar */
+        ::-webkit-scrollbar {
+            width: 12px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #161b22;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #00FFFF; /* Luminous cyan thumb */
+            border-radius: 6px;
+            border: 3px solid #161b22;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #FF00FF; /* Mystical magenta thumb on hover */
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .controls-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            #searchInput, #typeFilter, #sortSelect {
+                width: 80%;
+                max-width: none;
+            }
+            .image-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            }
+            .image-item {
+                max-width: none; /* Allow items to stretch more */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pyrmethus's Scrying Pool 👁️‍🗨️</h1>
+        <div class="controls-container">
+            <div class="control-group">
+                <label for="searchInput">Scry by Name/Folder:</label>
+                <input type="text" id="searchInput" onkeyup="applyFiltersAndSort()" placeholder="Search...">
+            </div>
+            <div class="control-group">
+                <label for="typeFilter">Filter by Type:</label>
+                <select id="typeFilter" onchange="applyFiltersAndSort()">
+                    <option value="all">All Types</option>
+                    <option value="GIF">GIF (Animated)</option>
+                    <option value="JPEG">JPEG</option>
+                    <option value="PNG">PNG</option>
+                    <option value="WEBP">WEBP</option>
+                    <option value="BMP">BMP</option>
+                    <option value="TIFF">TIFF</option>
+                    <!-- Add more as needed based on common formats -->
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="sortSelect">Sort By:</label>
+                <select id="sortSelect" onchange="applyFiltersAndSort()">
+                    <option value="filename-asc">Filename (A-Z)</option>
+                    <option value="filename-desc">Filename (Z-A)</option>
+                    <option value="size-asc">Size (Smallest First)</option>
+                    <option value="size-desc">Size (Largest First)</option>
+                    <option value="width-asc">Width (Smallest First)</option>
+                    <option value="width-desc">Width (Largest First)</option>
+                    <option value="height-asc">Height (Smallest First)</option>
+                    <option value="height-desc">Height (Largest First)</option>
+                </select>
+            </div>
+        </div>
+        <div id="imageGrid" class="image-grid">
+            </div>
+        <div id="noResults" class="no-results" style="display: none;">
+            No images found matching your scrying query.
+        </div>
+        <div id="loadingMessage" class="no-results" style="display: block;">
+            Loading manifestations...
+        </div>
+        <div id="errorMessage" class="no-results" style="display: none;">
+            Error loading the master image manifest. Ensure `scrapey.py` has completed its ritual and forged `master_image_manifest.json`, and that your local server is active.
+        </div>
+    </div>
+
+    <!-- The Lightbox Modal -->
+    <div id="imageModal" class="modal">
+        <span class="modal-close" onclick="closeModal()">×</span>
+        <img class="modal-content" id="modalImage">
+        <div id="modalCaption" class="modal-caption"></div>
+    </div>
+
+    <script>
+        // Constants: Echoes from the Python script
+        const DEFAULT_OUTPUT_DIR = "downloads";
+        const MASTER_MANIFEST_FILENAME = "master_image_manifest.json";
+
+        const imageGrid = document.getElementById('imageGrid');
+        const searchInput = document.getElementById('searchInput');
+        const typeFilter = document.getElementById('typeFilter');
+        const sortSelect = document.getElementById('sortSelect');
+        const noResultsMessage = document.getElementById('noResults');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const errorMessage = document.getElementById('errorMessage');
+
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        const modalCaption = document.getElementById('modalCaption');
+
+        let allImages = []; // To hold all image data for filtering and sorting
+        let displayedImages = []; // Images currently visible after filtering/sorting
+
+        const IMAGES_PER_LOAD = 30; // Number of images to load at a time for lazy loading
+        let currentImageIndex = 0; // Tracks how many images have been rendered
+
+        /**
+         * Loads the master image manifest and prepares images for rendering.
+         */
+        async function loadImages() {
+            imageGrid.innerHTML = ''; // Clear existing visions
+            allImages = []; // Reset the pool's memory
+            displayedImages = [];
+            currentImageIndex = 0;
+            loadingMessage.style.display = 'block'; // Reveal loading message
+            noResultsMessage.style.display = 'none'; // Conceal no results
+            errorMessage.style.display = 'none'; // Conceal error message
+
+            const manifestPath = `${DEFAULT_OUTPUT_DIR}/${MASTER_MANIFEST_FILENAME}`;
+            console.log(`Attempting to fetch master manifest from: ${manifestPath}`);
+
+            try {
+                const response = await fetch(manifestPath);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const manifestData = await response.json();
+
+                if (!Array.isArray(manifestData)) {
+                    throw new Error("Master manifest is not a valid array. Its structure is corrupted.");
+                }
+
+                allImages = manifestData.map(item => {
+                    const relativePath = `${DEFAULT_OUTPUT_DIR}/${item.query_based_subdir_name}/${item.filename}`;
+                    return {
+                        src: relativePath,
+                        filename: item.filename,
+                        queryFolder: item.query_based_subdir_name,
+                        dimensions: item.dimensions,
+                        width: item.width,
+                        height: item.height,
+                        size: item.file_size_bytes,
+                        format: item.format,
+                        mode: item.mode,
+                        dpi: item.dpi,
+                        isAnimated: item.is_animated,
+                        frameCount: item.frame_count,
+                        error: item.error,
+                        element: null // Placeholder for the actual DOM element
+                    };
+                });
+
+                if (allImages.length === 0) {
+                    imageGrid.innerHTML = '<p class="no-results">No images found in the master manifest. Please run `scrapey.py` to download images and forge the manifest.</p>';
+                    loadingMessage.style.display = 'none';
+                    return;
+                }
+
+                loadingMessage.style.display = 'none'; // Conceal loading message
+                applyFiltersAndSort(); // Apply initial filters and sorting, then render first batch
+            } catch (e) {
+                console.error("Failed to load master image manifest:", e);
+                loadingMessage.style.display = 'none';
+                errorMessage.style.display = 'block'; // Reveal error
+                imageGrid.innerHTML = ''; // Clear grid if error
+            }
+        }
+
+        /**
+         * Applies current search, type filters, and sorting, then triggers rendering.
+         */
+        function applyFiltersAndSort() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const selectedType = typeFilter.value;
+            const sortOption = sortSelect.value;
+
+            // 1. Filter
+            let filtered = allImages.filter(imageData => {
+                const filenameMatch = imageData.filename.toLowerCase().includes(searchTerm);
+                const folderMatch = imageData.queryFolder.toLowerCase().includes(searchTerm);
+                const typeMatch = selectedType === 'all' || (imageData.format && imageData.format.toLowerCase() === selectedType.toLowerCase());
+
+                return (filenameMatch || folderMatch) && typeMatch;
+            });
+
+            // 2. Sort
+            filtered.sort((a, b) => {
+                switch (sortOption) {
+                    case 'filename-asc': return a.filename.localeCompare(b.filename);
+                    case 'filename-desc': return b.filename.localeCompare(a.filename);
+                    case 'size-asc': return (a.size || 0) - (b.size || 0);
+                    case 'size-desc': return (b.size || 0) - (a.size || 0);
+                    case 'width-asc': return (a.width || 0) - (b.width || 0);
+                    case 'width-desc': return (b.width || 0) - (a.width || 0);
+                    case 'height-asc': return (a.height || 0) - (b.height || 0);
+                    case 'height-desc': return (b.height || 0) - (a.height || 0);
+                    default: return 0;
+                }
+            });
+
+            displayedImages = filtered;
+            currentImageIndex = 0; // Reset for lazy loading
+            imageGrid.innerHTML = ''; // Clear grid for new filtered/sorted set
+            renderNextBatch(); // Render the first batch
+        }
+
+        /**
+         * Renders the next batch of images into the grid.
+         */
+        function renderNextBatch() {
+            const batch = displayedImages.slice(currentImageIndex, currentImageIndex + IMAGES_PER_LOAD);
+
+            if (batch.length === 0 && currentImageIndex === 0) {
+                noResultsMessage.style.display = 'block';
+            } else {
+                noResultsMessage.style.display = 'none';
+            }
+
+            batch.forEach(imageData => {
+                const item = document.createElement('div');
+                item.className = 'image-item';
+                item.onclick = () => openModal(imageData); // Attach click handler for modal
+
+                const img = document.createElement('img');
+                img.src = imageData.src;
+                img.alt = imageData.filename;
+                img.loading = 'lazy'; // Native lazy loading
+                // Fallback for broken images: a mystical broken file icon
+                img.onerror = function() {
+                    this.onerror = null; // Prevent infinite loops
+                    this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTE4LjUgMThINC41QzMuNjcgMTggMyAxNy4zMyAzIDE2LjVWNi41QzMgNS42NyAzLjY3IDUgNC41IDVIOC41TDEwLjUzIDcuNDdIMjEuNDdDMjIuMzMgNy40NyAyMyA4LjEzIDIzIDguOTZWMTcuOTRDMjMgMTguNzcgMjIuMzMgMTkuNDcgMjEuNDcgMTkuNDdIMTUuNDdMMTMuNTIgMTguNDdIMTguNVYxOFoiIGZpbGw9IiM2NjY2NjYiLz48cGF0aCBkPSJNNiAxMi44TDMuNzMgMTUuMDcgNiAxNy4zNFYxMi44WiIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIvPjxwYXRoIGQ9Ik0xOC40NyAxMC45N0wxNS4yIDE0LjI0IDE2Ljg1IDE1LjkgMjAuMTIgMTIuNjNIMjIuMTlWMTEuNTdIMTguNDdaIiBzdHJva2U9IiNmZmZmZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIvPj4=';
+                    this.style.filter = 'grayscale(100%) opacity(50%)'; // Dim the broken image
+                };
+
+                const info = document.createElement('div');
+                info.className = 'image-info';
+
+                let sizeStr = imageData.size ? (imageData.size / 1024).toFixed(2) + ' KB' : 'Unknown';
+                if (imageData.size && imageData.size > 1024 * 1024) {
+                    sizeStr = (imageData.size / (1024 * 1024)).toFixed(2) + ' MB';
+                }
+
+                let dpiStr = imageData.dpi ? `DPI: ${imageData.dpi[0]}x${imageData.dpi[1]}` : '';
+                let animatedStr = imageData.isAnimated ? `Frames: ${imageData.frameCount}` : '';
+                let errorHtml = imageData.error ? `<p style="color: #FF0000; font-size: 0.7em;">Error: ${imageData.error}</p>` : '';
+
+                info.innerHTML = `
+                    <p class="filename">${imageData.filename}</p>
+                    <p class="query-folder">Folder: ${imageData.queryFolder}</p>
+                    <p class="metadata-line">Dims: ${imageData.dimensions || 'Unknown'}</p>
+                    <p class="metadata-line">Size: ${sizeStr}</p>
+                    <p class="metadata-line">Format: ${imageData.format || 'Unknown'}</p>
+                    <p class="metadata-line">Mode: ${imageData.mode || 'Unknown'}</p>
+                    ${dpiStr ? `<p class="metadata-line">${dpiStr}</p>` : ''}
+                    ${animatedStr ? `<p class="metadata-line">${animatedStr}</p>` : ''}
+                    ${errorHtml}
+                `;
+
+                item.appendChild(img);
+                item.appendChild(info);
+                imageGrid.appendChild(item);
+                imageData.element = item; // Store reference to the DOM element
+            });
+            currentImageIndex += batch.length;
+        }
+
+        /**
+         * Opens the modal with the clicked image and its details.
+         * @param {Object} imageData - The data object for the clicked image.
+         */
+        function openModal(imageData) {
+            modalImage.src = imageData.src;
+            modalImage.alt = imageData.filename;
+
+            let sizeStr = imageData.size ? (imageData.size / 1024).toFixed(2) + ' KB' : 'Unknown';
+            if (imageData.size && imageData.size > 1024 * 1024) {
+                sizeStr = (imageData.size / (1024 * 1024)).toFixed(2) + ' MB';
+            }
+            let dpiStr = imageData.dpi ? `DPI: ${imageData.dpi[0]}x${imageData.dpi[1]}` : '';
+            let animatedStr = imageData.isAnimated ? `Frames: ${imageData.frameCount}` : '';
+            let errorHtml = imageData.error ? `<span style="color: #FF0000; font-size: 0.9em;">Error: ${imageData.error}</span>` : '';
+
+            modalCaption.innerHTML = `
+                <strong>${imageData.filename}</strong><br>
+                Folder: ${imageData.queryFolder}<br>
+                Dimensions: ${imageData.dimensions || 'Unknown'}<br>
+                Size: ${sizeStr}<br>
+                Format: ${imageData.format || 'Unknown'}<br>
+                Mode: ${imageData.mode || 'Unknown'}<br>
+                ${dpiStr ? `${dpiStr}<br>` : ''}
+                ${animatedStr ? `${animatedStr}<br>` : ''}
+                ${errorHtml}
+            `;
+            imageModal.style.display = 'flex';
+        }
+
+        /**
+         * Closes the modal.
+         */
+        function closeModal() {
+            imageModal.classList.add('fade-out');
+            imageModal.addEventListener('animationend', function handler() {
+                imageModal.classList.remove('fade-out');
+                imageModal.style.display = 'none';
+                imageModal.removeEventListener('animationend', handler);
+            });
+        }
+
+        // Lazy loading / Infinite scroll
+        window.addEventListener('scroll', () => {
+            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) { // 500px from bottom
+                if (currentImageIndex < displayedImages.length) {
+                    renderNextBatch();
+                }
+            }
+        });
+
+        // Initiate the loading of images when the scrying pool is ready
+        document.addEventListener('DOMContentLoaded', loadImages);
+    </script>
+</body>
+</html>

@@ -1,7 +1,9 @@
+
 'use client';
 
 import { useEffect, useReducer, useCallback } from 'react';
-import { search } from '@/ai/flows/search-flow';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { search, getDrivers } from '@/ai/flows/search-flow';
 import type { SearchInput, MediaItem } from '@/ai/types';
 
 import { Button } from '@/components/ui/button';
@@ -25,11 +27,13 @@ type State = {
   hasMore: boolean;
   selectedItem: MediaItem | null;
   isFavoritesView: boolean;
+  drivers: string[];
 };
 
 type Action =
+  | { type: 'SET_DRIVERS'; payload: string[] }
   | { type: 'SET_SEARCH_PARAMS'; payload: Partial<Omit<SearchInput, 'page'>> }
-  | { type: 'START_SEARCH'; payload: Omit<SearchInput, 'page'> }
+  | { type: 'START_SEARCH'; payload: { params: Omit<SearchInput, 'page'>, page: number } }
   | { type: 'SEARCH_SUCCESS'; payload: { results: MediaItem[], newSearch: boolean } }
   | { type: 'SEARCH_FAILURE' }
   | { type: 'LOAD_MORE' }
@@ -52,26 +56,34 @@ const initialState: State = {
   hasMore: true,
   selectedItem: null,
   isFavoritesView: false,
+  drivers: [],
 };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
+    case 'SET_DRIVERS':
+      return { ...state, drivers: action.payload };
     case 'SET_SEARCH_PARAMS':
       return { ...state, searchParams: { ...state.searchParams, ...action.payload } };
     case 'START_SEARCH':
-      return { ...state, isLoading: true, page: 1, results: [], hasMore: true, isFavoritesView: false, searchParams: action.payload };
+      return { 
+        ...state, 
+        isLoading: true, 
+        page: action.payload.page, 
+        results: action.payload.page === 1 ? [] : state.results,
+        hasMore: true, 
+        isFavoritesView: false, 
+        searchParams: action.payload.params 
+      };
     case 'SEARCH_SUCCESS':
       return { 
         ...state, 
         isLoading: false, 
         results: action.payload.newSearch ? action.payload.results : [...state.results, ...action.payload.results],
         hasMore: action.payload.results.length > 0,
-        page: action.payload.newSearch ? 1 : state.page,
       };
     case 'SEARCH_FAILURE':
-      return { ...state, isLoading: false, results: [], hasMore: false };
-    case 'LOAD_MORE':
-      return { ...state, page: state.page + 1, isLoading: true };
+      return { ...state, isLoading: false, results: state.page > 1 ? state.results : [], hasMore: false };
     case 'SET_SELECTED_ITEM':
       return { ...state, selectedItem: action.payload };
     case 'TOGGLE_FAVORITES_VIEW':
@@ -95,8 +107,6 @@ function reducer(state: State, action: Action): State {
         console.error('Failed to clear history', e);
       }
       return { ...state, history: [] };
-    case 'SET_PAGE':
-      return { ...state, page: action.payload, isLoading: true };
     default:
       return state;
   }
@@ -104,8 +114,24 @@ function reducer(state: State, action: Action): State {
 
 export default function Home() {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const { searchParams, results, favorites, history, isLoading, page, hasMore, selectedItem, isFavoritesView } = state;
+  const { searchParams, results, favorites, history, isLoading, page, hasMore, selectedItem, isFavoritesView, drivers } = state;
   const { toast } = useToast();
+  
+  const router = useRouter();
+  const pathname = usePathname();
+  const urlSearchParams = useSearchParams();
+
+  useEffect(() => {
+    async function fetchDrivers() {
+        try {
+            const driverNames = await getDrivers();
+            dispatch({ type: 'SET_DRIVERS', payload: driverNames });
+        } catch (error) {
+            console.error('Failed to fetch drivers', error);
+        }
+    }
+    fetchDrivers();
+  }, []);
 
   useEffect(() => {
     try {
@@ -119,14 +145,84 @@ export default function Home() {
       }
     } catch (e) {
       console.error('Failed to load from localStorage', e);
+    }
+  }, []);
+
+  const performSearch = useCallback(async (params: Omit<SearchInput, 'page'>, searchPage: number) => {
+    dispatch({ type: 'START_SEARCH', payload: { params, page: searchPage } });
+
+    if (searchPage === 1) {
+      dispatch({ type: 'ADD_TO_HISTORY', payload: params });
+    }
+
+    try {
+      const searchInput: SearchInput = { ...params, page: searchPage };
+      const res = await search(searchInput);
+      
+      dispatch({ type: 'SEARCH_SUCCESS', payload: { results: res, newSearch: searchPage === 1 } });
+    } catch (err: any) {
+      console.error(err);
       toast({
         variant: 'destructive',
-        title: 'Error loading data',
-        description: 'Could not load your saved data from local storage.',
+        title: 'Search Failed',
+        description: err.message || 'An unexpected error occurred.',
       });
+      dispatch({ type: 'SEARCH_FAILURE' });
     }
   }, [toast]);
 
+  useEffect(() => {
+    const query = urlSearchParams.get('q');
+    const driver = urlSearchParams.get('driver');
+    const type = urlSearchParams.get('type');
+    const pageNum = parseInt(urlSearchParams.get('page') || '1', 10);
+
+    if (query) {
+      const params: Omit<SearchInput, 'page'> = {
+        query,
+        driver: driver || 'redtube',
+        type: (type === 'videos' || type === 'gifs') ? type : 'videos',
+      };
+      performSearch(params, pageNum);
+    }
+  }, [urlSearchParams, performSearch]);
+
+
+  const updateUrl = (params: Partial<Omit<SearchInput, 'page'>> & { page?: number }) => {
+    const newSearchParams = new URLSearchParams(urlSearchParams.toString());
+    if (params.query !== undefined) newSearchParams.set('q', params.query);
+    if (params.driver !== undefined) newSearchParams.set('driver', params.driver);
+    if (params.type !== undefined) newSearchParams.set('type', params.type);
+    if (params.page !== undefined) newSearchParams.set('page', String(params.page));
+    router.push(`${pathname}?${newSearchParams.toString()}`);
+  };
+
+  const handleSearchSubmit = () => {
+    if (!searchParams.query.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Search query is empty',
+        description: 'Please enter something to search for.',
+      });
+      return;
+    }
+    updateUrl({ ...searchParams, page: 1 });
+  };
+  
+  const handleHistorySearch = (historyItem: Omit<SearchInput, 'page'>) => {
+    dispatch({ type: 'SET_SEARCH_PARAMS', payload: historyItem });
+    updateUrl({ ...historyItem, page: 1 });
+  };
+
+  const handleLoadMore = () => {
+    const newPage = page + 1;
+    updateUrl({ page: newPage });
+  };
+
+  const isFavorite = useCallback((item: MediaItem) => {
+    return favorites.some(fav => fav.url === item.url);
+  }, [favorites]);
+  
   const saveFavorites = (newFavorites: MediaItem[]) => {
     dispatch({ type: 'SET_FAVORITES', payload: newFavorites });
     try {
@@ -140,58 +236,6 @@ export default function Home() {
       });
     }
   };
-
-  const performSearch = useCallback(async (params: Omit<SearchInput, 'page'>, searchPage: number, newSearch = false) => {
-    if (!params.query.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Search query is empty',
-        description: 'Please enter something to search for.',
-      });
-      return;
-    }
-    
-    if (newSearch) {
-        dispatch({ type: 'START_SEARCH', payload: params });
-    } else {
-        dispatch({ type: 'SET_PAGE', payload: searchPage });
-    }
-
-    if (newSearch) {
-      dispatch({ type: 'ADD_TO_HISTORY', payload: params });
-    }
-
-    try {
-      const searchInput: SearchInput = { ...params, page: searchPage };
-      const res = await search(searchInput);
-      
-      dispatch({ type: 'SEARCH_SUCCESS', payload: { results: res, newSearch } });
-    } catch (err: any) {
-      console.error(err);
-      toast({
-        variant: 'destructive',
-        title: 'Search Failed',
-        description: err.message || 'An unexpected error occurred.',
-      });
-      dispatch({ type: 'SEARCH_FAILURE' });
-    }
-  }, [toast]);
-
-  const handleSearchSubmit = () => {
-    performSearch(searchParams, 1, true);
-  };
-  
-  const handleHistorySearch = (historyItem: Omit<SearchInput, 'page'>) => {
-    performSearch(historyItem, 1, true);
-  };
-
-  const handleLoadMore = () => {
-    performSearch(searchParams, page + 1, false);
-  };
-
-  const isFavorite = useCallback((item: MediaItem) => {
-    return favorites.some(fav => fav.url === item.url);
-  }, [favorites]);
 
   const toggleFavorite = useCallback((item: MediaItem) => {
     const newFavorites = isFavorite(item)
@@ -214,6 +258,7 @@ export default function Home() {
             isFavoritesView={isFavoritesView}
             setIsFavoritesView={(payload) => dispatch({ type: 'TOGGLE_FAVORITES_VIEW', payload })}
             favoritesCount={favorites.length}
+            drivers={drivers}
           />
           <SearchHistory 
             history={history}
@@ -231,7 +276,7 @@ export default function Home() {
           isFavorite={isFavorite}
           toggleFavorite={toggleFavorite}
           openModal={(payload) => dispatch({ type: 'SET_SELECTED_ITEM', payload })}
-          hasSearched={results.length > 0 || isLoading}
+          hasSearched={results.length > 0 || isLoading || !!urlSearchParams.get('q')}
         />
         {!isFavoritesView && hasMore && results.length > 0 && !isLoading && (
           <div className="w-full flex justify-center mt-8">
@@ -259,3 +304,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

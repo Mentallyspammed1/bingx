@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -15,6 +16,7 @@ interface SearchFormProps {
   isFavoritesView: boolean;
   setIsFavoritesView: (isFavorites: boolean) => void;
   favoritesCount: number;
+  drivers: string[];
 }
 
 const SearchForm: React.FC<SearchFormProps> = ({
@@ -25,6 +27,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
   isFavoritesView,
   setIsFavoritesView,
   favoritesCount,
+  drivers
 }) => {
   const handleInputChange = (key: keyof Omit<SearchInput, 'page'>, value: string) => {
     setSearchParams({ [key]: value });
@@ -98,14 +101,11 @@ const SearchForm: React.FC<SearchFormProps> = ({
                 <SelectValue placeholder="Source" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pornhub">Pornhub</SelectItem>
-                <SelectItem value="sex">Sex.com</SelectItem>
-                <SelectItem value="redtube">Redtube</SelectItem>
-                <SelectItem value="xvideos">XVideos</SelectItem>
-                <SelectItem value="xhamster">Xhamster</SelectItem>
-                <SelectItem value="youporn">Youporn</SelectItem>
-                <SelectItem value="wow.xxx">Wow.xxx</SelectItem>
-                <SelectItem value="mock">Mock (Test)</SelectItem>
+                 {drivers.map(driver => (
+                  <SelectItem key={driver} value={driver.toLowerCase()}>
+                    {driver === 'wow.xxx' ? 'Wow.xxx' : driver.charAt(0).toUpperCase() + driver.slice(1)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -125,3 +125,5 @@ const SearchForm: React.FC<SearchFormProps> = ({
 };
 
 export default SearchForm;
+
+    

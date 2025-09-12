@@ -1,9 +1,11 @@
+
 'use client';
 
 import React from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import NeonCard from './NeonCard';
 import type { MediaItem } from '@/ai/types';
+import { Frown } from 'lucide-react';
 
 interface ResultsGridProps {
   items: MediaItem[];
@@ -45,14 +47,18 @@ const ResultsGrid: React.FC<ResultsGridProps> = ({
     if (isFavoritesView) {
       message = "You haven't saved any favorites yet.";
     } else if (hasSearched) {
-      message = "No results found for your query.";
+      message = "No results found. The site's structure might have changed.";
     }
 
     return (
-      <div className="text-center py-16">
+      <div className="text-center py-16 flex flex-col items-center justify-center gap-4">
+        <Frown className="w-16 h-16 text-muted-foreground/50" />
         <p className="text-xl text-muted-foreground">
           {message}
         </p>
+         {hasSearched && !isFavoritesView && (
+          <p className="text-sm text-muted-foreground">Try using the AI Scraper Repair tool in the settings.</p>
+        )}
       </div>
     );
   }
@@ -73,3 +79,5 @@ const ResultsGrid: React.FC<ResultsGridProps> = ({
 };
 
 export default ResultsGrid;
+
+    

@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export const SearchInputSchema = z.object({
@@ -23,3 +24,18 @@ export type MediaItem = z.infer<typeof MediaItemSchema>;
 
 export const SearchOutputSchema = z.array(MediaItemSchema);
 export type SearchOutput = z.infer<typeof SearchOutputSchema>;
+
+export const SelectorSuggestionInputSchema = z.object({
+  query: z.string().describe('The search query that failed'),
+  driver: z.string().describe('The driver that failed'),
+  type: z.enum(['videos', 'gifs']).describe('The content type being searched'),
+});
+export type SelectorSuggestionInput = z.infer<typeof SelectorSuggestionInputSchema>;
+
+export const SelectorSuggestionOutputSchema = z.object({
+  reasoning: z.string(),
+  suggestedCode: z.string(),
+});
+export type SelectorSuggestionOutput = z.infer<typeof SelectorSuggestionOutputSchema>;
+
+    

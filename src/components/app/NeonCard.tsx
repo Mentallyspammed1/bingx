@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useRef, useState } from 'react';
@@ -12,48 +13,40 @@ interface NeonCardProps {
   item: MediaItem;
   isFavorite: (item: MediaItem) => boolean;
   toggleFavorite: (item: MediaItem) => void;
+  onClick: () => void;
 }
 
-const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite }) => {
+const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite, onClick }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleMouseEnter = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+    if (!item.preview_video || !videoRef.current) return;
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    
     timeoutRef.current = setTimeout(() => {
-      if (item.preview_video && videoRef.current) {
-        const video = videoRef.current;
+      const video = videoRef.current;
+      if (video) {
         video.currentTime = 0;
         const playPromise = video.play();
         if (playPromise !== undefined) {
-          playPromise.then(() => {
-            setIsPlaying(true);
-          }).catch(error => {
-             setIsPlaying(false);
-          });
+          playPromise
+            .then(() => setIsPlaying(true))
+            .catch(() => setIsPlaying(false));
         }
       }
-    }, 150); 
+    }, 150);
   };
 
   const handleMouseLeave = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    if (videoRef.current) {
-      const video = videoRef.current;
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    
+    const video = videoRef.current;
+    if (video) {
       video.pause();
       video.currentTime = 0;
       setIsPlaying(false);
-    }
-  };
-
-  const handleCardClick = () => {
-    if (item.url) {
-      window.open(item.url, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -61,19 +54,20 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite })
 
   return (
     <Card
-      onClick={handleCardClick}
+      onClick={onClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className="group relative overflow-hidden rounded-lg shadow-lg transition-all duration-300 ease-in-out cursor-pointer h-72 flex flex-col bg-card hover:shadow-primary/40 hover:border-primary/50 hover:-translate-y-1"
       tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && handleCardClick()}
+      onKeyDown={(e) => e.key === 'Enter' && onClick()}
     >
       <CardContent className="relative p-0 h-48 flex-shrink-0 bg-black">
         {item.thumbnail && (
           <Image
             src={item.thumbnail}
             alt={item.title}
-            layout="fill"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             objectFit="cover"
             unoptimized
             className={cn(
@@ -90,7 +84,7 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite })
             muted
             loop
             playsInline
-            preload="auto"
+            preload="none"
             className={cn(
               "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
               isPlaying ? "opacity-100" : "opacity-0"
@@ -127,3 +121,5 @@ const NeonCard: React.FC<NeonCardProps> = ({ item, isFavorite, toggleFavorite })
 };
 
 export default NeonCard;
+
+    

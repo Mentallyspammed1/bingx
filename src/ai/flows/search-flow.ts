@@ -44,8 +44,8 @@ const pornhub = {
         const img = item.find('img.thumb, img.video-thumb-img');
         const thumbnail = makeAbsolute(img.attr('data-mediumthumb') || img.attr('data-thumb_url') || img.attr('data-src') || img.attr('src'), baseUrl);
         const duration = item.find('.duration, .video-duration').text().trim();
-        const preview_video = makeAbsolute(item.find('a[href*="viewkey="]').attr('data-preview_url') || img.attr('data-preview_url'), baseUrl);
-        
+        const preview_video = makeAbsolute(item.attr('data-preview_url') || img.attr('data-preview_url'), baseUrl);
+
         if (videoUrl && title && thumbnail && videoId && !thumbnail.includes('nothumb')) {
             results.push({ id: videoId, title, url: videoUrl, duration, thumbnail, preview_video, source: 'Pornhub', type: 'videos' });
         }

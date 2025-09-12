@@ -33,10 +33,10 @@ type State = {
 type Action =
   | { type: 'SET_DRIVERS'; payload: string[] }
   | { type: 'SET_SEARCH_PARAMS'; payload: Partial<Omit<SearchInput, 'page'>> }
-  | { type: 'START_SEARCH'; payload: { params: Omit<SearchInput, 'page'>, page: number } }
-  | { type: 'SEARCH_SUCCESS'; payload: { results: MediaItem[], page: number } }
+  | { type: 'START_SEARCH'; payload: { params: Omit<SearchInput, 'page'>; page: number } }
+  | { type: 'APPEND_RESULTS'; payload: MediaItem[] }
+  | { type: 'SET_RESULTS'; payload: MediaItem[] }
   | { type: 'SEARCH_FAILURE' }
-  | { type: 'LOAD_MORE' }
   | { type: 'SET_SELECTED_ITEM'; payload: MediaItem | null }
   | { type: 'TOGGLE_FAVORITES_VIEW'; payload: boolean }
   | { type: 'SET_FAVORITES'; payload: MediaItem[] }
@@ -66,24 +66,28 @@ function reducer(state: State, action: Action): State {
     case 'SET_SEARCH_PARAMS':
       return { ...state, searchParams: { ...state.searchParams, ...action.payload } };
     case 'START_SEARCH':
-      return { 
-        ...state, 
-        isLoading: true, 
-        page: action.payload.page, 
+      return {
+        ...state,
+        isLoading: true,
+        page: action.payload.page,
         results: action.payload.page === 1 ? [] : state.results,
-        hasMore: action.payload.page === 1 ? true : state.hasMore, // Reset hasMore on new search
-        isFavoritesView: false, 
-        searchParams: action.payload.params 
+        hasMore: action.payload.page === 1 ? true : state.hasMore,
+        isFavoritesView: false,
+        searchParams: action.payload.params,
       };
-    case 'SEARCH_SUCCESS':
-      const newResults = action.payload.page === 1 
-        ? action.payload.results 
-        : [...state.results, ...action.payload.results];
-      return { 
-        ...state, 
-        isLoading: false, 
-        results: newResults,
-        hasMore: action.payload.results.length > 0,
+    case 'APPEND_RESULTS':
+      return {
+        ...state,
+        isLoading: false,
+        results: [...state.results, ...action.payload],
+        hasMore: action.payload.length > 0,
+      };
+    case 'SET_RESULTS':
+       return {
+        ...state,
+        isLoading: false,
+        results: action.payload,
+        hasMore: action.payload.length > 0,
       };
     case 'SEARCH_FAILURE':
       return { ...state, isLoading: false, hasMore: false };
@@ -110,6 +114,8 @@ function reducer(state: State, action: Action): State {
         console.error('Failed to clear history', e);
       }
       return { ...state, history: [] };
+    case 'SET_PAGE':
+        return { ...state, page: action.payload };
     default:
       return state;
   }
@@ -152,7 +158,6 @@ export default function Home() {
   }, []);
 
   const performSearch = useCallback(async (params: Omit<SearchInput, 'page'>, searchPage: number) => {
-    // Only add to history on the first page of a new search
     if (searchPage === 1 && params.query.trim()) {
         const currentParams = { query: params.query, driver: params.driver, type: params.type };
         dispatch({ type: 'ADD_TO_HISTORY', payload: currentParams });
@@ -164,7 +169,11 @@ export default function Home() {
       const searchInput: SearchInput = { ...params, page: searchPage };
       const res = await search(searchInput);
       
-      dispatch({ type: 'SEARCH_SUCCESS', payload: { results: res, page: searchPage } });
+      if (searchPage > 1) {
+        dispatch({ type: 'APPEND_RESULTS', payload: res });
+      } else {
+        dispatch({ type: 'SET_RESULTS', payload: res });
+      }
     } catch (err: any) {
       console.error(err);
       toast({
@@ -187,36 +196,34 @@ export default function Home() {
       driver: driver || 'redtube',
       type: (type === 'videos' || type === 'gifs') ? type : 'videos',
     };
+    
+    const isNewSearch = newSearchParams.query !== searchParams.query || newSearchParams.driver !== searchParams.driver || newSearchParams.type !== searchParams.type;
 
-    // Only perform search if query exists
-    if (newSearchParams.query) {
-       // Prevent re-fetching on back/forward navigation if results for that page already exist
-      const isNewSearch = newSearchParams.query !== searchParams.query || newSearchParams.driver !== searchParams.driver || newSearchParams.type !== searchParams.type;
-      if (isNewSearch || pageNum !== page) {
+    if (query) {
+       if (isNewSearch || pageNum !== page) {
          performSearch(newSearchParams, pageNum);
-      }
+       }
     } else {
-        // Clear results if query is removed from URL
         if(results.length > 0) {
-            dispatch({ type: 'SEARCH_SUCCESS', payload: { results: [], page: 1 } });
+            dispatch({ type: 'SET_RESULTS', payload: [] });
         }
     }
-     // Update state's searchParams if they differ from URL
-    if (newSearchParams.query !== searchParams.query || newSearchParams.driver !== searchParams.driver || newSearchParams.type !== searchParams.type) {
+
+    if (isNewSearch) {
         dispatch({ type: 'SET_SEARCH_PARAMS', payload: newSearchParams });
     }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlSearchParams]);
+  }, [urlSearchParams, performSearch]);
 
 
   const updateUrl = (params: Partial<Omit<SearchInput, 'page'>> & { page?: number }) => {
-    const newSearchParams = new URLSearchParams(urlSearchParams.toString());
-    if (params.query !== undefined) newSearchParams.set('q', params.query);
-    if (params.driver !== undefined) newSearchParams.set('driver', params.driver);
-    if (params.type !== undefined) newSearchParams.set('type', params.type);
-    if (params.page !== undefined) newSearchParams.set('page', String(params.page));
-    router.push(`${pathname}?${newSearchParams.toString()}`);
+    const newUrlParams = new URLSearchParams(urlSearchParams.toString());
+    if (params.query !== undefined) newUrlParams.set('q', params.query);
+    if (params.driver !== undefined) newUrlParams.set('driver', params.driver);
+    if (params.type !== undefined) newUrlParams.set('type', params.type);
+    if (params.page !== undefined) newUrlParams.set('page', String(params.page));
+    router.push(`${pathname}?${newUrlParams.toString()}`);
   };
 
   const handleSearchSubmit = () => {
@@ -232,13 +239,12 @@ export default function Home() {
   };
   
   const handleHistorySearch = (historyItem: Omit<SearchInput, 'page'>) => {
-    dispatch({ type: 'SET_SEARCH_PARAMS', payload: historyItem });
     updateUrl({ ...historyItem, page: 1 });
   };
 
   const handleLoadMore = () => {
     const newPage = page + 1;
-    updateUrl({ ...searchParams, page: newPage });
+    updateUrl({ page: newPage });
   };
 
   const isFavorite = useCallback((item: MediaItem) => {
@@ -298,7 +304,7 @@ export default function Home() {
           isFavorite={isFavorite}
           toggleFavorite={toggleFavorite}
           openModal={(payload) => dispatch({ type: 'SET_SELECTED_ITEM', payload })}
-          hasSearched={results.length > 0 || isLoading || !!urlSearchParams.get('q')}
+          hasSearched={!!urlSearchParams.get('q')}
         />
         {!isFavoritesView && hasMore && results.length > 0 && !isLoading && (
           <div className="w-full flex justify-center mt-8">
@@ -326,3 +332,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

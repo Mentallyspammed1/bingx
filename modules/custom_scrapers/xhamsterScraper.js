@@ -29,24 +29,21 @@ class XhamsterScraper extends AbstractModule.with(VideoMixin, GifMixin) {
     async videoParser($, rawHtmlOrJsonData) {
         log.info(`Parsing ${this.name} video page...`);
         const videos = [];
-        // Example selector, needs verification
-        $('div.thumb-list__item article.video-thumb').each((i, elem) => {
+        // Updated selector for the new structure
+        $('div.video-item').each((i, elem) => {
             try {
                 const $elem = $(elem);
-                const title = $elem.find('a.video-thumb-info__name').attr('title') || $elem.find('a.video-thumb-info__name').text().trim();
-                let url = $elem.find('a.video-thumb-info__name').attr('href');
+                const title = $elem.find('a.video-title').text().trim();
+                let url = $elem.find('a.video-title').attr('href');
                 url = this._makeAbsolute(url, this.baseUrl);
 
-                let thumbnail = $elem.find('img.video-thumb__image').attr('data-src') || $elem.find('img.video-thumb__image').attr('src');
+                let thumbnail = $elem.find('img').attr('src');
                 thumbnail = this._makeAbsolute(thumbnail, this.baseUrl);
 
-                const duration = $elem.find('.video-duration').text().trim();
+                const duration = ''; // Duration not available in the new structure
 
-                // Preview video might require deeper inspection or might not be available
-                // For now, let's assume it's in a data attribute or similar to thumbnail
-                let preview_video = $elem.find('img.video-thumb__image').attr('data-preview-url'); // This is a guess
-                preview_video = this._makeAbsolute(preview_video, this.baseUrl);
-
+                // Preview video not available, fallback to thumbnail
+                const preview_video = thumbnail;
 
                 if (title && url) {
                     videos.push({
@@ -54,7 +51,7 @@ class XhamsterScraper extends AbstractModule.with(VideoMixin, GifMixin) {
                         url,
                         thumbnail,
                         duration,
-                        preview_video: preview_video || thumbnail, // Fallback to thumbnail if no specific preview
+                        preview_video: preview_video || thumbnail,
                         source: this.name,
                     });
                 }

@@ -83,6 +83,7 @@
             width: 100%;
             max-width: 300px;
             cursor: pointer; /* Indicate clickable */
+            position: relative;
         }
         .image-item:hover {
             transform: translateY(-5px);
@@ -94,6 +95,26 @@
             object-fit: cover;
             display: block;
             border-bottom: 1px solid #30363d;
+            transition: transform 0.3s ease;
+        }
+        .image-item:hover img {
+            transform: scale(1.05);
+        }
+        .image-item .loading-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 4px solid #1e242b;
+            border-top: 4px solid #00FFFF;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
         }
         .image-info {
             padding: 15px;
@@ -127,7 +148,6 @@
         #errorMessage {
             color: #FF0000; /* Fiery red for errors */
         }
-
         /* Lightbox/Modal Styles */
         .modal {
             display: none; /* Hidden by default */
@@ -149,6 +169,9 @@
             max-width: 90%;
             max-height: 90%;
             object-fit: contain; /* Ensure image fits within bounds */
+            border: 2px solid #00FFFF;
+            border-radius: 4px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
         }
         .modal-caption {
             margin: 15px auto;
@@ -176,6 +199,29 @@
             text-decoration: none;
             cursor: pointer;
         }
+        .modal-nav {
+            position: absolute;
+            top: 50%;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            transform: translateY(-50%);
+        }
+        .modal-nav button {
+            background-color: rgba(0, 0, 0, 0.5);
+            color: #00FFFF;
+            border: 1px solid #00FFFF;
+            border-radius: 4px;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+        .modal-nav button:hover {
+            background-color: rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -187,7 +233,6 @@
         .modal.fade-out {
             animation: fadeOut 0.3s forwards;
         }
-
         /* Basic Dark Mode Scrollbar */
         ::-webkit-scrollbar {
             width: 12px;
@@ -203,7 +248,6 @@
         ::-webkit-scrollbar-thumb:hover {
             background-color: #FF00FF; /* Mystical magenta thumb on hover */
         }
-
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .controls-container {
@@ -219,6 +263,10 @@
             }
             .image-item {
                 max-width: none; /* Allow items to stretch more */
+            }
+            .modal-nav button {
+                padding: 8px 12px;
+                font-size: 16px;
             }
         }
     </style>
@@ -241,7 +289,8 @@
                     <option value="WEBP">WEBP</option>
                     <option value="BMP">BMP</option>
                     <option value="TIFF">TIFF</option>
-                    <!-- Add more as needed based on common formats -->
+                    <option value="ICO">ICO</option>
+                    <option value="SVG">SVG</option>
                 </select>
             </div>
             <div class="control-group">
@@ -255,6 +304,8 @@
                     <option value="width-desc">Width (Largest First)</option>
                     <option value="height-asc">Height (Smallest First)</option>
                     <option value="height-desc">Height (Largest First)</option>
+                    <option value="modified-asc">Date Modified (Oldest)</option>
+                    <option value="modified-desc">Date Modified (Newest)</option>
                 </select>
             </div>
         </div>
@@ -270,19 +321,19 @@
             Error loading the master image manifest. Ensure `scrapey.py` has completed its ritual and forged `master_image_manifest.json`, and that your local server is active.
         </div>
     </div>
-
-    <!-- The Lightbox Modal -->
     <div id="imageModal" class="modal">
         <span class="modal-close" onclick="closeModal()">×</span>
+        <div class="modal-nav">
+            <button id="prevBtn" onclick="navigateModal(-1)">‹</button>
+            <button id="nextBtn" onclick="navigateModal(1)">›</button>
+        </div>
         <img class="modal-content" id="modalImage">
         <div id="modalCaption" class="modal-caption"></div>
     </div>
-
     <script>
         // Constants: Echoes from the Python script
         const DEFAULT_OUTPUT_DIR = "downloads";
         const MASTER_MANIFEST_FILENAME = "master_image_manifest.json";
-
         const imageGrid = document.getElementById('imageGrid');
         const searchInput = document.getElementById('searchInput');
         const typeFilter = document.getElementById('typeFilter');
@@ -290,17 +341,18 @@
         const noResultsMessage = document.getElementById('noResults');
         const loadingMessage = document.getElementById('loadingMessage');
         const errorMessage = document.getElementById('errorMessage');
-
         const imageModal = document.getElementById('imageModal');
         const modalImage = document.getElementById('modalImage');
         const modalCaption = document.getElementById('modalCaption');
-
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
         let allImages = []; // To hold all image data for filtering and sorting
         let displayedImages = []; // Images currently visible after filtering/sorting
-
         const IMAGES_PER_LOAD = 30; // Number of images to load at a time for lazy loading
         let currentImageIndex = 0; // Tracks how many images have been rendered
-
+        let isRendering = false; // Flag to prevent multiple concurrent rendering calls
+        let currentModalIndex = -1; // Track current image index in modal
+        
         /**
          * Loads the master image manifest and prepares images for rendering.
          */
@@ -312,25 +364,22 @@
             loadingMessage.style.display = 'block'; // Reveal loading message
             noResultsMessage.style.display = 'none'; // Conceal no results
             errorMessage.style.display = 'none'; // Conceal error message
-
             const manifestPath = `${DEFAULT_OUTPUT_DIR}/${MASTER_MANIFEST_FILENAME}`;
             console.log(`Attempting to fetch master manifest from: ${manifestPath}`);
-
             try {
                 const response = await fetch(manifestPath);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const manifestData = await response.json();
-
                 if (!Array.isArray(manifestData)) {
                     throw new Error("Master manifest is not a valid array. Its structure is corrupted.");
                 }
-
                 allImages = manifestData.map(item => {
                     const relativePath = `${DEFAULT_OUTPUT_DIR}/${item.query_based_subdir_name}/${item.filename}`;
                     return {
                         src: relativePath,
+                        thumbnailSrc: relativePath, // In a real implementation, you might have separate thumbnail paths
                         filename: item.filename,
                         queryFolder: item.query_based_subdir_name,
                         dimensions: item.dimensions,
@@ -342,105 +391,141 @@
                         dpi: item.dpi,
                         isAnimated: item.is_animated,
                         frameCount: item.frame_count,
+                        modifiedDate: item.modified_date,
                         error: item.error,
-                        element: null // Placeholder for the actual DOM element
+                        element: null
                     };
                 });
-
                 if (allImages.length === 0) {
                     imageGrid.innerHTML = '<p class="no-results">No images found in the master manifest. Please run `scrapey.py` to download images and forge the manifest.</p>';
                     loadingMessage.style.display = 'none';
                     return;
                 }
-
-                loadingMessage.style.display = 'none'; // Conceal loading message
-                applyFiltersAndSort(); // Apply initial filters and sorting, then render first batch
+                loadingMessage.style.display = 'none';
+                applyFiltersAndSort();
             } catch (e) {
                 console.error("Failed to load master image manifest:", e);
                 loadingMessage.style.display = 'none';
-                errorMessage.style.display = 'block'; // Reveal error
-                imageGrid.innerHTML = ''; // Clear grid if error
+                errorMessage.style.display = 'block';
+                imageGrid.innerHTML = '';
             }
         }
-
+        
         /**
          * Applies current search, type filters, and sorting, then triggers rendering.
+         * Using debouncing to prevent excessive function calls on keyup.
          */
+        let filterTimeout;
         function applyFiltersAndSort() {
-            const searchTerm = searchInput.value.toLowerCase();
-            const selectedType = typeFilter.value;
-            const sortOption = sortSelect.value;
-
-            // 1. Filter
-            let filtered = allImages.filter(imageData => {
-                const filenameMatch = imageData.filename.toLowerCase().includes(searchTerm);
-                const folderMatch = imageData.queryFolder.toLowerCase().includes(searchTerm);
-                const typeMatch = selectedType === 'all' || (imageData.format && imageData.format.toLowerCase() === selectedType.toLowerCase());
-
-                return (filenameMatch || folderMatch) && typeMatch;
-            });
-
-            // 2. Sort
-            filtered.sort((a, b) => {
-                switch (sortOption) {
-                    case 'filename-asc': return a.filename.localeCompare(b.filename);
-                    case 'filename-desc': return b.filename.localeCompare(a.filename);
-                    case 'size-asc': return (a.size || 0) - (b.size || 0);
-                    case 'size-desc': return (b.size || 0) - (a.size || 0);
-                    case 'width-asc': return (a.width || 0) - (b.width || 0);
-                    case 'width-desc': return (b.width || 0) - (a.width || 0);
-                    case 'height-asc': return (a.height || 0) - (b.height || 0);
-                    case 'height-desc': return (b.height || 0) - (a.height || 0);
-                    default: return 0;
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => {
+                const searchTerm = searchInput.value.toLowerCase();
+                const selectedType = typeFilter.value;
+                const sortOption = sortSelect.value;
+                
+                // 1. Filter
+                let filtered = allImages.filter(imageData => {
+                    const filenameMatch = imageData.filename.toLowerCase().includes(searchTerm);
+                    const folderMatch = imageData.queryFolder.toLowerCase().includes(searchTerm);
+                    const typeMatch = selectedType === 'all' || (imageData.format && imageData.format.toLowerCase() === selectedType.toLowerCase());
+                    return (filenameMatch || folderMatch) && typeMatch;
+                });
+                
+                // 2. Sort
+                filtered.sort((a, b) => {
+                    switch (sortOption) {
+                        case 'filename-asc': return a.filename.localeCompare(b.filename);
+                        case 'filename-desc': return b.filename.localeCompare(a.filename);
+                        case 'size-asc': return (a.size || 0) - (b.size || 0);
+                        case 'size-desc': return (b.size || 0) - (a.size || 0);
+                        case 'width-asc': return (a.width || 0) - (b.width || 0);
+                        case 'width-desc': return (b.width || 0) - (a.width || 0);
+                        case 'height-asc': return (a.height || 0) - (b.height || 0);
+                        case 'height-desc': return (b.height || 0) - (a.height || 0);
+                        case 'modified-asc': return new Date(a.modifiedDate) - new Date(b.modifiedDate);
+                        case 'modified-desc': return new Date(b.modifiedDate) - new Date(a.modifiedDate);
+                        default: return 0;
+                    }
+                });
+                
+                displayedImages = filtered;
+                currentImageIndex = 0;
+                imageGrid.innerHTML = '';
+                if (displayedImages.length === 0) {
+                    noResultsMessage.style.display = 'block';
+                } else {
+                    noResultsMessage.style.display = 'none';
+                    renderNextBatch();
                 }
-            });
-
-            displayedImages = filtered;
-            currentImageIndex = 0; // Reset for lazy loading
-            imageGrid.innerHTML = ''; // Clear grid for new filtered/sorted set
-            renderNextBatch(); // Render the first batch
+            }, 300);
         }
-
+        
         /**
          * Renders the next batch of images into the grid.
          */
         function renderNextBatch() {
+            if (isRendering || currentImageIndex >= displayedImages.length) return;
+            isRendering = true;
             const batch = displayedImages.slice(currentImageIndex, currentImageIndex + IMAGES_PER_LOAD);
-
-            if (batch.length === 0 && currentImageIndex === 0) {
-                noResultsMessage.style.display = 'block';
-            } else {
-                noResultsMessage.style.display = 'none';
-            }
-
-            batch.forEach(imageData => {
+            const fragment = document.createDocumentFragment();
+            
+            batch.forEach((imageData, index) => {
                 const item = document.createElement('div');
                 item.className = 'image-item';
-                item.onclick = () => openModal(imageData); // Attach click handler for modal
-
+                item.onclick = () => openModal(imageData, currentImageIndex + index);
+                
+                const imgContainer = document.createElement('div');
+                imgContainer.style.position = 'relative';
+                imgContainer.style.height = '200px';
+                imgContainer.style.overflow = 'hidden';
+                
                 const img = document.createElement('img');
-                img.src = imageData.src;
-                img.alt = imageData.filename;
-                img.loading = 'lazy'; // Native lazy loading
-                // Fallback for broken images: a mystical broken file icon
-                img.onerror = function() {
-                    this.onerror = null; // Prevent infinite loops
-                    this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTE4LjUgMThINC41QzMuNjcgMTggMyAxNy4zMyAzIDE2LjVWNi41QzMgNS42NyAzLjY3IDUgNC41IDVIOC41TDEwLjUzIDcuNDdIMjEuNDdDMjIuMzMgNy40NyAyMyA4LjEzIDIzIDguOTZWMTcuOTRDMjMgMTguNzcgMjIuMzMgMTkuNDcgMjEuNDcgMTkuNDdIMTUuNDdMMTMuNTIgMTguNDdIMTguNVYxOFoiIGZpbGw9IiM2NjY2NjYiLz48cGF0aCBkPSJNNiAxMi44TDMuNzMgMTUuMDcgNiAxNy4zNFYxMi44WiIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIvPjxwYXRoIGQ9Ik0xOC40NyAxMC45N0wxNS4yIDE0LjI0IDE2Ljg1IDE1LjkgMjAuMTIgMTIuNjNIMjIuMTlWMTEuNTdIMTguNDdaIiBzdHJva2U9IiNmZmZmZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIvPj4=';
-                    this.style.filter = 'grayscale(100%) opacity(50%)'; // Dim the broken image
-                };
-
+                img.loading = 'lazy';
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                
+                // Add loading spinner
+                const spinner = document.createElement('div');
+                spinner.className = 'loading-spinner';
+                imgContainer.appendChild(spinner);
+                
+                // Check if the image has a known error
+                if (imageData.error) {
+                    img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2YwMDAwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxwYXRoIGQ9Ik0zIDZMMjEuMDI4NiAyMExMTkuMDQ2OCAxNS41Mjk3TDkuNzg4MiAxMy4xNjQxTDE1LjI1NTggMTAuNzkyTDkuNzg4MiA4LjQxNjU0TDguNDE2NSAxNS44MDM0TDYuMjU1OCAxMS4zNTUzTDQuNTczIDEzLjYyNTZMMiA2LjcyOTIyTDYgMTQuNjk0NyIvPgo8L3N2Zz4='; // A simple SVG broken file icon
+                    img.alt = `Error loading ${imageData.filename}`;
+                    img.style.filter = 'grayscale(100%) opacity(50%)'; // Dim the broken image
+                    spinner.style.display = 'none'; // Hide spinner for broken images
+                } else {
+                    // Use thumbnail if available, otherwise use the full image
+                    img.src = imageData.thumbnailSrc || imageData.src;
+                    img.alt = imageData.filename;
+                    
+                    // Fallback for network/server errors
+                    img.onerror = function() {
+                        this.onerror = null;
+                        this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTE4LjUgMThINC41QzMuNjcgMTggMyAxNy4zMyAzIDE2LjVWNi41QzMgNS42NyAzLjY3IDUgNC41IDVIOC41TDEwLjUzIDcuNDdIMjEuNDdDMjIuMzMgNy40NyAyMyA4LjEzIDIzIDguOTZWMTcuOTRDMjMgMTguNzcgMjIuMzMgMTkuNDcgMjEuNDcgMTkuNDdIMTUuNDdMMTQuNSAxOC41TDE4LjUgMTguNTRWMThaIiBmaWxsPSIjNjY2NjY2Ii8+PHBhdGggZD0iTTIuOTggMTEuMTFMMi40NCA5Ljk4IDQuNTcgOS45OFYxMS4xMUgyLjk4Wk0yMi41MiAxMi4yNUwyMi41MyAxMS4yNSAyMC43MyAxMS4wNEwyMC43MyAxMi4wNFYxMi4yNUgyMi41MlpNMTkuMjUgMTEuMDZMMTkuMjUgMTIuMTZMMTcuNzQgMTIuMTZMMTcuNzQgMTEuMDZM MTkuMjUgMTEuMDZaTTE0LjcxIDEwLjAzTDE0LjcxIDEyLjE2TDE2LjcxIDEyLjE2VjEwLjAzTDE0LjcxIDEwLjAzWk05LjQ1IDExLjA3TDkuNDUgMTIuMDdMMTExLjQ1IDEyLjA3VjEyLjI1TDExLjQ1IDEyLjE3VjkuOTgLMTAuNDUgMTAuNTlMOTQuNDUgMTAuOTdWMTYuMDdaTTIwLjY2IDEzLjY4TDIwLjY2IDEyLjk4TDE0LjQzIDEyLjk4TDE0LjQzIDEzLjY4SDE2LjY2Wk01Ljk3IDEzLjcxTDUuOTcgMTIuNTlMMy40NSAxMi41OVYxMy43MUEzLjE0IDMuMTQgMCAwIDAgMy40NSAxOC45NzZMMjIgMTUuNTdMNDggMTkuNjcgNDggMjAuMjJMMjIuNzUgMTIuMTZMMjAuMjUgMTMuNzEgMTkuMjUgMTIuMTZMNC4yOSA1Ljk3TDUuOTcgMTMuNzEiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48L3N2Zz4=';
+                        this.style.filter = 'grayscale(100%) opacity(50%)';
+                        spinner.style.display = 'none'; // Hide spinner for failed images
+                    };
+                    
+                    // Hide spinner when image loads successfully
+                    img.onload = function() {
+                        spinner.style.display = 'none';
+                    };
+                }
+                
+                imgContainer.appendChild(img);
+                item.appendChild(imgContainer);
+                
                 const info = document.createElement('div');
                 info.className = 'image-info';
-
-                let sizeStr = imageData.size ? (imageData.size / 1024).toFixed(2) + ' KB' : 'Unknown';
-                if (imageData.size && imageData.size > 1024 * 1024) {
-                    sizeStr = (imageData.size / (1024 * 1024)).toFixed(2) + ' MB';
-                }
-
-                let dpiStr = imageData.dpi ? `DPI: ${imageData.dpi[0]}x${imageData.dpi[1]}` : '';
+                let sizeStr = imageData.size ? formatFileSize(imageData.size) : 'Unknown';
+                let dpiStr = imageData.dpi && imageData.dpi[0] ? `DPI: ${imageData.dpi[0]}x${imageData.dpi[1]}` : '';
                 let animatedStr = imageData.isAnimated ? `Frames: ${imageData.frameCount}` : '';
+                let modifiedStr = imageData.modifiedDate ? `Modified: ${new Date(imageData.modifiedDate).toLocaleDateString()}` : '';
                 let errorHtml = imageData.error ? `<p style="color: #FF0000; font-size: 0.7em;">Error: ${imageData.error}</p>` : '';
-
+                
                 info.innerHTML = `
                     <p class="filename">${imageData.filename}</p>
                     <p class="query-folder">Folder: ${imageData.queryFolder}</p>
@@ -450,33 +535,34 @@
                     <p class="metadata-line">Mode: ${imageData.mode || 'Unknown'}</p>
                     ${dpiStr ? `<p class="metadata-line">${dpiStr}</p>` : ''}
                     ${animatedStr ? `<p class="metadata-line">${animatedStr}</p>` : ''}
+                    ${modifiedStr ? `<p class="metadata-line">${modifiedStr}</p>` : ''}
                     ${errorHtml}
                 `;
-
-                item.appendChild(img);
+                
                 item.appendChild(info);
-                imageGrid.appendChild(item);
-                imageData.element = item; // Store reference to the DOM element
+                fragment.appendChild(item);
+                imageData.element = item;
             });
+            
+            imageGrid.appendChild(fragment);
             currentImageIndex += batch.length;
+            isRendering = false;
         }
-
-        /**
-         * Opens the modal with the clicked image and its details.
-         * @param {Object} imageData - The data object for the clicked image.
-         */
-        function openModal(imageData) {
+        
+        function openModal(imageData, index) {
+            currentModalIndex = index;
             modalImage.src = imageData.src;
             modalImage.alt = imageData.filename;
-
-            let sizeStr = imageData.size ? (imageData.size / 1024).toFixed(2) + ' KB' : 'Unknown';
-            if (imageData.size && imageData.size > 1024 * 1024) {
-                sizeStr = (imageData.size / (1024 * 1024)).toFixed(2) + ' MB';
-            }
-            let dpiStr = imageData.dpi ? `DPI: ${imageData.dpi[0]}x${imageData.dpi[1]}` : '';
+            
+            // Update navigation buttons
+            updateModalNavigation();
+            
+            let sizeStr = imageData.size ? formatFileSize(imageData.size) : 'Unknown';
+            let dpiStr = imageData.dpi && imageData.dpi[0] ? `DPI: ${imageData.dpi[0]}x${imageData.dpi[1]}` : '';
             let animatedStr = imageData.isAnimated ? `Frames: ${imageData.frameCount}` : '';
+            let modifiedStr = imageData.modifiedDate ? `Modified: ${new Date(imageData.modifiedDate).toLocaleString()}` : '';
             let errorHtml = imageData.error ? `<span style="color: #FF0000; font-size: 0.9em;">Error: ${imageData.error}</span>` : '';
-
+            
             modalCaption.innerHTML = `
                 <strong>${imageData.filename}</strong><br>
                 Folder: ${imageData.queryFolder}<br>
@@ -486,14 +572,13 @@
                 Mode: ${imageData.mode || 'Unknown'}<br>
                 ${dpiStr ? `${dpiStr}<br>` : ''}
                 ${animatedStr ? `${animatedStr}<br>` : ''}
+                ${modifiedStr ? `${modifiedStr}<br>` : ''}
                 ${errorHtml}
             `;
+            
             imageModal.style.display = 'flex';
         }
-
-        /**
-         * Closes the modal.
-         */
+        
         function closeModal() {
             imageModal.classList.add('fade-out');
             imageModal.addEventListener('animationend', function handler() {
@@ -502,16 +587,56 @@
                 imageModal.removeEventListener('animationend', handler);
             });
         }
-
+        
+        function navigateModal(direction) {
+            if (currentModalIndex === -1) return;
+            
+            const newIndex = currentModalIndex + direction;
+            if (newIndex >= 0 && newIndex < displayedImages.length) {
+                openModal(displayedImages[newIndex], newIndex);
+            }
+        }
+        
+        function updateModalNavigation() {
+            prevBtn.style.display = currentModalIndex > 0 ? 'block' : 'none';
+            nextBtn.style.display = currentModalIndex < displayedImages.length - 1 ? 'block' : 'none';
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
         // Lazy loading / Infinite scroll
+        let lastScrollY = window.scrollY;
         window.addEventListener('scroll', () => {
-            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) { // 500px from bottom
-                if (currentImageIndex < displayedImages.length) {
-                    renderNextBatch();
+            const currentScrollY = window.scrollY;
+            if (currentScrollY > lastScrollY) {
+                if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) {
+                    if (currentImageIndex < displayedImages.length) {
+                        renderNextBatch();
+                    }
+                }
+            }
+            lastScrollY = currentScrollY;
+        });
+        
+        // Keyboard navigation for modal
+        document.addEventListener('keydown', (e) => {
+            if (imageModal.style.display === 'flex') {
+                if (e.key === 'Escape') {
+                    closeModal();
+                } else if (e.key === 'ArrowLeft') {
+                    navigateModal(-1);
+                } else if (e.key === 'ArrowRight') {
+                    navigateModal(1);
                 }
             }
         });
-
+        
         // Initiate the loading of images when the scrying pool is ready
         document.addEventListener('DOMContentLoaded', loadImages);
     </script>

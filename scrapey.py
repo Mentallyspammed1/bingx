@@ -12,16 +12,15 @@ Incorporates duplicate detection using perceptual hashing (pHash)
 to prevent re-downloading or storing identical images.
 """
 
+import argparse
 import json
 import logging
 import os
-import argparse
 import sys
-import shutil # For safely moving files in deduplication
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Set
+from typing import Any
 
 # Third-party Libraries
 # requests is used implicitly by bing_image_downloader
@@ -36,7 +35,7 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from colorama import Back, Fore, init, Style
+    from colorama import Back, Fore, Style, init
     COLORAMA_AVAILABLE = True
 except ImportError:
     COLORAMA_AVAILABLE = False
@@ -87,7 +86,7 @@ class Config:
     PHASH_THRESHOLD: int = 5 # pHash difference threshold for duplicates (lower is stricter)
     # File extensions to prioritize for image metadata extraction if there are multiple files
     # with the same base name but different extensions (e.g., .webp and .jpg)
-    PREFERRED_IMAGE_EXTENSIONS: List[str] = [".png", ".jpeg", ".jpg", ".gif", ".webp", ".bmp"]
+    PREFERRED_IMAGE_EXTENSIONS: list[str] = [".png", ".jpeg", ".jpg", ".gif", ".webp", ".bmp"]
 
 
 # --- Initialize Colorama: Infusing the Terminal with Light ---
@@ -183,13 +182,12 @@ def create_directory(path: Path) -> bool:
         return False
 
 
-def rename_files(file_paths: List[Path], base_query: str) -> List[Path]:
-    """
-    Renames downloaded files sequentially with a sanitized query prefix.
+def rename_files(file_paths: list[Path], base_query: str) -> list[Path]:
+    """Renames downloaded files sequentially with a sanitized query prefix.
     Returns a list of final paths for files that were successfully renamed or already had the target name.
     Files that could not be processed (e.g., not found, not a file, rename error) are excluded.
     """
-    final_paths_after_rename: List[Path] = []
+    final_paths_after_rename: list[Path] = []
     if not file_paths:
         logger.debug("No file paths provided for the renaming ritual.")
         return []
@@ -201,12 +199,12 @@ def rename_files(file_paths: List[Path], base_query: str) -> List[Path]:
 
     # Determine the common parent directory for renaming
     # This assumes all files are in the same subdirectory which is true for bing-image-downloader's output
-    first_valid_dir: Optional[Path] = None
+    first_valid_dir: Path | None = None
     for p in file_paths:
         if p.is_file():
             first_valid_dir = p.parent
             break
-    
+
     if first_valid_dir is None:
         print_error("Cannot discern the directory for renaming files. All provided paths are invalid or not files.")
         return []
@@ -215,7 +213,7 @@ def rename_files(file_paths: List[Path], base_query: str) -> List[Path]:
     logger.info(f"Imbuing {len(file_paths)} files in '{dir_path}' with the prefix '{sanitized_query}'...")
 
     # Sort files to ensure consistent sequential naming (e.g., img1, img2, img3)
-    sorted_file_paths: List[Path] = sorted(file_paths)
+    sorted_file_paths: list[Path] = sorted(file_paths)
     actual_renames_count: int = 0
 
     tqdm_instance = tqdm(
@@ -289,7 +287,7 @@ def rename_files(file_paths: List[Path], base_query: str) -> List[Path]:
             logger.debug(f"Unexpected renaming loop error traceback: {e}", exc_info=True)
             if old_path.exists():
                 final_paths_after_rename.append(old_path)
-    
+
     tqdm_instance.close()
 
     if final_paths_after_rename:
@@ -300,11 +298,11 @@ def rename_files(file_paths: List[Path], base_query: str) -> List[Path]:
     return final_paths_after_rename
 
 
-def apply_filters(**kwargs: Optional[str]) -> str:
+def apply_filters(**kwargs: str | None) -> str:
     """Weaves Bing filter query parameters, guiding the scrying lens."""
-    filters: List[str] = []
+    filters: list[str] = []
     # Mapping seeker-friendly keys to Bing's arcane filter syntax
-    filter_map: Dict[str, str] = {
+    filter_map: dict[str, str] = {
         "size": "Size:{}",
         "color": "Color:{}",
         "type": "Type:{}",
@@ -325,7 +323,7 @@ def apply_filters(**kwargs: Optional[str]) -> str:
             elif key in ["size", "type", "layout", "people", "date", "license"]:
                  formatted_value = formatted_value.capitalize()
 
-            template: Optional[str] = filter_map.get(key)
+            template: str | None = filter_map.get(key)
             if template:
                 filters.append(template.format(formatted_value))
             else:
@@ -343,10 +341,9 @@ def download_images_with_bing(
     timeout: int,
     adult_filter_off: bool,
     extra_filters: str,
-    site_filter: Optional[str] = None
-) -> Tuple[List[Path], str]: # Returns list of paths and the effective sub-directory name
-    """
-    Summons images from the Bing realm and returns their manifested paths
+    site_filter: str | None = None
+) -> tuple[list[Path], str]: # Returns list of paths and the effective sub-directory name
+    """Summons images from the Bing realm and returns their manifested paths
     and the actual subdirectory name created by the downloader.
     """
     effective_query: str = query
@@ -356,7 +353,7 @@ def download_images_with_bing(
     query_based_subdir_name: str = effective_query # The folder name will be this string
     query_specific_output_dir: Path = output_dir_base / query_based_subdir_name
 
-    downloaded_files: List[Path] = []
+    downloaded_files: list[Path] = []
     try:
         logger.info(f"Initiating scrying for query: '{Fore.YELLOW}{effective_query}{Style.RESET_ALL}'")
         logger.info(f"Manifesting images into: '{query_specific_output_dir}'")
@@ -416,12 +413,11 @@ def download_images_with_bing(
     return downloaded_files, query_based_subdir_name
 
 
-def get_local_file_metadata(file_path: Path, query_based_subdir_name: str) -> Dict[str, Any]:
-    """
-    Extracts comprehensive intrinsic properties from a local image manifestation.
+def get_local_file_metadata(file_path: Path, query_based_subdir_name: str) -> dict[str, Any]:
+    """Extracts comprehensive intrinsic properties from a local image manifestation.
     Includes size, dimensions, format, mode, DPI, and GIF frame count/animation status.
     """
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "file_path": str(file_path), # Store as string for JSON serialization
         "filename": file_path.name,
         "query_based_subdir_name": query_based_subdir_name,
@@ -522,7 +518,7 @@ def get_local_file_metadata(file_path: Path, query_based_subdir_name: str) -> Di
     return metadata
 
 
-def extract_metadata_parallel(image_paths: List[Path], query_based_subdir_name: str) -> List[Dict[str, Any]]:
+def extract_metadata_parallel(image_paths: list[Path], query_based_subdir_name: str) -> list[dict[str, Any]]:
     """Extracts local file metadata for multiple images concurrently, harnessing parallel energies."""
     if not image_paths:
         return []
@@ -532,11 +528,11 @@ def extract_metadata_parallel(image_paths: List[Path], query_based_subdir_name: 
     if not IMAGEHASH_AVAILABLE:
         print_warning("Imagehash library not found. Perceptual hash (pHash) will not be calculated.")
 
-    metadata_list: List[Dict[str, Any]] = []
+    metadata_list: list[dict[str, Any]] = []
     max_workers: int = Config.MAX_METADATA_WORKERS
 
     logger.info(f"Extracting intrinsic properties from {len(image_paths)} local manifestations using up to {max_workers} parallel threads...")
-    
+
     tqdm_instance = tqdm(
         total=len(image_paths),
         desc=f"{Fore.BLUE}📄 Extracting Metadata{Style.RESET_ALL}",
@@ -547,7 +543,7 @@ def extract_metadata_parallel(image_paths: List[Path], query_based_subdir_name: 
     )
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures: Dict[Future[Dict[str, Any]], Path] = {
+        futures: dict[Future[dict[str, Any]], Path] = {
             executor.submit(get_local_file_metadata, path, query_based_subdir_name): path
             for path in image_paths
         }
@@ -555,13 +551,13 @@ def extract_metadata_parallel(image_paths: List[Path], query_based_subdir_name: 
         for future in futures: # Iterate over futures directly, tqdm is handled outside
             original_path: Path = futures[future]
             try:
-                result: Dict[str, Any] = future.result()
+                result: dict[str, Any] = future.result()
                 metadata_list.append(result)
             except Exception as e:
                 print_error(f"Error processing future result for {original_path.name}: {e}")
                 logger.debug(f"Future result error traceback: {e}", exc_info=True)
                 # Create a fallback metadata entry in case of error during future.result()
-                error_metadata_entry: Dict[str, Any] = {
+                error_metadata_entry: dict[str, Any] = {
                     "file_path": str(original_path),
                     "filename": original_path.name,
                     "query_based_subdir_name": query_based_subdir_name,
@@ -580,7 +576,7 @@ def extract_metadata_parallel(image_paths: List[Path], query_based_subdir_name: 
     return metadata_list
 
 
-def save_metadata(metadata_list: List[Dict[str, Any]], output_dir_base: Path, query: str) -> bool:
+def save_metadata(metadata_list: list[dict[str, Any]], output_dir_base: Path, query: str) -> bool:
     """Records the collected metadata into a JSON scroll within the base output directory."""
     if not metadata_list:
         print_warning("No metadata collected to inscribe.")
@@ -613,17 +609,16 @@ def save_metadata(metadata_list: List[Dict[str, Any]], output_dir_base: Path, qu
         return False
 
 
-def load_master_manifest(output_dir_base: Path) -> Dict[str, Dict[str, Any]]:
-    """
-    Loads the existing master manifest into a dictionary for quick lookup.
+def load_master_manifest(output_dir_base: Path) -> dict[str, dict[str, Any]]:
+    """Loads the existing master manifest into a dictionary for quick lookup.
     The key is the resolved, absolute file path to ensure uniqueness.
     """
     master_manifest_file_path: Path = output_dir_base / Config.MASTER_MANIFEST_FILENAME
-    existing_entries: Dict[str, Dict[str, Any]] = {}
+    existing_entries: dict[str, dict[str, Any]] = {}
 
     if master_manifest_file_path.exists():
         try:
-            with open(master_manifest_file_path, "r", encoding="utf-8") as f:
+            with open(master_manifest_file_path, encoding="utf-8") as f:
                 data = json.load(f)
                 if isinstance(data, list):
                     for entry in data:
@@ -641,9 +636,8 @@ def load_master_manifest(output_dir_base: Path) -> Dict[str, Dict[str, Any]]:
     return existing_entries
 
 
-def generate_master_manifest(output_dir_base: Path, all_metadata_entries: Dict[str, Dict[str, Any]]) -> None:
-    """
-    Combines all unique image metadata entries into a single grand ledger (master manifest).
+def generate_master_manifest(output_dir_base: Path, all_metadata_entries: dict[str, dict[str, Any]]) -> None:
+    """Combines all unique image metadata entries into a single grand ledger (master manifest).
     This master ledger will be the key to the image_viewer.html's scrying pool.
     It filters out entries for files that no longer exist on disk.
     """
@@ -652,7 +646,7 @@ def generate_master_manifest(output_dir_base: Path, all_metadata_entries: Dict[s
     master_manifest_file_path: Path = output_dir_base / Config.MASTER_MANIFEST_FILENAME
 
     # Filter out entries for files that no longer exist on disk
-    valid_manifest_entries: List[Dict[str, Any]] = []
+    valid_manifest_entries: list[dict[str, Any]] = []
     # Using tqdm for potentially long operations if many files
     tqdm_instance = tqdm(
         all_metadata_entries.values(),
@@ -899,7 +893,7 @@ def main() -> None:
         if not args.no_deduplicate:
             print_warning("Duplicate detection via pHash requires Pillow. It will be disabled.")
             args.no_deduplicate = True # Force disable deduplication
-    
+
     if not IMAGEHASH_AVAILABLE:
         print_warning("Imagehash library not installed. Perceptual hashing for duplicate detection is unavailable.")
         if not args.no_deduplicate:
@@ -926,16 +920,16 @@ def main() -> None:
 
     # Re-check availability after potential installation attempt (though script exits)
     enable_deduplication: bool = not args.no_deduplicate and PIL_AVAILABLE and IMAGEHASH_AVAILABLE
-    
+
     query: str = args.query
     output_dir_base_path: Path = args.output_dir
     limit_val: int = args.limit
     timeout_val: int = args.timeout
     adult_filter_off_bool: bool = args.adult_filter_off
-    site_filter_str: Optional[str] = args.site
+    site_filter_str: str | None = args.site
     phash_threshold: int = args.phash_threshold
 
-    filters_dict_map: Dict[str, Optional[str]] = {
+    filters_dict_map: dict[str, str | None] = {
         "size": args.size, "color": args.color, "type": args.type,
         "layout": args.layout, "people": args.people, "date": args.date,
         "license": args.license,
@@ -945,8 +939,8 @@ def main() -> None:
         print_error(f"Cannot proceed without the base manifestation chamber: {output_dir_base_path}")
         sys.exit(1)
 
-    all_known_images_metadata: Dict[str, Dict[str, Any]] = load_master_manifest(output_dir_base_path)
-    existing_phashes_set: Set[Tuple[str, str]] = set() # Store (phash_str, normalized_file_path_str)
+    all_known_images_metadata: dict[str, dict[str, Any]] = load_master_manifest(output_dir_base_path)
+    existing_phashes_set: set[tuple[str, str]] = set() # Store (phash_str, normalized_file_path_str)
 
     if enable_deduplication:
         print_info(f"Loaded {len(all_known_images_metadata)} existing image records for duplicate checks.")
@@ -975,11 +969,11 @@ def main() -> None:
         return
 
     print_header("🔬 Analyzing New Manifestations")
-    new_downloaded_metadata: List[Dict[str, Any]] = extract_metadata_parallel(
+    new_downloaded_metadata: list[dict[str, Any]] = extract_metadata_parallel(
         downloaded_file_paths, query_based_subdir_name_for_metadata
     )
 
-    unique_files_for_processing: List[Path] = []
+    unique_files_for_processing: list[Path] = []
     duplicate_count: int = 0
 
     if enable_deduplication:
@@ -1045,7 +1039,7 @@ def main() -> None:
                     print_warning(f"Error comparing pHashes for {file_path.name} and {existing_file_path.name}: {e}. Skipping comparison.")
                     logger.debug(f"pHash comparison unexpected error traceback: {e}", exc_info=True)
                     # If comparison fails, it's safer to treat as unique to avoid accidental deletion
-            
+
             if not is_duplicate:
                 unique_files_for_processing.append(file_path)
                 # Add the new unique file's pHash to the set for subsequent comparisons in this run
@@ -1072,16 +1066,16 @@ def main() -> None:
 
     # --- Renaming Ritual for unique files ---
     print_header("📝 Renaming Unique Manifestations")
-    renamed_paths: List[Path] = rename_files(unique_files_for_processing, query)
+    renamed_paths: list[Path] = rename_files(unique_files_for_processing, query)
 
     # --- Extracting Metadata for Renamed Files ---
     # This ensures the metadata has the correct, final file paths and names.
-    extracted_metadata_list: List[Dict[str, Any]] = []
+    extracted_metadata_list: list[dict[str, Any]] = []
     if renamed_paths:
          print_header("✨ Re-extracting Metadata for Renamed Files")
          # Pass the original query-based subdir name, as the physical directory structure hasn't changed.
          extracted_metadata_list = extract_metadata_parallel(renamed_paths, query_based_subdir_name_for_metadata)
-         
+
          # Update the master manifest with the metadata from renamed unique files
          # It's crucial to remove old entries and add new ones with the resolved path.
          # First, remove any old paths that might have been renamed
@@ -1094,7 +1088,7 @@ def main() -> None:
              # However, this current logic (add new, overwrite old if key matches) usually works if
              # the old path from the manifest still exists as a key, but the *new* path (after rename)
              # is what we want as the key.
-             
+
              # A more robust update: After renaming, the original file paths are gone.
              # We should update `all_known_images_metadata` by removing old paths and adding new ones.
              # For simplicity and correctness, we will rebuild the relevant part of the manifest.

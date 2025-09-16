@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-video_search.py  •  2025-08-14 (ULTRA-ENHANCED)
+"""video_search.py  •  2025-08-14 (ULTRA-ENHANCED)
 
 Advanced incremental upgrade with performance, security, and reliability improvements.
 
@@ -25,85 +23,59 @@ from __future__ import annotations
 SCRIPT_VERSION = "2025-08-14-ULTRA"
 
 # ── standard libs ─────────────────────────────────────────────────────────
-import argparse
 import asyncio
 import base64
-import csv
-import functools
-import gc
-import hashlib
 import html
 import io
-import json
 import logging
 import logging.handlers
-import mimetypes
 import os
 import pickle
 import random
 import re
-import signal
 import sqlite3
 import sys
 import tempfile
 import threading
 import time
-import traceback
 import unicodedata
 import uuid
-import warnings
-import weakref
-import webbrowser
 from collections import defaultdict, deque
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections.abc import AsyncGenerator, Iterator, Sequence
 from contextlib import asynccontextmanager, contextmanager, suppress
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
 from typing import (
     Any,
-    AsyncGenerator,
-    Callable,
-    Dict,
-    Iterator,
-    List,
     NamedTuple,
-    Optional,
-    Protocol,
-    Sequence,
-    Set,
-    Tuple,
     TypeVar,
-    Union,
-    cast,
 )
-from urllib.parse import quote_plus, urljoin, urlparse, urlsplit
+from urllib.parse import urlparse
 
 # ── third-party ───────────────────────────────────────────────────────────
 import requests
-from bs4 import BeautifulSoup, NavigableString
 from colorama import Fore, Style, init
 from requests.adapters import HTTPAdapter, Retry
-from requests.exceptions import RequestException
 
 # Optional async & selenium support
 try:
-    import aiohttp
     import aiofiles
+    import aiohttp
     from aiohttp import ClientTimeout, TCPConnector
-    from aiohttp_retry import RetryClient, ExponentialRetry
+    from aiohttp_retry import ExponentialRetry, RetryClient
     ASYNC_AVAILABLE = True
 except ImportError:
     ASYNC_AVAILABLE = False
 
 try:
     from selenium import webdriver
+    from selenium.common.exceptions import TimeoutException, WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.webdriver.support.ui import WebDriverWait
     SELENIUM_AVAILABLE = True
 except ImportError:
     SELENIUM_AVAILABLE = False
@@ -124,9 +96,9 @@ except ImportError:
 
 # ── Type definitions ──────────────────────────────────────────────────────
 T = TypeVar('T')
-ResultDict = Dict[str, Any]
-HeadersDict = Dict[str, str]
-ProxyDict = Dict[str, str]
+ResultDict = dict[str, Any]
+HeadersDict = dict[str, str]
+ProxyDict = dict[str, str]
 
 class SearchType(Enum):
     VIDEO = auto()
@@ -149,26 +121,26 @@ class SearchConfig:
     search_type: SearchType = SearchType.VIDEO
     timeout: int = 25
     max_retries: int = 4
-    delay_range: Tuple[float, float] = (1.5, 4.0)
-    proxy: Optional[str] = None
+    delay_range: tuple[float, float] = (1.5, 4.0)
+    proxy: str | None = None
     verify_ssl: bool = True
     allow_adult: bool = False
     workers: int = 12
-    
+
 class VideoResult(NamedTuple):
     """Structured video search result."""
     title: str
     link: str
-    img_url: Optional[str]
-    time: Optional[str]
-    channel_name: Optional[str]
-    channel_link: Optional[str]
-    meta: Optional[str]
+    img_url: str | None
+    time: str | None
+    channel_name: str | None
+    channel_link: str | None
+    meta: str | None
     score: float = 0.0
 
 # ── Enhanced colourised logging setup ─────────────────────────────────────
 init(autoreset=True)
-NEON: Dict[str, str] = {
+NEON: dict[str, str] = {
     "CYAN": Fore.CYAN,
     "MAGENTA": Fore.MAGENTA,
     "GREEN": Fore.GREEN,
@@ -200,11 +172,11 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
     """Configure enhanced logging with rotation."""
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
-    
-    handlers: List[logging.Handler] = [
+
+    handlers: list[logging.Handler] = [
         logging.StreamHandler(sys.stdout)
     ]
-    
+
     try:
         # Rotating file handler with compression
         file_handler = logging.handlers.RotatingFileHandler(
@@ -217,20 +189,20 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
         handlers.append(file_handler)
     except (PermissionError, OSError):
         pass
-    
+
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
         format=LOG_FMT,
         handlers=handlers
     )
-    
+
     logger = logging.getLogger(__name__)
     logger.addFilter(ContextFilter())
-    
+
     # Silence noisy libraries
     for noisy in ("urllib3", "chardet", "requests", "aiohttp", "selenium", "PIL"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
-    
+
     return logger
 
 logger = setup_logging()
@@ -238,16 +210,16 @@ logger = setup_logging()
 # ── Enhanced Cache System ─────────────────────────────────────────────────
 class CacheManager:
     """Advanced caching with TTL and persistence."""
-    
+
     def __init__(self, cache_dir: Path = Path(".cache"), ttl: int = 3600):
         self.cache_dir = cache_dir
         self.ttl = ttl
-        self.memory_cache: Dict[str, Tuple[Any, float]] = {}
+        self.memory_cache: dict[str, tuple[Any, float]] = {}
         self.cache_dir.mkdir(exist_ok=True)
         self.db_path = self.cache_dir / "cache.db"
         self._init_db()
         self._cleanup_expired()
-        
+
     def _init_db(self):
         """Initialize SQLite cache database."""
         with sqlite3.connect(self.db_path) as conn:
@@ -260,18 +232,18 @@ class CacheManager:
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_expires ON cache(expires)")
-    
+
     def _cleanup_expired(self):
         """Remove expired cache entries."""
         now = time.time()
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("DELETE FROM cache WHERE expires < ?", (now,))
         self.memory_cache = {
-            k: v for k, v in self.memory_cache.items() 
+            k: v for k, v in self.memory_cache.items()
             if v > now
         }
-    
-    def get(self, key: str) -> Optional[Any]:
+
+    def get(self, key: str) -> Any | None:
         """Retrieve from cache if not expired."""
         # Check memory cache first
         if key in self.memory_cache:
@@ -279,14 +251,14 @@ class CacheManager:
             if expires > time.time():
                 return value
             del self.memory_cache[key]
-        
+
         # Check persistent cache
         with sqlite3.connect(self.db_path) as conn:
             result = conn.execute(
-                "SELECT value, expires FROM cache WHERE key = ?", 
+                "SELECT value, expires FROM cache WHERE key = ?",
                 (key,)
             ).fetchone()
-            
+
             if result:
                 value_blob, expires = result
                 if expires > time.time():
@@ -298,35 +270,35 @@ class CacheManager:
                     )
                     return value
                 conn.execute("DELETE FROM cache WHERE key = ?", (key,))
-        
+
         return None
-    
-    def set(self, key: str, value: Any, ttl: Optional[int] = None):
+
+    def set(self, key: str, value: Any, ttl: int | None = None):
         """Store in cache with TTL."""
         ttl = ttl or self.ttl
         expires = time.time() + ttl
-        
+
         # Store in memory
         self.memory_cache[key] = (value, expires)
-        
+
         # Store persistently
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 "INSERT OR REPLACE INTO cache (key, value, expires) VALUES (?, ?, ?)",
                 (key, pickle.dumps(value), expires)
             )
-    
-    def invalidate(self, pattern: Optional[str] = None):
+
+    def invalidate(self, pattern: str | None = None):
         """Invalidate cache entries matching pattern."""
         if pattern:
             # Pattern-based invalidation
             keys_to_remove = [
-                k for k in self.memory_cache.keys() 
+                k for k in self.memory_cache.keys()
                 if re.match(pattern, k)
             ]
             for key in keys_to_remove:
                 del self.memory_cache[key]
-            
+
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute("DELETE FROM cache WHERE key LIKE ?", (pattern,))
         else:
@@ -338,24 +310,24 @@ class CacheManager:
 # ── Connection Pool Manager ───────────────────────────────────────────────
 class ConnectionPoolManager:
     """Manages connection pools with automatic cleanup."""
-    
+
     def __init__(self, max_pools: int = 10, max_per_pool: int = 30):
         self.max_pools = max_pools
         self.max_per_pool = max_per_pool
-        self.pools: Dict[str, requests.Session] = {}
-        self.pool_stats: Dict[str, Dict[str, Any]] = defaultdict(
+        self.pools: dict[str, requests.Session] = {}
+        self.pool_stats: dict[str, dict[str, Any]] = defaultdict(
             lambda: {"requests": 0, "errors": 0, "last_used": time.time()}
         )
         self._lock = threading.Lock()
         self._cleanup_thread = threading.Thread(target=self._cleanup_worker, daemon=True)
         self._cleanup_thread.start()
-    
+
     def get_session(
-        self, 
+        self,
         domain: str,
         timeout: int = 25,
         max_retries: int = 4,
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
         verify_ssl: bool = True
     ) -> requests.Session:
         """Get or create a session for domain."""
@@ -370,25 +342,25 @@ class ConnectionPoolManager:
                     self.pools[lru_domain].close()
                     del self.pools[lru_domain]
                     del self.pool_stats[lru_domain]
-                
+
                 self.pools[domain] = self._create_session(
                     timeout, max_retries, proxy, verify_ssl
                 )
-            
+
             self.pool_stats[domain]["last_used"] = time.time()
             self.pool_stats[domain]["requests"] += 1
             return self.pools[domain]
-    
+
     def _create_session(
         self,
         timeout: int,
         max_retries: int,
-        proxy: Optional[str],
+        proxy: str | None,
         verify_ssl: bool
     ) -> requests.Session:
         """Create a new configured session."""
         session = requests.Session()
-        
+
         retries = Retry(
             total=max_retries,
             backoff_factor=2.0,
@@ -398,26 +370,26 @@ class ConnectionPoolManager:
             respect_retry_after_header=True,
             raise_on_status=False
         )
-        
+
         adapter = HTTPAdapter(
             max_retries=retries,
             pool_connections=self.max_per_pool,
             pool_maxsize=self.max_per_pool,
             pool_block=False
         )
-        
+
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         session.headers.update(get_realistic_headers(random.choice(REALISTIC_USER_AGENTS)))
-        
+
         if proxy:
             session.proxies.update({"http": proxy, "https": proxy})
-        
+
         session.verify = verify_ssl
         session.timeout = timeout
-        
+
         return session
-    
+
     def _cleanup_worker(self):
         """Background thread to clean up idle connections."""
         while True:
@@ -425,18 +397,18 @@ class ConnectionPoolManager:
             with self._lock:
                 now = time.time()
                 idle_threshold = 300  # 5 minutes
-                
+
                 domains_to_remove = [
                     domain for domain, stats in self.pool_stats.items()
                     if now - stats["last_used"] > idle_threshold
                 ]
-                
+
                 for domain in domains_to_remove:
                     if domain in self.pools:
                         self.pools[domain].close()
                         del self.pools[domain]
                     del self.pool_stats[domain]
-    
+
     def close_all(self):
         """Close all connection pools."""
         with self._lock:
@@ -448,37 +420,37 @@ class ConnectionPoolManager:
 # ── Rate Limiter ──────────────────────────────────────────────────────────
 class RateLimiter:
     """Domain-specific rate limiting with burst support."""
-    
+
     def __init__(self, default_rps: float = 2.0, burst_size: int = 5):
         self.default_rps = default_rps
         self.burst_size = burst_size
-        self.domain_limits: Dict[str, float] = {}
-        self.request_times: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
+        self.domain_limits: dict[str, float] = {}
+        self.request_times: dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
         self._lock = threading.Lock()
-    
+
     def set_limit(self, domain: str, rps: float):
         """Set custom rate limit for domain."""
         self.domain_limits[domain] = rps
-    
+
     async def acquire(self, url: str):
         """Async rate limit acquisition."""
         domain = urlparse(url).netloc
         await asyncio.get_event_loop().run_in_executor(None, self._acquire_sync, domain)
-    
+
     def _acquire_sync(self, domain: str):
         """Synchronous rate limit acquisition."""
         with self._lock:
             rps = self.domain_limits.get(domain, self.default_rps)
             min_interval = 1.0 / rps
-            
+
             now = time.time()
             recent_requests = self.request_times[domain]
-            
+
             # Remove old requests outside burst window
             burst_window = self.burst_size / rps
             while recent_requests and recent_requests[0] < now - burst_window:
                 recent_requests.popleft()
-            
+
             # Check if we need to wait
             if len(recent_requests) >= self.burst_size:
                 oldest = recent_requests[0]
@@ -486,7 +458,7 @@ class RateLimiter:
                 if wait_time > 0:
                     time.sleep(wait_time)
                     now = time.time()
-            
+
             # Check minimum interval
             if recent_requests:
                 last_request = recent_requests[-1]
@@ -494,7 +466,7 @@ class RateLimiter:
                 if wait_time > 0:
                     time.sleep(wait_time)
                     now = time.time()
-            
+
             recent_requests.append(now)
 
 # ── defaults & constants ──────────────────────────────────────────────────
@@ -556,7 +528,7 @@ def get_realistic_headers(user_agent: str) -> HeadersDict:
     }
 
 # ── ENGINE_MAP (keeping original structure) ──────────────────────────────
-ENGINE_MAP: Dict[str, Dict[str, Any]] = {
+ENGINE_MAP: dict[str, dict[str, Any]] = {
     # [Keep your original ENGINE_MAP content here - unchanged]
     # This is a placeholder - insert your actual ENGINE_MAP
 }
@@ -583,36 +555,36 @@ def enhanced_slugify(text: str, max_length: int = 100) -> str:
     """Create filesystem-safe slug with better Unicode handling."""
     if not text or not isinstance(text, str):
         return f"untitled_{uuid.uuid4().hex[:8]}"
-    
+
     # Normalize Unicode
     text = unicodedata.normalize("NFKD", text)
-    
+
     # Convert to ASCII, keeping some common symbols
     text = text.encode("ascii", "ignore").decode("ascii")
-    
+
     # Remove unsafe characters
     text = re.sub(r'[<>:"/\|?*\x00-\x1f\x7f-\x9f]', "", text)
-    
+
     # Replace spaces and multiple underscores
     text = re.sub(r"[^\w\s\-.]", "", text, flags=re.UNICODE)
     text = re.sub(r"[-\s]+", "_", text)
-    
+
     # Clean up
     text = text.strip("._- ")[:max_length]
-    
+
     if not text:
         text = f"file_{uuid.uuid4().hex[:8]}"
-    
+
     # Check for reserved Windows names
     reserved = {
         "con", "prn", "aux", "nul", "com1", "com2", "com3", "com4",
-        "com5", "com6", "com7", "com8", "com9", "lpt1", "lpt2", 
+        "com5", "com6", "com7", "com8", "com9", "lpt1", "lpt2",
         "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9"
     }
-    
+
     if text.lower() in reserved:
         text = f"file_{text}"
-    
+
     return text
 
 def validate_url(url: str) -> bool:
@@ -627,15 +599,15 @@ def sanitize_html(text: str) -> str:
     """Enhanced HTML sanitization."""
     if not text:
         return ""
-    
+
     # Basic HTML escape
     text = html.escape(text, quote=True)
-    
+
     # Remove any remaining script tags or javascript
     text = re.sub(r"<script.*?</script>", "", text, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r"javascript:", "", text, flags=re.IGNORECASE)
     text = re.sub(r"on\w+\s*=", "", text, flags=re.IGNORECASE)
-    
+
     return text
 
 @contextmanager
@@ -651,19 +623,19 @@ def temporary_file(suffix: str = "", prefix: str = "vsearch_") -> Iterator[Path]
             path_obj.unlink()
 
 def smart_delay_with_jitter(
-    delay_range: Tuple[float, float],
-    last_request_time: Optional[float] = None,
+    delay_range: tuple[float, float],
+    last_request_time: float | None = None,
     jitter: float = 0.3,
     adaptive: bool = True
 ) -> None:
     """Intelligent delay with adaptive timing."""
     now = time.time()
     base = random.uniform(*delay_range)
-    
+
     # Add jitter
     jitter_amount = base * jitter * random.uniform(-1, 1)
     wait_time = max(0.5, base + jitter_amount)
-    
+
     # Adaptive delay based on time of day (less delay during off-peak)
     if adaptive:
         hour = datetime.now().hour
@@ -671,7 +643,7 @@ def smart_delay_with_jitter(
             wait_time *= 0.7
         elif 9 <= hour <= 17:  # Peak hours
             wait_time *= 1.2
-    
+
     if last_request_time:
         elapsed = now - last_request_time
         if elapsed < wait_time:
@@ -690,9 +662,9 @@ async def aiohttp_session(
     if not ASYNC_AVAILABLE:
         yield None
         return
-    
+
     timeout_config = ClientTimeout(total=timeout, connect=10, sock_read=10)
-    
+
     connector = TCPConnector(
         limit=connector_limit,
         limit_per_host=30,
@@ -701,7 +673,7 @@ async def aiohttp_session(
         force_close=False,
         enable_cleanup_closed=True
     )
-    
+
     retry_options = ExponentialRetry(
         attempts=3,
         start_timeout=1,
@@ -709,7 +681,7 @@ async def aiohttp_session(
         factor=2.0,
         statuses={429, 500, 502, 503, 504}
     )
-    
+
     async with aiohttp.ClientSession(
         connector=connector,
         timeout=timeout_config,
@@ -725,34 +697,34 @@ async def fetch_with_retry(
     url: str,
     max_retries: int = 3,
     backoff_factor: float = 2.0
-) -> Optional[str]:
+) -> str | None:
     """Fetch URL with exponential backoff retry."""
     if not validate_url(url):
         logger.error(f"Invalid URL: {url}")
         return None
-    
+
     for attempt in range(max_retries):
         try:
             await rate_limiter.acquire(url)
-            
+
             async with session.get(url) as response:
                 if response.status == 200:
                     return await response.text()
-                elif response.status == 429:
+                if response.status == 429:
                     retry_after = response.headers.get("Retry-After", 60)
                     await asyncio.sleep(int(retry_after))
                 else:
                     logger.warning(f"HTTP {response.status} for {url}")
-        
+
         except asyncio.TimeoutError:
             logger.warning(f"Timeout on attempt {attempt + 1} for {url}")
         except Exception as e:
             logger.error(f"Error fetching {url}: {e}")
-        
+
         if attempt < max_retries - 1:
             wait_time = backoff_factor ** attempt * random.uniform(0.5, 1.5)
             await asyncio.sleep(wait_time)
-    
+
     return None
 
 async def download_thumbnail_async(
@@ -766,32 +738,32 @@ async def download_thumbnail_async(
     async with semaphore:
         try:
             await rate_limiter.acquire(url)
-            
+
             async with session.get(url) as response:
                 if response.status != 200:
                     return False
-                
+
                 content = await response.read()
-                
+
                 # Validate content
                 if not content or len(content) < 100:
                     return False
-                
+
                 # Optionally convert format
                 if convert_format and PIL_AVAILABLE:
                     try:
                         img = Image.open(io.BytesIO(content))
-                        
+
                         # Convert to RGB if necessary
                         if img.mode in ("RGBA", "LA", "P"):
                             rgb_img = Image.new("RGB", img.size, (255, 255, 255))
                             rgb_img.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
                             img = rgb_img
-                        
+
                         # Optimize size
                         max_size = (320, 240)
                         img.thumbnail(max_size, Image.Resampling.LANCZOS)
-                        
+
                         # Save optimized
                         dest_path = dest_path.with_suffix(".jpg")
                         img.save(dest_path, "JPEG", quality=85, optimize=True)
@@ -810,9 +782,9 @@ async def download_thumbnail_async(
                             await f.write(content)
                     else:
                         dest_path.write_bytes(content)
-                
+
                 return dest_path.exists() and dest_path.stat().st_size > 0
-        
+
         except Exception as e:
             logger.debug(f"Thumbnail download failed for {url}: {e}")
             return False
@@ -827,23 +799,23 @@ def robust_download_sync(
     try:
         with session.get(url, stream=True) as response:
             response.raise_for_status()
-            
+
             total_size = int(response.headers.get("content-length", 0))
-            
+
             with open(dest_path, "wb") as f:
                 downloaded = 0
                 for chunk in response.iter_content(chunk_size=chunk_size):
                     if chunk:
                         f.write(chunk)
                         downloaded += len(chunk)
-                        
+
                         # Progress callback could go here
                         if total_size > 0:
                             progress = (downloaded / total_size) * 100
                             # logger.debug(f"Download progress: {progress:.1f}%")
-            
+
             return dest_path.exists() and dest_path.stat().st_size > 0
-    
+
     except Exception as e:
         logger.debug(f"Sync download failed for {url}: {e}")
         return False
@@ -851,13 +823,13 @@ def robust_download_sync(
 # ── Enhanced Selenium helpers ─────────────────────────────────────────────
 class SeleniumManager:
     """Manages Selenium WebDriver instances with pooling."""
-    
+
     def __init__(self, max_drivers: int = 3):
         self.max_drivers = max_drivers
-        self.drivers: List[webdriver.Chrome] = []
-        self.available: List[webdriver.Chrome] = []
+        self.drivers: list[webdriver.Chrome] = []
+        self.available: list[webdriver.Chrome] = []
         self._lock = threading.Lock()
-    
+
     @contextmanager
     def get_driver(self, headless: bool = True) -> Iterator[webdriver.Chrome]:
         """Get a WebDriver from pool or create new."""
@@ -874,21 +846,21 @@ class SeleniumManager:
                     while not self.available:
                         time.sleep(0.1)
                     driver = self.available.pop()
-            
+
             yield driver
-        
+
         finally:
             if driver:
                 with self._lock:
                     self.available.append(driver)
-    
+
     def _create_driver(self, headless: bool) -> webdriver.Chrome:
         """Create optimized Chrome WebDriver."""
         options = ChromeOptions()
-        
+
         if headless:
             options.add_argument("--headless=new")
-        
+
         # Performance optimizations
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
@@ -898,10 +870,10 @@ class SeleniumManager:
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option("useAutomationExtension", False)
-        
+
         # Stealth mode
         options.add_argument(f"user-agent={random.choice(REALISTIC_USER_AGENTS)}")
-        
+
         # Resource blocking for speed
         prefs = {
             "profile.default_content_setting_values": {
@@ -914,9 +886,9 @@ class SeleniumManager:
             }
         }
         options.add_experimental_option("prefs", prefs)
-        
+
         return webdriver.Chrome(options=options)
-    
+
     def cleanup(self):
         """Close all drivers."""
         with self._lock:
@@ -941,9 +913,9 @@ def generate_placeholder_svg(
     # Handle hex codes
     if len(icon) > 1 and re.fullmatch(r"[0-9A-Fa-f]{4,6}", icon):
         icon = chr(int(icon, 16))
-    
+
     safe_icon = sanitize_html(icon)
-    
+
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">
         <rect width="100%" height="100%" fill="{bg_color}"/>
         <text x="50%" y="50%" font-family="system-ui, sans-serif" font-size="{size//3}" 
@@ -951,7 +923,7 @@ def generate_placeholder_svg(
             {safe_icon}
         </text>
     </svg>'''
-    
+
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
 
 PLACEHOLDER_THUMB_SVG = generate_placeholder_svg("1F3AC")  # 🎬

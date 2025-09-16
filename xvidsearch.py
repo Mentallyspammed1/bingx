@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
-"""
-video_search.py - Enhanced Video Search Tool (2025 Edition)
+"""video_search.py - Enhanced Video Search Tool (2025 Edition)
 
 This script serves as a powerful conduit for discovering video content across
 various web platforms, leveraging modern Python features and robust web scraping
@@ -46,10 +44,11 @@ import time
 import unicodedata
 import uuid
 import webbrowser
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any
 from urllib.parse import quote_plus, urljoin, urlparse
 
 import requests
@@ -159,7 +158,7 @@ class ContextFilter(logging.Filter):
 
 def setup_logging(verbose: bool = False) -> logging.Logger:
     """Configures the logging system for clear and informative output."""
-    log_handlers: List[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+    log_handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
     try:
         # Attempt to log to a file as well, for persistent records
         log_file_path = Path("video_search.log")
@@ -199,8 +198,7 @@ logger = setup_logging()
 # ─── Arcane Utilities & Helpers ──────────────────────────────────────────
 
 def enhanced_slugify(text: str) -> str:
-    """
-    Forge a filesystem-safe slug from a given text string.
+    """Forge a filesystem-safe slug from a given text string.
     This ensures compatibility across different operating systems and avoids
     issues with special characters.
     """
@@ -245,7 +243,7 @@ def ensure_dir(path: Path) -> None:
         # Re-raise to halt execution if directory creation is critical
         raise
 
-def get_realistic_headers(user_agent: Optional[str] = None) -> Dict[str, str]:
+def get_realistic_headers(user_agent: str | None = None) -> dict[str, str]:
     """Generates a dictionary of realistic HTTP headers."""
     ua = user_agent or random.choice(REALISTIC_USER_AGENTS)
     return {
@@ -267,10 +265,9 @@ def get_realistic_headers(user_agent: Optional[str] = None) -> Dict[str, str]:
 def build_enhanced_session(
     timeout: int = DEFAULT_TIMEOUT,
     max_retries: int = DEFAULT_MAX_RETRIES,
-    proxy: Optional[str] = None,
+    proxy: str | None = None,
 ) -> requests.Session:
-    """
-    Forge a robust HTTP session. This session is equipped with retry mechanisms,
+    """Forge a robust HTTP session. This session is equipped with retry mechanisms,
     realistic headers, and optional proxy support, ensuring stable connections.
     """
     session = requests.Session()
@@ -321,16 +318,15 @@ def build_enhanced_session(
             logger.warning(f"Failed to configure proxy '{proxy}': {e}")
 
     # Store the default timeout on the session object for easy access
-    setattr(session, "_default_timeout", timeout)
+    session._default_timeout = timeout
     return session
 
 def smart_delay_with_jitter(
-    delay_range: Tuple[float, float],
-    last_request_time: Optional[float] = None,
+    delay_range: tuple[float, float],
+    last_request_time: float | None = None,
     jitter_factor: float = 0.3
 ) -> None:
-    """
-    Implement intelligent delays between requests, incorporating jitter
+    """Implement intelligent delays between requests, incorporating jitter
     to mimic human behavior and avoid detection.
     """
     min_delay, max_delay = delay_range
@@ -360,8 +356,7 @@ def smart_delay_with_jitter(
 # ─── Thumbnail Manifestation (Download & Placeholders) ─────────────────────
 
 def generate_placeholder_svg(icon: str) -> str:
-    """
-    Generate an SVG placeholder with proper UTF-8 encoding for embedding.
+    """Generate an SVG placeholder with proper UTF-8 encoding for embedding.
     This is crucial for handling potentially problematic characters in icons.
     """
     try:
@@ -381,8 +376,7 @@ def generate_placeholder_svg(icon: str) -> str:
         return "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMTYyMTNlIi8+PHRleHQgeD0iNTAiIHk9IjU1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZmlsbD0iIzY2NiI+Pz88L3RleHQ+PC9zdmc+"
 
 def robust_download_sync(session: requests.Session, url: str, path: Path, max_attempts: int = 3) -> bool:
-    """
-    Synchronous fallback for downloading thumbnails. Includes validation
+    """Synchronous fallback for downloading thumbnails. Includes validation
     and retry logic for resilience.
     """
     if not url or not urlparse(url).scheme:
@@ -393,7 +387,7 @@ def robust_download_sync(session: requests.Session, url: str, path: Path, max_at
         try:
             # Rotate User-Agent for each attempt to appear more diverse
             session.headers.update({"User-Agent": random.choice(REALISTIC_USER_AGENTS)})
-            
+
             with session.get(url, stream=True, timeout=session._default_timeout) as response:
                 response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
 
@@ -436,13 +430,12 @@ def robust_download_sync(session: requests.Session, url: str, path: Path, max_at
     return False # Return False if all attempts failed
 
 async def async_download_thumbnail(
-    session: Optional["aiohttp.ClientSession"],
+    session: aiohttp.ClientSession | None,
     url: str,
     path: Path,
     semaphore: asyncio.Semaphore
 ) -> bool:
-    """
-    Asynchronous download of thumbnails using aiohttp.
+    """Asynchronous download of thumbnails using aiohttp.
     Utilizes a semaphore to control concurrency.
     """
     if not ASYNC_AVAILABLE or not session:
@@ -584,7 +577,7 @@ HTML_TAIL = """  </section>
 # ─── Engine Definitions (The Grimoire of Web Sources) ──────────────────────
 # This dictionary holds the configurations for each supported search engine.
 # Each entry specifies selectors and parameters needed to scrape video data.
-ENGINE_MAP: Dict[str, Dict[str, Any]] = {
+ENGINE_MAP: dict[str, dict[str, Any]] = {
     # Pexels: A source for free stock photos and videos.
     "pexels": {
         "url": "https://www.pexels.com",
@@ -709,12 +702,11 @@ def extract_text_safe(element: BeautifulSoup, selector: str, default: str = "N/A
         logger.debug(f"Error extracting text with selector '{selector}': {e}")
         return default
 
-def extract_video_items(soup: BeautifulSoup, cfg: Dict[str, Any]) -> List[BeautifulSoup]:
-    """
-    Extracts individual video item elements from the parsed HTML soup,
+def extract_video_items(soup: BeautifulSoup, cfg: dict[str, Any]) -> list[BeautifulSoup]:
+    """Extracts individual video item elements from the parsed HTML soup,
     using primary selectors and falling back to alternatives if necessary.
     """
-    video_items: List[BeautifulSoup] = []
+    video_items: list[BeautifulSoup] = []
     # Try primary selectors first
     for selector in cfg.get("video_item_selector", "").split(","):
         sel = selector.strip()
@@ -735,15 +727,14 @@ def extract_video_items(soup: BeautifulSoup, cfg: Dict[str, Any]) -> List[Beauti
                 video_items = found_items
                 logger.debug(f"Found video items using fallback container selector: '{sel}'")
                 break
-    
+
     if not video_items:
          logger.debug("No video items found using any selectors.")
 
     return video_items
 
-def extract_video_data_enhanced(item: BeautifulSoup, cfg: Dict[str, Any], base_url: str) -> Optional[Dict[str, Any]]:
-    """
-    Extracts detailed information (title, link, image URL, etc.) for a single
+def extract_video_data_enhanced(item: BeautifulSoup, cfg: dict[str, Any], base_url: str) -> dict[str, Any] | None:
+    """Extracts detailed information (title, link, image URL, etc.) for a single
     video item using the provided engine configuration.
     """
     try:
@@ -757,13 +748,13 @@ def extract_video_data_enhanced(item: BeautifulSoup, cfg: Dict[str, Any], base_u
                 title_el = item.select_one(sel)
                 if title_el:
                     break
-        
+
         if title_el:
             if cfg.get("title_attribute") and title_el.has_attr(cfg["title_attribute"]):
                 title = title_el.get(cfg["title_attribute"], "").strip() or title
             else:
                 title = title_el.get_text(strip=True) or title
-        
+
         title = html.escape(title[:200]) # Escape HTML and truncate
 
         # --- Link Extraction ---
@@ -801,7 +792,7 @@ def extract_video_data_enhanced(item: BeautifulSoup, cfg: Dict[str, Any], base_u
         duration = extract_text_safe(item, cfg.get("time_selector", ""), "N/A")
         views = extract_text_safe(item, cfg.get("meta_selector", ""), "N/A")
         channel_name = extract_text_safe(item, cfg.get("channel_name_selector", ""), "N/A")
-        
+
         channel_link = "#"
         channel_link_selector = cfg.get("channel_link_selector")
         if channel_link_selector:
@@ -827,43 +818,41 @@ def extract_video_data_enhanced(item: BeautifulSoup, cfg: Dict[str, Any], base_u
         logger.debug(f"Failed to extract data for a video item: {e}")
         return None # Return None if extraction fails for an item
 
-def extract_with_selenium(driver: webdriver.Remote, url: str, cfg: Dict[str, Any]) -> List[BeautifulSoup]:
-    """
-    Utilizes Selenium WebDriver to render JavaScript-heavy pages and extract content.
+def extract_with_selenium(driver: webdriver.Remote, url: str, cfg: dict[str, Any]) -> list[BeautifulSoup]:
+    """Utilizes Selenium WebDriver to render JavaScript-heavy pages and extract content.
     This is a fallback for engines that rely heavily on dynamic content loading.
     """
     if not SELENIUM_AVAILABLE:
         logger.warning("Selenium is not available. Cannot process JavaScript-heavy pages.")
         return []
-        
+
     try:
         logger.debug(f"Attempting extraction with Selenium for URL: {url}")
         driver.get(url)
         # A brief pause to allow dynamic content to load. Consider using WebDriverWait for more robustness.
-        time.sleep(3) 
-        
+        time.sleep(3)
+
         # Use BeautifulSoup to parse the rendered page source
         soup = BeautifulSoup(driver.page_source, "html.parser")
         return extract_video_items(soup, cfg)
-        
+
     except Exception as e:
         logger.warning(f"Selenium extraction failed for {url}: {e}")
         return []
 
 @asynccontextmanager
-async def aiohttp_session() -> AsyncGenerator[Optional["aiohttp.ClientSession"], None]:
-    """
-    Provides an asynchronous HTTP client session using aiohttp,
+async def aiohttp_session() -> AsyncGenerator[aiohttp.ClientSession | None, None]:
+    """Provides an asynchronous HTTP client session using aiohttp,
     managing its lifecycle and configuration.
     """
     if not ASYNC_AVAILABLE:
         yield None # Yield None if aiohttp is not installed
         return
-        
+
     # Configure session parameters for resilience and performance
     timeout = aiohttp.ClientTimeout(total=30, connect=10) # Total timeout and connection timeout
     connector = aiohttp.TCPConnector(limit=50, limit_per_host=10) # Connection pooling limits
-    
+
     try:
         # Create the session with realistic headers
         async with aiohttp.ClientSession(
@@ -877,37 +866,36 @@ async def aiohttp_session() -> AsyncGenerator[Optional["aiohttp.ClientSession"],
         yield None # Yield None on failure
 
 async def build_enhanced_html_async(
-    results: Sequence[Dict[str, Any]],
+    results: Sequence[dict[str, Any]],
     query: str,
     engine: str,
     thumbs_dir: Path,
     sync_session: requests.Session, # Use the synchronous session for fallback downloads
     workers: int,
 ) -> Path:
-    """
-    Constructs an enhanced HTML gallery asynchronously. It handles thumbnail
+    """Constructs an enhanced HTML gallery asynchronously. It handles thumbnail
     downloads (prioritizing async) and embeds them into a visually appealing
     page structure.
     """
     ensure_dir(thumbs_dir) # Ensure the thumbnail directory exists
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     ensure_dir(Path(VSEARCH_DIR)) # Ensure the output directory exists
-    
+
     # Create a unique filename for the HTML output
     filename = f"{engine}_{enhanced_slugify(query)}_{timestamp}_{uuid.uuid4().hex[:8]}.html"
     outfile = Path(VSEARCH_DIR) / filename
 
     # Map to store downloaded thumbnail paths, preventing redundant downloads
-    thumb_map: Dict[str, str] = {}
+    thumb_map: dict[str, str] = {}
     # Semaphore to limit concurrent thumbnail downloads, preventing overload
     semaphore = asyncio.Semaphore(max(1, workers))
 
     async def fetch_thumbnail_task(
-        idx: int, video: Dict[str, Any]
-    ) -> Tuple[int, str]:
+        idx: int, video: dict[str, Any]
+    ) -> tuple[int, str]:
         """Task to fetch a single thumbnail, returning its index and path/placeholder."""
         img_url = video.get("img_url")
-        
+
         # Use a placeholder if no image URL is available
         if not img_url:
             return idx, generate_placeholder_svg("📹") # Video camera icon
@@ -939,7 +927,7 @@ async def build_enhanced_html_async(
                         if success:
                             thumb_map[img_url] = rel_path
                             return idx, rel_path
-            
+
             # Fallback to synchronous download if async failed or is unavailable
             if robust_download_sync(sync_session, img_url, dest_path):
                 thumb_map[img_url] = rel_path
@@ -975,7 +963,7 @@ async def build_enhanced_html_async(
             )
 
             # Iterate through results and write card HTML for each video
-            for video, thumb_result in zip(results, results_with_thumbs):
+            for video, thumb_result in zip(results, results_with_thumbs, strict=False):
                 thumbnail_path: str
                 if isinstance(thumb_result, tuple) and len(thumb_result) == 2:
                     # Successfully processed thumbnail (path or placeholder)
@@ -985,7 +973,7 @@ async def build_enhanced_html_async(
                     thumbnail_path = generate_placeholder_svg("❓") # Question mark icon
 
                 # Prepare metadata items for display
-                meta_items: List[str] = []
+                meta_items: list[str] = []
                 if video.get("time", "N/A") and video["time"] != "N/A":
                     meta_items.append(f'<span class="item">⏱️ {html.escape(video["time"])}</span>')
                 if video.get("channel_name", "N/A") != "N/A":
@@ -1031,12 +1019,12 @@ async def build_enhanced_html_async(
 
         logger.info(f"{NEON['GREEN']}Enhanced HTML gallery saved to:{NEON['RESET']} {NEON['YELLOW']}{outfile}{NEON['RESET']}")
         return outfile
-        
-    except IOError as e:
+
+    except OSError as e:
         logger.error(f"Failed to write HTML file {outfile}: {e}")
         raise # Re-raise to indicate failure
 
-def generate_json_output(results: Sequence[Dict[str, Any]], query: str, engine: str) -> Path:
+def generate_json_output(results: Sequence[dict[str, Any]], query: str, engine: str) -> Path:
     """Generates a JSON file from the search results."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{engine}_{enhanced_slugify(query)}_{timestamp}.json"
@@ -1046,11 +1034,11 @@ def generate_json_output(results: Sequence[Dict[str, Any]], query: str, engine: 
             json.dump(results, f, ensure_ascii=False, indent=4)
         logger.info(f"{NEON['GREEN']}JSON output saved to:{NEON['RESET']} {NEON['YELLOW']}{outfile}{NEON['RESET']}")
         return outfile
-    except IOError as e:
+    except OSError as e:
         logger.error(f"Failed to write JSON file {outfile}: {e}")
         raise
 
-def generate_csv_output(results: Sequence[Dict[str, Any]], query: str, engine: str) -> Path:
+def generate_csv_output(results: Sequence[dict[str, Any]], query: str, engine: str) -> Path:
     """Generates a CSV file from the search results."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{engine}_{enhanced_slugify(query)}_{timestamp}.csv"
@@ -1062,7 +1050,7 @@ def generate_csv_output(results: Sequence[Dict[str, Any]], query: str, engine: s
             writer.writerows(results)
         logger.info(f"{NEON['GREEN']}CSV output saved to:{NEON['RESET']} {NEON['YELLOW']}{outfile}{NEON['RESET']}")
         return outfile
-    except IOError as e:
+    except OSError as e:
         logger.error(f"Failed to write CSV file {outfile}: {e}")
         raise
 
@@ -1074,11 +1062,10 @@ def get_search_results(
     query: str,
     limit: int,
     page: int,
-    delay_range: Tuple[float, float],
+    delay_range: tuple[float, float],
     search_type: str = "video",
-) -> List[Dict[str, Any]]:
-    """
-    Performs the web search for video results using the specified engine.
+) -> list[dict[str, Any]]:
+    """Performs the web search for video results using the specified engine.
     Handles pagination, delays, and potential JavaScript rendering needs.
     """
     if engine not in ENGINE_MAP:
@@ -1087,7 +1074,7 @@ def get_search_results(
 
     config = ENGINE_MAP[engine]
     base_url = config["url"]
-    
+
     # Check if adult content is allowed for the chosen engine
     if engine in ADULT_ENGINES and not ALLOW_ADULT:
         logger.error(
@@ -1106,9 +1093,9 @@ def get_search_results(
     logger.info(f"Initiating search on {NEON['YELLOW']}{base_url}{NEON['RESET']} for '{query}' (Page {page})...")
 
     # Prepare for scraping
-    soup: Optional[BeautifulSoup] = None
+    soup: BeautifulSoup | None = None
     last_request_time = None
-    
+
     # Handle JavaScript rendering requirement
     if config.get("requires_js") and SELENIUM_AVAILABLE:
         try:
@@ -1118,14 +1105,14 @@ def get_search_results(
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument(f"user-agent={REALISTIC_HEADERS['User-Agent']}")
-            
+
             # Initialize WebDriver (ensure chromedriver is in PATH or specify executable_path)
             driver = webdriver.Chrome(options=chrome_options)
-            
+
             # Extract items using Selenium
             video_items = extract_with_selenium(driver, search_url, config)
             driver.quit() # Close the browser instance
-            
+
             if not video_items:
                 logger.warning(f"No video items extracted via Selenium for {search_url}.")
                 return []
@@ -1141,23 +1128,23 @@ def get_search_results(
         except Exception as e:
             logger.error(f"Selenium execution failed: {e}")
             return []
-            
+
     # Proceed with standard HTTP request if JS is not required or Selenium is unavailable
     elif not config.get("requires_js") or not SELENIUM_AVAILABLE:
         try:
             # Apply smart delay before the request
             smart_delay_with_jitter(delay_range, last_request_time)
-            
+
             # Make the HTTP GET request
             logger.debug(f"Fetching URL: {search_url}")
             response = session.get(search_url, timeout=session._default_timeout)
             last_request_time = time.time() # Record time of last request
-            
+
             response.raise_for_status() # Check for HTTP errors
-            
+
             # Parse the HTML content
             soup = BeautifulSoup(response.text, "html.parser")
-            
+
             # Extract video items from the parsed HTML
             video_items = extract_video_items(soup, config)
             if not video_items:
@@ -1267,7 +1254,7 @@ def main():
         ether_session = build_enhanced_session(proxy=args.proxy)
 
         print(f"{NEON['CYAN']}{Style.BRIGHT}Pyrmethus awakens! Channeling search for '{args.query}' via {args.engine}...{NEON['RESET']}")
-        
+
         # Fetch the search results
         results = get_search_results(
             session=ether_session,

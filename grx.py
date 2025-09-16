@@ -30,7 +30,7 @@ import astor  # external library: pip install astor
 import pathspec  # external library: pip install pathspec
 import requests
 import tqdm  # Requires: pip install tqdm
-from colorama import Fore, init, Style
+from colorama import Fore, Style, init
 from dotenv import load_dotenv  # For .env file support
 
 # Summon the colors of the terminal for vibrant enchantment
@@ -340,7 +340,7 @@ def split_file_into_chunks(input_path: Path, lang_hint: str | None) -> list[Path
     max_tokens = ctx.args.max_chunk_tokens
     for chunk_content in chunks_raw:
         if max_tokens and (len(chunk_content) // CHARS_PER_TOKEN) > max_tokens:
-            log_debug(f"Fragment too large, subdividing by line.")
+            log_debug("Fragment too large, subdividing by line.")
             lines = chunk_content.splitlines(keepends=True)
             sub_chunk_lines = []
             sub_chunk_tokens = 0
@@ -366,7 +366,7 @@ def split_file_into_chunks(input_path: Path, lang_hint: str | None) -> list[Path
             chunk_files.append(chunk_path)
         except OSError as e:
             log_error(f"Could not write fragment file '{chunk_path.name}': {e}")
-    
+
     log_success(f"Tome successfully divided into {len(chunk_files)} fragments.")
     return chunk_files
 
@@ -392,7 +392,7 @@ def run_pre_check(content: str, lang_hint: str) -> bool:
             return False
         log_info("Ruff pre-check passed.")
         return True
-    elif lang_hint in ["bash", "sh", "zsh"] and shutil.which("shellcheck"):
+    if lang_hint in ["bash", "sh", "zsh"] and shutil.which("shellcheck"):
         cmd = ["shellcheck", "-s", lang_hint, "-"]
         proc = subprocess.run(cmd, input=content.encode("utf-8"), capture_output=True, check=False)
         if proc.returncode != 0:
@@ -426,7 +426,7 @@ def process_chunk_with_api(original_chunk_path: Path, output_chunk_path: Path, f
         return original_content, original_content, original_chunk_path, 0, 0
 
     prompt_text = ctx.args.custom_prompt_template.replace("{original_code}", original_content).replace("{lang_hint}", current_lang_hint or "text")
-    
+
     # Caching logic
     cache_dir = ctx.temp_dir.parent / "pyrmethus_cache"
     cache_dir.mkdir(exist_ok=True)
@@ -460,7 +460,7 @@ def process_chunk_with_api(original_chunk_path: Path, output_chunk_path: Path, f
 
             response_data = response.json()
             text_content = response_data["candidates"][0]["content"]["parts"][0]["text"]
-            
+
             final_content = extract_code_block(text_content)
             output_tokens = len(final_content) // CHARS_PER_TOKEN
 
@@ -511,7 +511,7 @@ def display_diff(original_content: str, new_content: str, file_path_for_display:
     diff_lines = list(diff)
     if not diff_lines:
         return
-    
+
     ctx.has_changes = True
     for line in diff_lines:
         line = line.rstrip()
@@ -549,21 +549,21 @@ def reassemble_output(all_original_chunks: list[Path], file_path: Path, to_stdou
                 except (EOFError, KeyboardInterrupt):
                     print()
                     resp = "n"
-                
+
                 if resp == "y":
                     final_content_parts.append(new_content)
                     break
-                elif resp == "n":
+                if resp == "n":
                     final_content_parts.append(original_content)
                     break
-                elif resp == "e":
+                if resp == "e":
                     editor = os.environ.get("EDITOR", "nano")
                     temp_edit_file = ctx.temp_dir / f"edit_{chunk_basename}"
                     temp_edit_file.write_text(new_content, encoding="utf-8")
                     subprocess.run([editor, str(temp_edit_file)], check=False)
                     final_content_parts.append(temp_edit_file.read_text(encoding="utf-8"))
                     break
-                elif resp == "a":
+                if resp == "a":
                     accept_all = True
                     final_content_parts.append(new_content)
                     break
@@ -573,7 +573,7 @@ def reassemble_output(all_original_chunks: list[Path], file_path: Path, to_stdou
     final_output = "\n\n".join(final_content_parts)
     if final_output and not final_output.endswith("\n"):
         final_output += "\n"
-    
+
     return final_output
 
 def display_final_summary():
@@ -606,7 +606,7 @@ def get_files_from_input_dir() -> list[tuple[Path, Path]]:
     spec = None
     if gitignore_path.is_file():
         log_info(f"Applying ignore patterns from {gitignore_path}")
-        with open(gitignore_path, 'r', encoding='utf-8') as f:
+        with open(gitignore_path, encoding='utf-8') as f:
             spec = pathspec.PathSpec.from_lines('gitwildmatch', f)
 
     default_skip_ext = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".zip", ".tar", ".gz",
@@ -624,7 +624,7 @@ def get_files_from_input_dir() -> list[tuple[Path, Path]]:
         for file_name in files:
             file_path = root / file_name
             rel_path = file_path.relative_to(input_dir)
-            
+
             if spec and spec.match_file(str(rel_path)):
                 log_debug(f"Skipping ignored file: {file_path.name}")
                 continue
@@ -638,7 +638,7 @@ def get_files_from_input_dir() -> list[tuple[Path, Path]]:
                 continue
 
             output_file_path = output_dir / rel_path if output_dir else file_path
-            
+
             if not ctx.args.force and not ctx.args.in_place and output_file_path.exists():
                 log_warning(f"Output '{output_file_path.name}' exists. Skipping. Use --force.")
                 continue
@@ -652,7 +652,7 @@ def get_files_from_input_dir() -> list[tuple[Path, Path]]:
 def process_single_file_workflow(original_file_path: Path, output_file_path: Path):
     """Manages the workflow for processing a single file."""
     log_info(f"\n{Style.BRIGHT}{Fore.LIGHTMAGENTA_EX}--- Processing Tome: {original_file_path.name} ---{Style.RESET_ALL}")
-    
+
     try:
         original_content = original_file_path.read_text(encoding='utf-8') if str(original_file_path) != "stdin.tmp" else (ctx.temp_dir / "stdin.tmp").read_text(encoding='utf-8')
     except OSError as e:
@@ -660,7 +660,7 @@ def process_single_file_workflow(original_file_path: Path, output_file_path: Pat
         return
 
     is_stdout = str(output_file_path) == "-"
-    
+
     if not is_stdout and not ctx.args.dry_run:
         if not backup_file(output_file_path):
              return # Backup failed
@@ -687,7 +687,7 @@ def process_single_file_workflow(original_file_path: Path, output_file_path: Pat
             executor.submit(process_chunk_with_api, orig_c, ctx.temp_dir / f"{OUTPUT_CHUNK_PREFIX}{orig_c.name.split('_')[-1]}", str(original_file_path)): orig_c
             for orig_c in all_chunks_raw_paths
         }
-        
+
         progress_bar = tqdm.tqdm(as_completed(future_to_chunk_info), total=len(all_chunks_raw_paths), desc=f"Enhancing {original_file_path.name}", unit="frag", file=sys.stderr, dynamic_ncols=True, colour="cyan")
         for future in progress_bar:
             try:
@@ -737,7 +737,7 @@ def list_available_models():
     except requests.exceptions.RequestException as e:
         log_error(f"Failed to fetch models: {e}")
     except (json.JSONDecodeError, KeyError):
-        log_error(f"Failed to parse model list from API response.")
+        log_error("Failed to parse model list from API response.")
 
 
 def main():
@@ -776,7 +776,7 @@ def main():
     is_processing_run = not any(x in sys.argv for x in ['--list-models', '-h', '--help'])
 
     parser.add_argument("--list-models", action="store_true", help="List available Gemini models and exit.")
-    
+
     input_group = parser.add_mutually_exclusive_group(required=is_processing_run)
     input_group.add_argument("-i", "--input-file", type=Path, help="Input file path or '-' for stdin.")
     input_group.add_argument("--input-dir", type=Path, help="Input directory to process files within.")
@@ -791,7 +791,7 @@ def main():
     parser.add_argument("-m", "--model", default=DEFAULT_MODEL, help=f"Gemini model (default: {DEFAULT_MODEL}).")
     parser.add_argument("-t", "--temperature", type=float, default=DEFAULT_TEMPERATURE, help=f"API temperature (default: {DEFAULT_TEMPERATURE}).")
     parser.add_argument("-l", "--lang", help="Language hint (e.g., python, bash). Overrides auto-detection.")
-    
+
     prompt_group = parser.add_mutually_exclusive_group()
     prompt_group.add_argument("--custom-prompt-template", help="Custom prompt string. Use {original_code} and {lang_hint}.")
     prompt_group.add_argument("--prompt-file", type=Path, help="Path to a file containing the prompt template.")
@@ -814,12 +814,12 @@ def main():
     parser.add_argument("--temp-dir", type=Path, help="Custom directory for temporary files.")
 
     args = parser.parse_args()
-    
+
     # --- Setup Context and Logger ---
     log_level = logging.DEBUG if args.verbose else log_level_map[args.log_level]
     setup_logger(log_level)
     ctx = ScriptContext(args=args, config=load_config())
-    
+
     # --- Handle Meta Commands ---
     if args.list_models:
         list_available_models()
@@ -828,7 +828,7 @@ def main():
     # --- Argument Validation and Setup ---
     if args.diff_only:
         args.dry_run = True
-    
+
     if args.prompt_file:
         try:
             args.custom_prompt_template = args.prompt_file.read_text(encoding="utf-8")
@@ -845,14 +845,14 @@ def main():
             "3.  **Respond ONLY with the complete, corrected code chunk inside a code block.**\n\n"
             "Original Code Chunk:\n```{lang_hint}\n{original_code}\n```"
         )
-    
+
     if args.input_dir and not (args.output_dir or args.in_place):
         log_error("--output-dir or --in-place is required when using --input-dir.")
         sys.exit(1)
     if args.input_dir and args.output_dir and args.output_dir.resolve() == args.input_dir.resolve():
         log_error("Input and output directories cannot be the same.")
         sys.exit(1)
-    
+
     signal.signal(signal.SIGINT, handle_exit)
     signal.signal(signal.SIGTERM, handle_exit)
     check_dependencies()
@@ -879,11 +879,11 @@ def main():
                 log_error(f"Input file '{args.input_file}' not found.")
                 sys.exit(1)
             input_path = args.input_file
-        
+
         output_path = args.output_file or (Path("-") if not args.in_place else input_path)
         if args.stdout: output_path = Path("-")
         ctx.files_to_process.append((input_path, output_path))
-    
+
     elif args.input_dir:
         ctx.files_to_process = get_files_from_input_dir()
 
@@ -901,7 +901,7 @@ def main():
         cleanup_temp_dir()
         if files_processed_count > 0:
             display_final_summary()
-        
+
         if args.diff_only:
             log_info(f"Exiting with status {1 if ctx.has_changes else 0}.")
             sys.exit(1 if ctx.has_changes else 0)

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-video_search.py  •  2025-08-01 (ENHANCED-UPGRADED)
+"""video_search.py  •  2025-08-01 (ENHANCED-UPGRADED)
 
 Enhanced video search with state-of-the-art 2025 web scraping best practices.
 Incorporates modern techniques from latest research:
@@ -20,7 +18,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import base64
-import concurrent.futures
 import html
 import json
 import logging
@@ -33,11 +30,11 @@ import time
 import unicodedata
 import uuid
 import webbrowser
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
 from datetime import datetime
-from functools import wraps
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any
 from urllib.parse import quote_plus, urljoin, urlparse
 
 import requests
@@ -50,14 +47,14 @@ try:
     ASYNC_AVAILABLE = True
 except ImportError:
     ASYNC_AVAILABLE = False
-    
+
 try:
     from selenium import webdriver
+    from selenium.common.exceptions import TimeoutException, WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.webdriver.support.ui import WebDriverWait
     SELENIUM_AVAILABLE = True
 except ImportError:
     SELENIUM_AVAILABLE = False
@@ -140,7 +137,7 @@ REALISTIC_USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.2277.83",
 ]
 
-def get_realistic_headers(user_agent: str) -> Dict[str, str]:
+def get_realistic_headers(user_agent: str) -> dict[str, str]:
     """Generate realistic browser headers."""
     return {
         "User-Agent": user_agent,
@@ -160,7 +157,7 @@ def get_realistic_headers(user_agent: str) -> Dict[str, str]:
 
 
 # ── Enhanced Engine Configurations ─────────────────────────────────────────
-ENGINE_MAP: Dict[str, Dict[str, Any]] = {
+ENGINE_MAP: dict[str, dict[str, Any]] = {
     "pexels": {
         "url": "https://www.pexels.com",
         "search_path": "/search/videos/{query}/",
@@ -352,7 +349,7 @@ def enhanced_slugify(text: str) -> str:
 def build_enhanced_session(
     timeout: int = DEFAULT_TIMEOUT,
     max_retries: int = DEFAULT_MAX_RETRIES,
-    proxy: Optional[str] = None,
+    proxy: str | None = None,
 ) -> requests.Session:
     """Create enhanced session with 2025 best practices."""
     session = requests.Session()
@@ -398,20 +395,20 @@ def build_enhanced_session(
 
 
 def smart_delay_with_jitter(
-    delay_range: Tuple[float, float],
-    last_request_time: Optional[float] = None,
+    delay_range: tuple[float, float],
+    last_request_time: float | None = None,
     jitter: float = 0.3
 ) -> None:
     """Implement intelligent delays with jitter."""
     min_delay, max_delay = delay_range
     current_time = time.time()
-    
+
     if last_request_time:
         elapsed = current_time - last_request_time
         base_wait = random.uniform(min_delay, max_delay)
         jitter_amount = base_wait * jitter * random.uniform(-1, 1)
         min_wait = max(0.5, base_wait + jitter_amount)
-        
+
         if elapsed < min_wait:
             time.sleep(min_wait - elapsed)
     else:
@@ -420,11 +417,11 @@ def smart_delay_with_jitter(
         time.sleep(max(0.5, base_wait + jitter_amount))
 
 
-def create_selenium_driver() -> Optional[webdriver.Chrome]:
+def create_selenium_driver() -> webdriver.Chrome | None:
     """Create Selenium driver for JavaScript-heavy sites."""
     if not SELENIUM_AVAILABLE:
         return None
-        
+
     try:
         options = ChromeOptions()
         options.add_argument("--headless=new")
@@ -435,13 +432,13 @@ def create_selenium_driver() -> Optional[webdriver.Chrome]:
         options.add_argument("--disable-features=VizDisplayCompositor")
         options.add_argument("--window-size=1920,1080")
         options.add_argument(f"--user-agent={random.choice(REALISTIC_USER_AGENTS)}")
-        
+
         prefs = {
             "profile.managed_default_content_settings.images": 2,
             "profile.managed_default_content_settings.stylesheets": 2,
         }
         options.add_experimental_option("prefs", prefs)
-        
+
         driver = webdriver.Chrome(options=options)
         driver.set_page_load_timeout(30)
         return driver
@@ -450,12 +447,12 @@ def create_selenium_driver() -> Optional[webdriver.Chrome]:
         return None
 
 
-def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: Dict) -> List:
+def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: dict) -> list:
     """Extract data using Selenium for JavaScript sites."""
     try:
         driver.get(url)
         wait = WebDriverWait(driver, 10)
-        
+
         for selector in cfg["video_item_selector"].split(','):
             try:
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector.strip())))
@@ -471,7 +468,7 @@ def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: Dict) -> List
         time.sleep(2)
         soup = BeautifulSoup(driver.page_source, "html.parser")
         return extract_video_items(soup, cfg)
-        
+
     except (TimeoutException, WebDriverException) as e:
         logger.warning(f"Selenium extraction failed for {url}: {e}")
         return []
@@ -481,15 +478,15 @@ def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: Dict) -> List
 
 
 @asynccontextmanager
-async def aiohttp_session() -> AsyncGenerator[Optional[aiohttp.ClientSession], None]:
+async def aiohttp_session() -> AsyncGenerator[aiohttp.ClientSession | None, None]:
     """Create async HTTP session."""
     if not ASYNC_AVAILABLE:
         yield None
         return
-        
+
     timeout = aiohttp.ClientTimeout(total=30, connect=10)
     headers = get_realistic_headers(random.choice(REALISTIC_USER_AGENTS))
-    
+
     try:
         async with aiohttp.ClientSession(
             timeout=timeout,
@@ -511,29 +508,29 @@ async def async_download_thumbnail(
     """Async thumbnail download with enhanced error handling."""
     if not ASYNC_AVAILABLE or not session:
         return False
-        
+
     async with semaphore:
         try:
             async with session.get(url) as response:
                 if response.status != 200:
                     logger.debug(f"Async download failed, status {response.status} for {url}")
                     return False
-                    
+
                 content_type = response.headers.get("content-type", "").lower()
                 if not any(ct in content_type for ct in ["image/", "application/octet-stream"]):
                     logger.debug(f"Async download failed, invalid content type for {url}")
                     return False
-                    
+
                 content = await response.read()
                 if len(content) == 0 or len(content) > 10 * 1024 * 1024:
                     logger.debug(f"Async download failed, invalid content size for {url}")
                     return False
-                    
+
                 with open(path, "wb") as f:
                     f.write(content)
-                    
+
                 return True
-                
+
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             logger.debug(f"Async download failed for {url}: {e}")
             return False
@@ -590,9 +587,9 @@ def get_search_results(
     query: str,
     limit: int,
     page: int,
-    delay_range: Tuple[float, float],
+    delay_range: tuple[float, float],
     search_type: str = "video",
-) -> List[Dict]:
+) -> list[dict]:
     """Enhanced scraping with comprehensive error handling."""
     if engine not in ENGINE_MAP:
         logger.error(f"Unsupported engine: {engine}", extra={'engine': engine, 'query': query})
@@ -600,7 +597,7 @@ def get_search_results(
 
     cfg = ENGINE_MAP[engine]
     base_url = cfg["url"]
-    results: List[Dict] = []
+    results: list[dict] = []
     last_request_time = None
     driver = None
 
@@ -613,7 +610,7 @@ def get_search_results(
         items_per_page = 30
         pages_to_fetch = min(5, (limit + items_per_page - 1) // items_per_page)
 
-        logger.info(f"Searching {engine} for '{query}' (up to {pages_to_fetch} pages)", 
+        logger.info(f"Searching {engine} for '{query}' (up to {pages_to_fetch} pages)",
                    extra={'engine': engine, 'query': query})
 
         for current_page in range(page, page + pages_to_fetch):
@@ -629,14 +626,14 @@ def get_search_results(
                 return []
 
             url = urljoin(base_url, search_path.format(query=quote_plus(query)))
-            
+
             if "{page}" in search_path:
                 url = url.format(page=current_page)
             elif current_page > 1 and cfg.get("page_param"):
                 separator = "&" if "?" in url else "?"
                 url += f"{separator}{cfg.get('page_param')}={current_page}"
 
-            logger.info(f"Fetching page {current_page}: {url}", 
+            logger.info(f"Fetching page {current_page}: {url}",
                        extra={'engine': engine, 'query': query})
 
             try:
@@ -683,30 +680,30 @@ def get_search_results(
             except Exception:
                 pass
 
-    logger.info(f"Successfully extracted {len(results)} videos", 
+    logger.info(f"Successfully extracted {len(results)} videos",
                extra={'engine': engine, 'query': query})
     return results[:limit]
 
 
-def extract_video_items(soup: BeautifulSoup, cfg: Dict) -> List:
+def extract_video_items(soup: BeautifulSoup, cfg: dict) -> list:
     """Extract video items with comprehensive fallback logic."""
     video_items = []
-    
+
     for selector in cfg["video_item_selector"].split(", "):
         video_items = soup.select(selector.strip())
         if video_items:
             break
-    
+
     if not video_items and "fallback_selectors" in cfg:
         for selector in cfg["fallback_selectors"].get("container", []):
             video_items = soup.select(selector)
             if video_items:
                 break
-                
+
     return video_items
 
 
-def extract_video_data_enhanced(item, cfg: Dict, base_url: str) -> Optional[Dict]:
+def extract_video_data_enhanced(item, cfg: dict, base_url: str) -> dict | None:
     """Enhanced video data extraction with comprehensive fallbacks."""
     try:
         title = "Untitled"
@@ -731,7 +728,7 @@ def extract_video_data_enhanced(item, cfg: Dict, base_url: str) -> Optional[Dict
         link_selectors = [cfg.get("link_selector", "")]
         if "fallback_selectors" in cfg and "link" in cfg["fallback_selectors"]:
             link_selectors.extend(cfg["fallback_selectors"]["link"])
-            
+
         for selector in link_selectors:
             if not selector:
                 continue
@@ -764,7 +761,7 @@ def extract_video_data_enhanced(item, cfg: Dict, base_url: str) -> Optional[Dict
         duration = extract_text_safe(item, cfg.get("time_selector", ""), "N/A")
         views = extract_text_safe(item, cfg.get("meta_selector", ""), "N/A")
         channel_name = extract_text_safe(item, cfg.get("channel_name_selector", ""), "N/A")
-        
+
         channel_link = "#"
         channel_link_selector = cfg.get("channel_link_selector", "")
         if channel_link_selector:
@@ -805,27 +802,27 @@ def extract_text_safe(element, selector: str, default: str = "N/A") -> str:
         return default
 
 
-def validate_video_data_enhanced(data: Dict) -> bool:
+def validate_video_data_enhanced(data: dict) -> bool:
     """Enhanced validation with comprehensive checks."""
     if not isinstance(data, dict):
         return False
-        
+
     required_fields = ["title", "link"]
     for field in required_fields:
         if not data.get(field) or data[field] in ["", "Untitled", "#"]:
             return False
-    
+
     try:
         parsed_link = urlparse(data["link"])
         if not parsed_link.scheme or not parsed_link.netloc:
             return False
     except Exception:
         return False
-    
+
     title = data.get("title", "")
     if len(title) < 3 or title.lower() in ["untitled", "n/a", "error"]:
         return False
-    
+
     return True
 
 
@@ -1151,7 +1148,7 @@ ENHANCED_HTML_TAIL = """        </main>
 
 
 async def build_enhanced_html_async(
-    results: Sequence[Dict],
+    results: Sequence[dict],
     query: str,
     engine: str,
     thumbs_dir: Path,
@@ -1174,7 +1171,7 @@ async def build_enhanced_html_async(
         </svg>'''
         return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
 
-    async def fetch_thumbnail_async_task(idx: int, video: Dict) -> Tuple[int, str]:
+    async def fetch_thumbnail_async_task(idx: int, video: dict) -> tuple[int, str]:
         """Download thumbnail async or fallback to sync."""
         img_url = video.get("img_url")
         if not img_url:
@@ -1216,7 +1213,7 @@ async def build_enhanced_html_async(
             thumbnail_paths[idx] = path
         else:
             logger.debug(f"Error gathering async thumbnail result: {result}")
-            
+
     with open(outfile, "w", encoding="utf-8") as f:
         f.write(ENHANCED_HTML_HEAD.format(
             title=f"{html.escape(query)} - {engine}",
@@ -1226,7 +1223,7 @@ async def build_enhanced_html_async(
             timestamp=datetime.now().strftime("%Y-%m-%d %H:%M")
         ))
 
-        for video, thumbnail in zip(results, thumbnail_paths):
+        for video, thumbnail in zip(results, thumbnail_paths, strict=False):
             meta_items = []
             if video.get("time", "N/A") != "N/A":
                 meta_items.append(f'<span class="meta-item">⏱️ {html.escape(video["time"])}</span>')
@@ -1273,14 +1270,14 @@ def main():
     """Main function to parse arguments and run the search process."""
     parser = argparse.ArgumentParser(
         description="Enhanced video search with web scraping.",
-        epilog=f"""\
+        epilog="""\
 Example usage:
   python3 video_search.py "cats in space"
   python3 video_search.py "ocean waves" -e pexels -l 50 -p 2 -o json
   python3 video_search.py "daily news" -e dailymotion --no-async --no-open
 """
     )
-    
+
     parser.add_argument("query", type=str, help="The search query for videos.")
     parser.add_argument(
         "-e", "--engine", type=str, default=DEFAULT_ENGINE,
@@ -1325,16 +1322,16 @@ Example usage:
         "-v", "--verbose", action="store_true",
         help="Enable verbose logging."
     )
-    
+
     args = parser.parse_args()
 
     if args.verbose:
         logger.setLevel(logging.DEBUG)
-    
+
     global ASYNC_AVAILABLE
     if args.no_async:
         ASYNC_AVAILABLE = False
-    
+
     def signal_handler(sig, frame):
         print(f"\n{NEON['YELLOW']}* Ctrl+C detected. Exiting gracefully...{NEON['RESET']}")
         sys.exit(0)
@@ -1343,7 +1340,7 @@ Example usage:
 
     try:
         session = build_enhanced_session(proxy=args.proxy)
-        
+
         print(f"{NEON['CYAN']}{Style.BRIGHT}Starting search for '{args.query}' on {args.engine}...")
 
         results = get_search_results(
@@ -1355,11 +1352,11 @@ Example usage:
             delay_range=DEFAULT_DELAY,
             search_type=args.type,
         )
-        
+
         if not results:
             print(f"{NEON['RED']}No videos found for '{args.query}' on {args.engine}.{NEON['RESET']}")
             sys.exit(1)
-        
+
         print(f"{NEON['GREEN']}Found {len(results)} videos.{NEON['RESET']}")
 
         if args.output_format == "json":
@@ -1369,7 +1366,7 @@ Example usage:
             with open(outfile, "w", encoding="utf-8") as f:
                 json.dump(results, f, ensure_ascii=False, indent=4)
             print(f"{NEON['CYAN']}JSON results saved to: {outfile}{NEON['RESET']}")
-        
+
         else:
             loop = asyncio.get_event_loop()
             outfile = loop.run_until_complete(
@@ -1388,7 +1385,7 @@ Example usage:
                     webbrowser.open(f"file://{os.path.abspath(outfile)}")
                 except Exception as e:
                     print(f"{NEON['YELLOW']}Failed to open browser: {e}{NEON['RESET']}")
-        
+
     except Exception as e:
         logger.critical(f"An unhandled error occurred: {e}", exc_info=True)
         sys.exit(1)

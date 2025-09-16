@@ -1,32 +1,21 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
-import base64
-import concurrent.futures
-import html
-import json
 import logging
 import os
 import random
 import re
-import signal
 import sys
 import time
-import unicodedata
-import uuid
 import webbrowser
-from contextlib import asynccontextmanager
 from datetime import datetime
-from functools import wraps
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional, Sequence, Tuple, Union
-from urllib.parse import quote_plus, urljoin, urlparse
+from typing import Any
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
 from colorama import Fore, Style, init
-from requests.adapters import HTTPAdapter, Retry
 
 # ── Enhanced Color Setup ────────────────────────────────────────────────
 init(autoreset=True)
@@ -80,25 +69,25 @@ try:
     ASYNC_AVAILABLE = True
 except ImportError:
     ASYNC_AVAILABLE = False
-    
+
 try:
     import undetected_chromedriver as uc
     from selenium import webdriver
+    from selenium.common.exceptions import TimeoutException, WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.webdriver.support.ui import WebDriverWait
     SELENIUM_AVAILABLE = True
 except ImportError:
     logger.info("Selenium libraries not found. To scrape JavaScript-heavy sites, install with: pip install selenium undetected-chromedriver")
     SELENIUM_AVAILABLE = False
 
-def create_selenium_driver() -> Optional[uc.Chrome]:
+def create_selenium_driver() -> uc.Chrome | None:
     """Create Selenium driver for JavaScript-heavy sites using undetected-chromedriver."""
     if not SELENIUM_AVAILABLE:
         return None
-        
+
     try:
         options = uc.ChromeOptions()
         options.add_argument("--headless=new")
@@ -106,7 +95,7 @@ def create_selenium_driver() -> Optional[uc.Chrome]:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920,1080")
-        
+
         logger.info("Initializing undetected-chromedriver...")
         # This forces undetected-chromedriver to download the driver if it's missing.
         driver = uc.Chrome(options=options, driver_executable_path=None, browser_executable_path=None)
@@ -118,11 +107,11 @@ def create_selenium_driver() -> Optional[uc.Chrome]:
         return None
 
 
-def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: Dict) -> List:
+def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: dict) -> list:
     """Extract data using Selenium for JavaScript-heavy sites[2]."""
     try:
         driver.get(url)
-        
+
         # Wait for video items to load
         wait = WebDriverWait(driver, 10)
         found_element = False
@@ -135,14 +124,14 @@ def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: Dict) -> List
             except TimeoutException:
                 logger.debug(f"Selenium did not find element with selector: {selector.strip()}")
                 continue
-        
+
         if not found_element:
             logger.warning(f"Selenium could not find any video items with provided selectors for {url}")
             return []
-        
+
         # Additional wait to ensure dynamic content loads
         time.sleep(2)
-        
+
         # Get page source and parse with BeautifulSoup
         soup = BeautifulSoup(driver.page_source, "html.parser")
         logger.debug(f"Selenium parsed soup: {soup.prettify()}")
@@ -158,7 +147,7 @@ def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: Dict) -> List
                 logger.error(f"Failed to save debug HTML: {e}")
 
         return extract_video_items(soup, cfg)
-        
+
     except (TimeoutException, WebDriverException) as e:
         logger.warning(f"Selenium extraction failed for {url}: {e}")
         return []
@@ -205,7 +194,7 @@ REALISTIC_USER_AGENTS = [
 ]
 
 # Realistic browser headers to avoid bot detection[2][3]
-def get_realistic_headers(user_agent: str) -> Dict[str, str]:
+def get_realistic_headers(user_agent: str) -> dict[str, str]:
     """Generate realistic browser headers based on User-Agent."""
     return {
         "User-Agent": user_agent,
@@ -228,7 +217,7 @@ def get_realistic_headers(user_agent: str) -> Dict[str, str]:
     }
 
 # ── Enhanced Engine Configurations ─────────────────────────────────────────
-ENGINE_MAP: Dict[str, Dict[str, Any]] = {
+ENGINE_MAP: dict[str, dict[str, Any]] = {
     "pexels": {
         "url": "https://www.pexels.com",
         "search_path": "/search/videos/{query}/",
@@ -387,8 +376,7 @@ def ensure_directory_exists(directory_path: str) -> None:
             raise
 
 def sanitize_filename(filename: str) -> str:
-    """
-    Sanitizes a string to be suitable for use as a filename.
+    """Sanitizes a string to be suitable for use as a filename.
     Removes or replaces characters that are problematic in filenames.
     Limits length to avoid issues with max filename length on some OS.
     """
@@ -399,8 +387,7 @@ def sanitize_filename(filename: str) -> str:
     return filename[:100]
 
 def download_file(session: requests.Session, url: str, local_filepath: str, timeout: int = 15) -> bool:
-    """
-    Downloads a file from a URL to a local path using a requests session.
+    """Downloads a file from a URL to a local path using a requests session.
     Returns True if successful, False otherwise.
     """
     try:
@@ -429,10 +416,9 @@ def search(
     limit: int,
     engine: str,
     page: int,
-    driver: Optional[webdriver.Chrome] = None
-) -> List[Dict]:
-    """
-    Performs a search using a specified engine and returns parsed results.
+    driver: webdriver.Chrome | None = None
+) -> list[dict]:
+    """Performs a search using a specified engine and returns parsed results.
     """
     if engine not in ENGINE_MAP:
         logger.error(f"{NEON_RED}Unsupported engine: {engine}{RESET_ALL}")
@@ -449,7 +435,7 @@ def search(
 
     try:
         logger.info(f"Searching at URL: {search_url}")
-        
+
         if engine_config.get("requires_js", False) and driver:
             video_items = extract_with_selenium(driver, search_url, engine_config)
         else:
@@ -503,15 +489,14 @@ def search(
 # --- HTML Output Generation ---
 def generate_html_output(
     session: requests.Session,
-    results: List[Dict],
+    results: list[dict],
     query: str,
     engine: str,
     search_limit: int,
     output_dir: str,
     prefix_format: str
-) -> Optional[str]:
-    """
-    Generates an HTML file with search results, downloading thumbnails locally.
+) -> str | None:
+    """Generates an HTML file with search results, downloading thumbnails locally.
     """
     if not results:
         logger.warning(f"{NEON_YELLOW}No videos found for query '{query}'. No HTML file generated.{RESET_ALL}")
@@ -615,7 +600,7 @@ def generate_html_output(
         return None
 
 # --- Main Interactive Logic ---
-def run_interactive_mode() -> Dict:
+def run_interactive_mode() -> dict:
     """Runs the script in interactive mode, prompting the user for input."""
     logger.info(f"{NEON_CYAN}{NEON_BRIGHT}--- Starting Search Script (Interactive Mode) ---{RESET_ALL}")
 

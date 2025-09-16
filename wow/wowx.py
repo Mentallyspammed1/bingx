@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-wowxxx_search.py - Enhanced Wow.xxx Video Search Tool
+"""wowxxx_search.py - Enhanced Wow.xxx Video Search Tool
 
 Features:
 - Modular design with classes/functions
@@ -24,21 +22,18 @@ import base64
 import csv
 import html
 import json
-import os
 import random
 import re
 import signal
-import sys
 import time
 import unicodedata
-import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import requests
 from bs4 import BeautifulSoup
-from colorama import Fore, Style, init
+from colorama import init
 from requests.adapters import HTTPAdapter, Retry
 
 # Optional imports
@@ -50,11 +45,11 @@ except ImportError:
 
 try:
     from selenium import webdriver
+    from selenium.common.exceptions import TimeoutException, WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.webdriver.support.ui import WebDriverWait
     SELENIUM_AVAILABLE = True
 except ImportError:
     SELENIUM_AVAILABLE = False
@@ -244,7 +239,7 @@ def download_thumbnail_sync(session, url, save_path):
         return False
 
 # Extract video items from soup
-def extract_video_items(soup: BeautifulSoup, selectors: Dict[str, str]) -> List:
+def extract_video_items(soup: BeautifulSoup, selectors: dict[str, str]) -> list:
     items = []
     primary_selectors = [s.strip() for s in selectors.get("video_item_selector", "").split(',') if s.strip()]
     for sel in primary_selectors:
@@ -438,7 +433,7 @@ HTML_TAIL = """</section>
 
 # Main class encapsulating the scraper
 class WowxxxScraper:
-    def __init__(self, config: Dict[str, Any], proxies: List[str]=[]):
+    def __init__(self, config: dict[str, Any], proxies: list[str]=[]):
         self.config = config
         self.proxies = proxies
         self.proxy_index = 0
@@ -628,7 +623,6 @@ class WowxxxScraper:
 
 # Main function
 def main():
-    import argparse
     setup_logging()
     parser = argparse.ArgumentParser(description="Wow.xxx Video Search Tool")
     parser.add_argument("query", help="Search query")

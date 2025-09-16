@@ -76,7 +76,7 @@ const pornhub = {
         const gifId = item.attr('data-gif-id') || gifPageUrl?.match(/\/view_gif\/(\d+)/)?.[1];
         const title = link.attr('alt') || item.find('.gif-title').text().trim() || 'Untitled GIF';
         const videoPreview = item.find('video.gifVideo');
-        const animatedGifUrl = makeAbsolute(videoPreview.attr('data-mp4') || videoPreview.attr('data-webm') || link.data('mp4'), baseUrl);
+        const animatedGifUrl = makeAbsolute(videoPreview.attr('data-mp4') || videoPreview.attr('data-webm') || (link.data('mp4') as string), baseUrl);
         const staticThumbnailUrl = makeAbsolute(item.find('img').attr('data-src') || item.find('img').attr('src'), baseUrl);
 
         if (gifPageUrl && title && animatedGifUrl && gifId) {
@@ -228,20 +228,18 @@ const xhamster = {
   videoParser: ($: cheerio.CheerioAPI): MediaItem[] => {
     const results: MediaItem[] = [];
     const baseUrl = 'https://xhamster.com';
-    $('.video-thumb-container__video, .thumb-list__item a[href*="/videos/"]').each((_, element) => {
+    $('div.video-item').each((_, element) => {
         const item = $(element);
-        const videoUrl = makeAbsolute(item.attr('href'), baseUrl);
-        const container = item.closest('.thumb-list__item, .video-thumb');
-        const videoId = videoUrl?.split('/').pop()?.split('-').pop() || container.attr('data-entity-id') || container.parent().attr('data-entity-id');
-        const title = container.find('.video-thumb-container__name, .thumb-list__item-title').text().trim();
-        const img = container.find('img.video-thumb__img, .thumb-list__item-img');
-        const thumbnail = makeAbsolute(img.attr('src') || img.attr('data-src'), baseUrl);
-        const duration = container.find('.video-thumb-info__duration, .thumb-list__item-duration').text().trim();
-        const videoTag = container.find('video.video-thumb__preview-video, video.thumb-list__item-video');
-        const preview_video = makeAbsolute(videoTag.attr('src') || videoTag.find('source').attr('src'), baseUrl);
+        const link = item.find('a.video-title').first();
+        const videoUrl = makeAbsolute(link.attr('href'), baseUrl);
+        const videoId = videoUrl?.split('/').pop()?.split('-').pop();
+        const title = link.text().trim();
+        const img = item.find('img').first();
+        const thumbnail = makeAbsolute(img.attr('src'), baseUrl);
+        const duration = ''; // Not available on search page
 
         if (videoUrl && title && thumbnail && videoId) {
-            results.push({ id: videoId, title, url: videoUrl, duration, thumbnail, preview_video, source: 'xHamster', type: 'videos' });
+            results.push({ id: videoId, title, url: videoUrl, duration, thumbnail, preview_video: thumbnail, source: 'xHamster', type: 'videos' });
         }
     });
     return results;

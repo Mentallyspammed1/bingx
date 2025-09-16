@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-video_search_enhanced.py  •  2025-08-07 (ULTIMATE-2025-ENHANCED)
+"""video_search_enhanced.py  •  2025-08-07 (ULTIMATE-2025-ENHANCED)
 
 Ultra-robust, AI-driven video search engine supporting multiple adult and general video sites with:
 - Async Playwright browser support for JS rendering
@@ -27,23 +25,23 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from urllib.parse import urljoin, urlparse, quote_plus
+from typing import Any
+from urllib.parse import quote_plus, urljoin, urlparse
 
 import aiohttp
 import httpx
 import orjson
 import requests
 from bs4 import BeautifulSoup
-from colorama import Fore, Style, init
+from colorama import init
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from playwright.async_api import async_playwright
 from pydantic import BaseModel
+from redis import Redis
 from requests.adapters import HTTPAdapter, Retry
 from rich.console import Console
 from rich.logging import RichHandler
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
-from redis import Redis
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 # Initialize colorama for colored terminal output
@@ -103,7 +101,7 @@ def get_cache_key(query: str, engine: str, page: int) -> str:
 
 # ── Cache Backend Interfaces ───────────────────────────────────────────────
 class CacheBackend:
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         raise NotImplementedError
 
     def set(self, key: str, value: Any, ttl: int = DEFAULT_CACHE_TTL):
@@ -123,7 +121,7 @@ class RedisCache(CacheBackend):
             logger.warning(f"Redis cache connection failed: {e}")
             self.client = None
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         if not self.client:
             return None
         val = self.client.get(key)
@@ -167,7 +165,7 @@ class SQLiteCache(CacheBackend):
                 """
             )
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         now = time.time()
         try:
             with self.sqlite3.connect(self.db_path) as conn:
@@ -201,23 +199,23 @@ class SQLiteCache(CacheBackend):
 class EngineConfig:
     url: str
     search_path: str
-    page_param: Optional[str] = None
+    page_param: str | None = None
     requires_js: bool = False
     video_item_selector: str = ""
     link_selector: str = ""
     title_selector: str = ""
     img_selector: str = ""
-    time_selector: Optional[str] = None
-    channel_name_selector: Optional[str] = None
-    channel_link_selector: Optional[str] = None
-    meta_selector: Optional[str] = None
-    fallback_selectors: Optional[Dict[str, List[str]]] = None
+    time_selector: str | None = None
+    channel_name_selector: str | None = None
+    channel_link_selector: str | None = None
+    meta_selector: str | None = None
+    fallback_selectors: dict[str, list[str]] | None = None
 
     # Additional attribute for title alt attribute if needed
-    title_attribute: Optional[str] = None
+    title_attribute: str | None = None
 
 
-ENGINE_MAP: Dict[str, EngineConfig] = {
+ENGINE_MAP: dict[str, EngineConfig] = {
     "pexels": EngineConfig(
         url="https://www.pexels.com",
         search_path="/search/videos/{query}/",
@@ -330,7 +328,7 @@ class LLMExtractor:
                 "⚠️ LLM API key not found; LLM fallback will not work properly."
             )
 
-    async def extract(self, html_content: str, selectors: dict) -> List[dict]:
+    async def extract(self, html_content: str, selectors: dict) -> list[dict]:
         prompt = (
             f"Extract video items from the given HTML content using these selectors as hints:\n"
             f"Title: {selectors.get('title_selector', 'N/A')}\n"
@@ -356,7 +354,7 @@ class LLMExtractor:
                     data = resp.json()
                     content = data["choices"][0]["message"]["content"]
                     return orjson.loads(content)
-                elif self.provider == "ollama":
+                if self.provider == "ollama":
                     resp = await client.post(
                         f"{self.base_url}/api/generate",
                         json={"model": self.model, "prompt": prompt, "format": "json"},
@@ -396,7 +394,7 @@ class PlaywrightManager:
 
 
 # ── HTTP Session Setup ─────────────────────────────────────────────────────
-def create_session(proxy: Optional[str] = None, timeout: int = DEFAULT_TIMEOUT) -> requests.Session:
+def create_session(proxy: str | None = None, timeout: int = DEFAULT_TIMEOUT) -> requests.Session:
     session = requests.Session()
     retries = Retry(
         total=5,
@@ -433,8 +431,8 @@ async def scrape_page(
     page: int,
     cache: CacheBackend,
     use_playwright: bool = False,
-    llm_extractor: Optional[LLMExtractor] = None,
-) -> List[Dict]:
+    llm_extractor: LLMExtractor | None = None,
+) -> list[dict]:
     cfg = ENGINE_MAP.get(engine)
     if not cfg:
         logger.error(f"❌ Unknown engine: {engine}")
@@ -522,7 +520,7 @@ async def scrape_page(
                 img_url = urljoin(base_url, img_url)
 
         # Extract other metadata (time, channel, meta)
-        def extract_text(sel: Optional[str]) -> str:
+        def extract_text(sel: str | None) -> str:
             if not sel:
                 return "N/A"
             el = item.select_one(sel)
@@ -585,7 +583,7 @@ async def download_thumbnail_with_retry(
 
 
 # ── Generate HTML Output for Results ──────────────────────────────────────
-async def generate_html(results: List[Dict], query: str, engine: str) -> Path:
+async def generate_html(results: list[dict], query: str, engine: str) -> Path:
     ensure_dir(THUMBNAILS_DIR)
     out_file = Path(f"{engine}_{slugify(query)}_{int(time.time())}.html")
 
@@ -649,9 +647,9 @@ class SearchRequest(BaseModel):
     engine: str = "pexels"
     limit: int = DEFAULT_LIMIT
     page: int = DEFAULT_PAGE
-    proxy: Optional[str] = None
+    proxy: str | None = None
     use_playwright: bool = False
-    llm_provider: Optional[str] = None
+    llm_provider: str | None = None
 
 
 @app.get("/search")
@@ -660,9 +658,9 @@ async def search_videos(
     engine: str = Query("pexels"),
     limit: int = Query(DEFAULT_LIMIT),
     page: int = Query(DEFAULT_PAGE),
-    proxy: Optional[str] = Query(None),
+    proxy: str | None = Query(None),
     use_playwright: bool = Query(False),
-    llm_provider: Optional[str] = Query(None),
+    llm_provider: str | None = Query(None),
 ):
     if engine not in ENGINE_MAP:
         raise HTTPException(400, detail=f"Invalid engine '{engine}'")

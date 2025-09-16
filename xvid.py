@@ -26,8 +26,7 @@ ENGINE_MODULE_MAP = {
 # Dynamic PornLib Client Loader
 # ==============================================================================
 def _get_pornlib_client_dynamically(engine_name: str) -> Any | None:
-    """
-    Dynamically imports and returns the pornLib client for the specified engine.
+    """Dynamically imports and returns the pornLib client for the specified engine.
     Assumes 'scoutbaker/pornLib' is installed and its modules (xvideos, pornhub, etc.)
     are directly importable.
     Returns the client instance or None on failure.
@@ -129,8 +128,7 @@ class Tags:
 # ==============================================================================
 
 class PornClient:
-    """
-    A client to interact with various pornographic video engines using the pornLib library.
+    """A client to interact with various pornographic video engines using the pornLib library.
     Handles engine initialization and rate-limited searches.
     """
     def __init__(self, engine: str = DEFAULT_ENGINE, soup_sleep: float = DEFAULT_SOUP_SLEEP):
@@ -155,8 +153,7 @@ class PornClient:
     @sleep_and_retry
     @limits(calls=API_CALLS_LIMIT, period=API_PERIOD_SECONDS)
     def search(self, query: str, limit: int = DEFAULT_SEARCH_LIMIT, page: int = DEFAULT_PAGE) -> list[VideoDataClass]:
-        """
-        Performs a search using the selected engine and returns a list of VideoDataClass objects.
+        """Performs a search using the selected engine and returns a list of VideoDataClass objects.
         Includes robust data parsing and URL validation.
         """
         logger.info(f"Searching {self.engine} for '{query}' (limit={limit}, page={page})...")
@@ -235,8 +232,7 @@ class PornClient:
 # HTML Generation Function
 # ==============================================================================
 def generate_html_output(videos: list[VideoDataClass], query: str, filename: str) -> str:
-    """
-    Generates an HTML string for displaying video search results with enhanced
+    """Generates an HTML string for displaying video search results with enhanced
     thumbnail and video preview loading, and a neon-themed design.
     """
     if not videos:

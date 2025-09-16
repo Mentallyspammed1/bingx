@@ -7,7 +7,7 @@ import webbrowser
 from datetime import datetime
 
 import requests  # Added for downloading thumbnails
-from colorama import Fore, init, Style
+from colorama import Fore, Style, init
 
 # Initialize Colorama for cross-platform colored output
 init(autoreset=True)
@@ -58,8 +58,7 @@ ENGINE_MODULE_MAP = {
 
 # --- Dynamic PornLib Client Loading ---
 def get_pornlib_client(engine_name: str):
-    """
-    Dynamically imports and returns the pornLib client for the specified engine.
+    """Dynamically imports and returns the pornLib client for the specified engine.
     Handles ImportErrors gracefully if a specific client is missing.
     """
     try:
@@ -109,8 +108,7 @@ def ensure_directory_exists(directory_path: str):
             raise # Re-raise the exception if directory creation fails
 
 def sanitize_filename(filename: str) -> str:
-    """
-    Sanitizes a string to be suitable for use as a filename.
+    """Sanitizes a string to be suitable for use as a filename.
     Removes or replaces characters that are problematic in filenames.
     Limits length to avoid issues with max filename length on some OS.
     """
@@ -126,8 +124,7 @@ def sanitize_filename(filename: str) -> str:
     return filename if filename else "sanitized_empty_title"
 
 def download_file(url: str, local_filepath: str, timeout: int = 10) -> bool:
-    """
-    Downloads a file from a URL to a local path.
+    """Downloads a file from a URL to a local path.
     Returns True if successful, False otherwise.
     """
     try:
@@ -166,8 +163,7 @@ class PornClient:
             raise RuntimeError(f"Failed to initialize PornLib client for '{self.engine_name}'. Check logs above.{RESET_ALL}")
 
     def search(self, query: str, limit: int = DEFAULT_SEARCH_LIMIT, page: int = DEFAULT_PAGE_NUMBER):
-        """
-        Performs a search using the initialized pornLib client.
+        """Performs a search using the initialized pornLib client.
         Note: The 'page' parameter is often not directly supported by pornLib's search methods.
               It will be logged but not passed to the underlying pornLib search if not supported.
         """
@@ -250,8 +246,7 @@ class PornClient:
 
 # --- HTML Output Generation ---
 def generate_html_output(results, query, engine, search_limit, output_dir=".", prefix_format="{engine}_search_{query_part}_{timestamp}"):
-    """
-    Generates an HTML file with the search results.
+    """Generates an HTML file with the search results.
     """
     if not results:
         logger.warning(f"{NEON_YELLOW}No videos found for query '{query}' using engine '{engine}'. No HTML file generated.{RESET_ALL}")

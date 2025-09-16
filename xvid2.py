@@ -71,8 +71,7 @@ class Tags:
 # PornClient Class
 # ==============================================================================
 class PornClient:
-    """
-    A client to interact with various pornographic video engines using the pornLib library.
+    """A client to interact with various pornographic video engines using the pornLib library.
     Handles engine initialization and rate-limited searches.
     """
     def __init__(self, engine: str = DEFAULT_ENGINE, soup_sleep: float = DEFAULT_SOUP_SLEEP):
@@ -164,8 +163,7 @@ class PornClient:
     @sleep_and_retry # type: ignore
     @limits(calls=API_CALLS_LIMIT, period=API_PERIOD_SECONDS) # type: ignore
     def list_videos(self, limit: int = 12) -> list[VideoDataClass]:
-        """
-        Fetches a list of trending/recent videos using the selected engine.
+        """Fetches a list of trending/recent videos using the selected engine.
         Handles rate limiting and robust error parsing.
         """
         if not isinstance(limit, int) or limit <= 0:
@@ -200,8 +198,7 @@ class PornClient:
     @sleep_and_retry # type: ignore
     @limits(calls=API_CALLS_LIMIT, period=API_PERIOD_SECONDS) # type: ignore
     def search_videos(self, keyword: str | None = None, page: int | None = None, limit: int | None = None, **kwargs: Any) -> list[VideoDataClass]:
-        """
-        Performs a search using the selected engine and returns a list of VideoDataClass objects.
+        """Performs a search using the selected engine and returns a list of VideoDataClass objects.
         Includes robust data parsing and URL validation.
         """
         search_params: dict[str, Any] = {k: v for k, v in kwargs.items() if v is not None}
@@ -240,8 +237,7 @@ class PornClient:
 # HTML Generation Function
 # ==============================================================================
 def generate_html_output(videos: list[VideoDataClass], query: str, filename: str) -> str:
-    """
-    Generates an HTML string for displaying video search results with enhanced
+    """Generates an HTML string for displaying video search results with enhanced
     thumbnail and video preview loading, and a neon-themed design.
     """
     safe_query = html.escape(query)

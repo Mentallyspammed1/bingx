@@ -1,7 +1,9 @@
+import shutil
 import unittest
 from pathlib import Path
-import shutil
-from scrapey import sanitize_filename, create_directory, rename_files, apply_filters
+
+from scrapey import apply_filters, create_directory, rename_files, sanitize_filename
+
 
 class TestScrapey(unittest.TestCase):
 

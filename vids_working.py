@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-video_search.py  •  2025-08-01 (ENHANCED-UPGRADED)
+"""video_search.py  •  2025-08-01 (ENHANCED-UPGRADED)
 
 Enhanced video search with state-of-the-art 2025 web scraping best practices.
 Incorporates modern techniques from latest research:
@@ -33,11 +31,11 @@ import time
 import unicodedata
 import uuid
 import webbrowser
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
 from datetime import datetime
-from functools import wraps
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any
 from urllib.parse import quote_plus, urljoin, urlparse
 
 import requests
@@ -51,14 +49,14 @@ try:
     ASYNC_AVAILABLE = True
 except ImportError:
     ASYNC_AVAILABLE = False
-    
+
 try:
     from selenium import webdriver
+    from selenium.common.exceptions import TimeoutException, WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.webdriver.support.ui import WebDriverWait
     SELENIUM_AVAILABLE = True
 except ImportError:
     SELENIUM_AVAILABLE = False
@@ -147,7 +145,7 @@ REALISTIC_USER_AGENTS = [
 ]
 
 # Realistic browser headers to avoid bot detection[2][3]
-def get_realistic_headers(user_agent: str) -> Dict[str, str]:
+def get_realistic_headers(user_agent: str) -> dict[str, str]:
     """Generate realistic browser headers based on User-Agent."""
     return {
         "User-Agent": user_agent,
@@ -171,7 +169,7 @@ def get_realistic_headers(user_agent: str) -> Dict[str, str]:
 
 
 # ── Enhanced Engine Configurations ─────────────────────────────────────────
-ENGINE_MAP: Dict[str, Dict[str, Any]] = {
+ENGINE_MAP: dict[str, dict[str, Any]] = {
     "pexels": {
         "url": "https://www.pexels.com",
         "search_path": "/search/videos/{query}/",
@@ -345,7 +343,7 @@ def enhanced_slugify(text: str) -> str:
 def build_enhanced_session(
     timeout: int = DEFAULT_TIMEOUT,
     max_retries: int = DEFAULT_MAX_RETRIES,
-    proxy: Optional[str] = None,
+    proxy: str | None = None,
 ) -> requests.Session:
     """Create enhanced session with 2025 best practices[1][2][3]."""
     session = requests.Session()
@@ -391,21 +389,21 @@ def build_enhanced_session(
 
 
 def smart_delay_with_jitter(
-    delay_range: Tuple[float, float],
-    last_request_time: Optional[float] = None,
+    delay_range: tuple[float, float],
+    last_request_time: float | None = None,
     jitter: float = 0.3
 ) -> None:
     """Implement intelligent delays with jitter to avoid detection[2][3]."""
     min_delay, max_delay = delay_range
     current_time = time.time()
-    
+
     if last_request_time:
         elapsed = current_time - last_request_time
         base_wait = random.uniform(min_delay, max_delay)
         # Add jitter to make timing less predictable
         jitter_amount = base_wait * jitter * random.uniform(-1, 1)
         min_wait = max(0.5, base_wait + jitter_amount)
-        
+
         if elapsed < min_wait:
             time.sleep(min_wait - elapsed)
     else:
@@ -414,11 +412,11 @@ def smart_delay_with_jitter(
         time.sleep(max(0.5, base_wait + jitter_amount))
 
 
-def create_selenium_driver() -> Optional[webdriver.Chrome]:
+def create_selenium_driver() -> webdriver.Chrome | None:
     """Create Selenium driver for JavaScript-heavy sites[2]."""
     if not SELENIUM_AVAILABLE:
         return None
-        
+
     try:
         options = ChromeOptions()
         options.add_argument("--headless=new")  # Use new headless mode
@@ -430,14 +428,14 @@ def create_selenium_driver() -> Optional[webdriver.Chrome]:
         options.add_argument("--window-size=1920,1080")
         # Randomize user agent
         options.add_argument(f"--user-agent={random.choice(REALISTIC_USER_AGENTS)}")
-        
+
         # Disable images and CSS for faster loading
         prefs = {
             "profile.managed_default_content_settings.images": 2,
             "profile.managed_default_content_settings.stylesheets": 2,
         }
         options.add_experimental_option("prefs", prefs)
-        
+
         driver = webdriver.Chrome(options=options)
         driver.set_page_load_timeout(30)
         return driver
@@ -446,11 +444,11 @@ def create_selenium_driver() -> Optional[webdriver.Chrome]:
         return None
 
 
-def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: Dict) -> List:
+def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: dict) -> list:
     """Extract data using Selenium for JavaScript-heavy sites[2]."""
     try:
         driver.get(url)
-        
+
         # Wait for video items to load
         wait = WebDriverWait(driver, 10)
         found_element = False
@@ -463,19 +461,19 @@ def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: Dict) -> List
             except TimeoutException:
                 logger.debug(f"Selenium did not find element with selector: {selector.strip()}")
                 continue
-        
+
         if not found_element:
             logger.warning(f"Selenium could not find any video items with provided selectors for {url}")
             return []
-        
+
         # Additional wait to ensure dynamic content loads
         time.sleep(2)
-        
+
         # Get page source and parse with BeautifulSoup
         soup = BeautifulSoup(driver.page_source, "html.parser")
         logger.debug(f"Selenium parsed soup: {soup.prettify()}")
         return extract_video_items(soup, cfg)
-        
+
     except (TimeoutException, WebDriverException) as e:
         logger.warning(f"Selenium extraction failed for {url}: {e}")
         return []
@@ -485,15 +483,15 @@ def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: Dict) -> List
 
 
 @asynccontextmanager
-async def aiohttp_session() -> AsyncGenerator[Optional[aiohttp.ClientSession], None]:
+async def aiohttp_session() -> AsyncGenerator[aiohttp.ClientSession | None, None]:
     """Create async HTTP session for thumbnail downloads."""
     if not ASYNC_AVAILABLE:
         yield None
         return
-        
+
     timeout = aiohttp.ClientTimeout(total=30, connect=10)
     headers = get_realistic_headers(random.choice(REALISTIC_USER_AGENTS))
-    
+
     try:
         async with aiohttp.ClientSession(
             timeout=timeout,
@@ -537,10 +535,9 @@ async def async_download_thumbnail(
 
                         if path.stat().st_size > 0:
                             return True
-                        else:
-                            path.unlink(missing_ok=True)
-                            logger.debug(f"Async download resulted in empty file for {url}")
-                            continue  # Retry if file is empty
+                        path.unlink(missing_ok=True)
+                        logger.debug(f"Async download resulted in empty file for {url}")
+                        continue  # Retry if file is empty
 
                     logger.debug(f"Async download failed, status {response.status} for {url} (attempt {attempt + 1})")
 
@@ -589,9 +586,8 @@ def robust_download_sync(session: requests.Session, url: str, path: Path, max_at
 
                 if path.stat().st_size > 0:
                     return True
-                else:
-                    path.unlink(missing_ok=True)
-                    logger.debug(f"Sync download resulted in empty file for {url} (attempt {attempt + 1})")
+                path.unlink(missing_ok=True)
+                logger.debug(f"Sync download resulted in empty file for {url} (attempt {attempt + 1})")
                     # Continue to retry
 
         except requests.exceptions.RequestException as e:
@@ -612,8 +608,8 @@ def get_search_results(
     query: str,
     limit: int,
     page: int,
-    delay_range: Tuple[float, float],
-) -> List[Dict]:
+    delay_range: tuple[float, float],
+) -> list[dict]:
     """Enhanced scraping with comprehensive error handling[1][2][3]."""
     if engine not in ENGINE_MAP:
         logger.error(f"Unsupported engine: {engine}", extra={'engine': engine, 'query': query})
@@ -621,7 +617,7 @@ def get_search_results(
 
     cfg = ENGINE_MAP[engine]
     base_url = cfg["url"]
-    results: List[Dict] = []
+    results: list[dict] = []
     last_request_time = None
     driver = None
 
@@ -635,7 +631,7 @@ def get_search_results(
         items_per_page = 30
         pages_to_fetch = min(5, (limit + items_per_page - 1) // items_per_page)
 
-        logger.info(f"Searching {engine} for '{query}' (up to {pages_to_fetch} pages)", 
+        logger.info(f"Searching {engine} for '{query}' (up to {pages_to_fetch} pages)",
                    extra={'engine': engine, 'query': query})
 
         for current_page in range(page, page + pages_to_fetch):
@@ -651,14 +647,14 @@ def get_search_results(
                 search_path = cfg["search_path"].format(query=quote_plus(query), page=current_page)
             else:
                 search_path = cfg["search_path"].format(query=quote_plus(query))
-            
+
             url = urljoin(base_url, search_path)
-            
+
             if current_page > 1 and "{page}" not in cfg["search_path"] and cfg.get("page_param"):
                 separator = "&" if "?" in url else "?"
                 url += f"{separator}{cfg.get('page_param')}={current_page}"
 
-            logger.info(f"Fetching page {current_page}: {url}", 
+            logger.info(f"Fetching page {current_page}: {url}",
                        extra={'engine': engine, 'query': query})
 
             try:
@@ -669,7 +665,7 @@ def get_search_results(
                     # Rotate User-Agent and headers
                     user_agent = random.choice(REALISTIC_USER_AGENTS)
                     session.headers.update(get_realistic_headers(user_agent))
-                    
+
                     response = session.get(url, timeout=session.timeout)
                     response.raise_for_status()
 
@@ -710,32 +706,32 @@ def get_search_results(
             except Exception:
                 pass
 
-    logger.info(f"Successfully extracted {len(results)} videos", 
+    logger.info(f"Successfully extracted {len(results)} videos",
                extra={'engine': engine, 'query': query})
     return results[:limit]
 
 
-def extract_video_items(soup: BeautifulSoup, cfg: Dict) -> List:
+def extract_video_items(soup: BeautifulSoup, cfg: dict) -> list:
     """Extract video items with comprehensive fallback logic."""
     video_items = []
-    
+
     # Try primary selectors
     for selector in cfg["video_item_selector"].split(", "):
         video_items = soup.select(selector.strip())
         if video_items:
             break
-    
+
     # Try fallback selectors if needed
     if not video_items and "fallback_selectors" in cfg:
         for selector in cfg["fallback_selectors"].get("container", []):
             video_items = soup.select(selector)
             if video_items:
                 break
-                
+
     return video_items
 
 
-def extract_video_data_enhanced(item, cfg: Dict, base_url: str) -> Optional[Dict]:
+def extract_video_data_enhanced(item, cfg: dict, base_url: str) -> dict | None:
     """Enhanced video data extraction with comprehensive fallbacks[3]."""
     try:
         # Extract title with multiple fallback strategies
@@ -746,7 +742,7 @@ def extract_video_data_enhanced(item, cfg: Dict, base_url: str) -> Optional[Dict
 
         for selector in title_selectors:
             if not selector:
-                logger.debug(f"Skipping empty title selector.")
+                logger.debug("Skipping empty title selector.")
                 continue
             logger.debug(f"Attempting to select title with: {selector}")
             title_el = item.select_one(selector)
@@ -764,10 +760,10 @@ def extract_video_data_enhanced(item, cfg: Dict, base_url: str) -> Optional[Dict
         link_selectors = [cfg.get("link_selector", "")]
         if "fallback_selectors" in cfg and "link" in cfg["fallback_selectors"]:
             link_selectors.extend(cfg["fallback_selectors"]["link"])
-            
+
         for selector in link_selectors:
             if not selector:
-                logger.debug(f"Skipping empty link selector.")
+                logger.debug("Skipping empty link selector.")
                 continue
             logger.debug(f"Attempting to select link with: {selector}")
             link_el = item.select_one(selector)
@@ -785,7 +781,7 @@ def extract_video_data_enhanced(item, cfg: Dict, base_url: str) -> Optional[Dict
 
         for selector in img_selectors:
             if not selector:
-                logger.debug(f"Skipping empty image selector.")
+                logger.debug("Skipping empty image selector.")
                 continue
             logger.debug(f"Attempting to select image with: {selector}")
             img_el = item.select_one(selector)
@@ -804,7 +800,7 @@ def extract_video_data_enhanced(item, cfg: Dict, base_url: str) -> Optional[Dict
         duration = extract_text_safe(item, cfg.get("time_selector", ""), "N/A")
         views = extract_text_safe(item, cfg.get("meta_selector", ""), "N/A")
         channel_name = extract_text_safe(item, cfg.get("channel_name_selector", ""), "N/A")
-        
+
         channel_link = "#"
         channel_link_selector = cfg.get("channel_link_selector", "")
         if channel_link_selector:
@@ -847,17 +843,17 @@ def extract_text_safe(element, selector: str, default: str = "N/A") -> str:
         return default
 
 
-def validate_video_data_enhanced(data: Dict) -> bool:
+def validate_video_data_enhanced(data: dict) -> bool:
     """Enhanced validation with comprehensive checks[3]."""
     if not isinstance(data, dict):
         return False
-        
+
     # Required fields validation
     required_fields = ["title", "link"]
     for field in required_fields:
         if not data.get(field) or data[field] in ["", "Untitled", "#"]:
             return False
-    
+
     # URL validation
     try:
         parsed_link = urlparse(data["link"])
@@ -865,12 +861,12 @@ def validate_video_data_enhanced(data: Dict) -> bool:
             return False
     except Exception:
         return False
-    
+
     # Title validation
     title = data.get("title", "")
     if len(title) < 3 or title.lower() in ["untitled", "n/a", "error"]:
         return False
-    
+
     return True
 
 
@@ -1196,7 +1192,7 @@ ENHANCED_HTML_TAIL = """        </main>
 
 
 async def build_enhanced_html_async(
-    results: Sequence[Dict],
+    results: Sequence[dict],
     query: str,
     engine: str,
     thumbs_dir: Path,
@@ -1224,14 +1220,14 @@ async def build_enhanced_html_async(
         </svg>'''
         return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
 
-    async def fetch_thumbnail_async_task(idx: int, video: Dict) -> Tuple[int, str]:
+    async def fetch_thumbnail_async_task(idx: int, video: dict) -> tuple[int, str]:
         """Download thumbnail async with caching and fallbacks."""
         img_url = video.get("img_url")
         if not img_url:
             return idx, generate_placeholder_svg("🎬")
 
         dest_path = get_thumb_path(img_url, video.get("title", "video"), idx)
-        
+
         # Use cached version if it exists and is valid
         if dest_path.exists() and dest_path.stat().st_size > 0:
             return idx, str(dest_path).replace("\\", "/")
@@ -1253,26 +1249,26 @@ async def build_enhanced_html_async(
 
         return idx, generate_placeholder_svg("❌")
 
-    def fetch_thumbnail_sync_task(idx: int, video: Dict) -> Tuple[int, str]:
+    def fetch_thumbnail_sync_task(idx: int, video: dict) -> tuple[int, str]:
         """Wrapper for threaded sync download with caching."""
         img_url = video.get("img_url")
         if not img_url:
             return idx, generate_placeholder_svg("🎬")
-            
+
         dest_path = get_thumb_path(img_url, video.get("title", "video"), idx)
 
         # Use cached version if it exists and is valid
         if dest_path.exists() and dest_path.stat().st_size > 0:
             return idx, str(dest_path).replace("\\", "/")
-            
+
         if robust_download_sync(session, img_url, dest_path):
             return idx, str(dest_path).replace("\\", "/")
-        
+
         return idx, generate_placeholder_svg("❌")
 
     # Download thumbnails
     thumbnail_paths = [""] * len(results)
-    
+
     if ASYNC_AVAILABLE:
         tasks = [fetch_thumbnail_async_task(i, video) for i, video in enumerate(results)]
         results_with_idx = await asyncio.gather(*tasks, return_exceptions=True)
@@ -1304,7 +1300,7 @@ async def build_enhanced_html_async(
                 except Exception as e:
                     logger.debug(f"Error with threaded download for item {i}: {e}")
                     thumbnail_paths[i] = generate_placeholder_svg("❌")
-                    
+
     # Generate HTML
     with open(outfile, "w", encoding="utf-8") as f:
         f.write(ENHANCED_HTML_HEAD.format(
@@ -1315,7 +1311,7 @@ async def build_enhanced_html_async(
             timestamp=datetime.now().strftime("%Y-%m-%d %H:%M")
         ))
 
-        for video, thumbnail in zip(results, thumbnail_paths):
+        for video, thumbnail in zip(results, thumbnail_paths, strict=False):
             # Build meta items
             meta_items = []
             if video.get("time", "N/A") != "N/A":
@@ -1363,7 +1359,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Enhanced video search with web scraping.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"""\
+        epilog="""\
 Example usage:
   python3 video_search.py "cats in space"
   python3 video_search.py "ocean waves" -e pexels -l 50 -p 2 -o json
@@ -1371,7 +1367,7 @@ Example usage:
   python3 video_search.py "search term" -e pornhub -x http://user:pass@host:port
 """
     )
-    
+
     parser.add_argument("query", type=str, help="The search query for videos.")
     parser.add_argument(
         "-e", "--engine", type=str, default=DEFAULT_ENGINE,
@@ -1411,18 +1407,18 @@ Example usage:
         "-v", "--verbose", action="store_true",
         help="Enable verbose logging."
     )
-    
+
     args = parser.parse_args()
 
     # Set logging level
     if args.verbose:
         logger.setLevel(logging.DEBUG)
-    
+
     # Check for async availability
     global ASYNC_AVAILABLE
     if args.no_async:
         ASYNC_AVAILABLE = False
-    
+
     # Handle KeyboardInterrupt gracefully
     def signal_handler(sig, frame):
         print(f"\n{NEON['YELLOW']}* Ctrl+C detected. Exiting gracefully...{NEON['RESET']}")
@@ -1433,7 +1429,7 @@ Example usage:
     # Main execution logic
     try:
         session = build_enhanced_session(proxy=args.proxy)
-        
+
         print(f"{NEON['CYAN']}{Style.BRIGHT}Starting search for '{args.query}' on {args.engine}...")
 
         # Search for results
@@ -1445,11 +1441,11 @@ Example usage:
             page=args.page,
             delay_range=DEFAULT_DELAY,
         )
-        
+
         if not results:
             print(f"{NEON['RED']}No videos found for '{args.query}' on {args.engine}.{NEON['RESET']}")
             sys.exit(1)
-        
+
         print(f"{NEON['GREEN']}Found {len(results)} videos.{NEON['RESET']}")
 
         # Handle output format
@@ -1460,7 +1456,7 @@ Example usage:
             with open(outfile, "w", encoding="utf-8") as f:
                 json.dump(results, f, ensure_ascii=False, indent=4)
             print(f"{NEON['CYAN']}JSON results saved to: {outfile}{NEON['RESET']}")
-        
+
         else: # html format
             # Use asyncio to run the HTML builder
             if ASYNC_AVAILABLE and not args.no_async:
@@ -1494,7 +1490,7 @@ Example usage:
                     webbrowser.open(f"file://{os.path.abspath(outfile)}")
                 except Exception as e:
                     print(f"{NEON['YELLOW']}Failed to open browser: {e}{NEON['RESET']}")
-        
+
     except Exception as e:
         logger.critical(f"An unhandled error occurred: {e}", exc_info=True)
         sys.exit(1)

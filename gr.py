@@ -1,54 +1,30 @@
 import argparse
-
 import ast
-
 import configparser
-
 import difflib
-
 import hashlib
-
 import json
-
 import logging
-
 import os
-
 import re
-
 import shutil
-
 import signal
-
 import subprocess
-
 import sys
-
 import tempfile
-
 import time
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from dataclasses import dataclass, field
-
 from datetime import datetime
-
 from pathlib import Path
 
 import astor
-
 import pathspec
-
 import requests
-
 import tqdm
-
-from colorama import Fore, init, Style
-
+from colorama import Fore, Style, init
 from dotenv import load_dotenv
 
-from colorama import init
 init(autoreset=True)
 
 DEFAULT_MODEL = 'gemini-1.5-flash'
@@ -69,7 +45,6 @@ API_RATE_LIMIT_WAIT = 61
 
 API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 
-from pathlib import Path
 
 SCRIPT_NAME = Path(__file__).name
 
@@ -99,10 +74,8 @@ logger = logging.getLogger('gemini_review')
 
 log_level_map = {'DEBUG': logging.DEBUG, 'INFO': logging.INFO, 'WARNING': logging.WARNING, 'ERROR': logging.ERROR, 'CRITICAL': logging.CRITICAL}
 
-from dataclasses import dataclass, field
-import argparse
-import configparser
 from pathlib import Path
+
 
 @dataclass
 class ScriptContext:
@@ -139,7 +112,7 @@ class NeonFormatter(logging.Formatter):
 
 
 import logging
-import sys
+
 
 def setup_logger(level: int):
     """Configures the global logger with the NeonFormatter."""
@@ -398,7 +371,7 @@ def split_file_into_chunks(input_path: Path, lang_hint: (str | None)) ->list[
     max_tokens = ctx.args.max_chunk_tokens
     for chunk_content in chunks_raw:
         if max_tokens and len(chunk_content) // CHARS_PER_TOKEN > max_tokens:
-            log_debug(f'Fragment too large, subdividing by line.')
+            log_debug('Fragment too large, subdividing by line.')
             lines = chunk_content.splitlines(keepends=True)
             sub_chunk_lines = []
             sub_chunk_tokens = 0
@@ -454,7 +427,7 @@ def run_pre_check(content: str, lang_hint: str) ->bool:
             return False
         log_info('Ruff pre-check passed.')
         return True
-    elif lang_hint in ['bash', 'sh', 'zsh'] and shutil.which('shellcheck'):
+    if lang_hint in ['bash', 'sh', 'zsh'] and shutil.which('shellcheck'):
         cmd = ['shellcheck', '-s', lang_hint, '-']
         proc = subprocess.run(cmd, input=content.encode('utf-8'),
             capture_output=True, check=False)
@@ -631,10 +604,10 @@ def reassemble_output(all_original_chunks: list[Path], file_path: Path,
                 if resp == 'y':
                     final_content_parts.append(new_content)
                     break
-                elif resp == 'n':
+                if resp == 'n':
                     final_content_parts.append(original_content)
                     break
-                elif resp == 'e':
+                if resp == 'e':
                     editor = os.environ.get('EDITOR', 'nano')
                     temp_edit_file = ctx.temp_dir / f'edit_{chunk_basename}'
                     temp_edit_file.write_text(new_content, encoding='utf-8')
@@ -642,7 +615,7 @@ def reassemble_output(all_original_chunks: list[Path], file_path: Path,
                     final_content_parts.append(temp_edit_file.read_text(
                         encoding='utf-8'))
                     break
-                elif resp == 'a':
+                if resp == 'a':
                     accept_all = True
                     final_content_parts.append(new_content)
                     break
@@ -682,7 +655,7 @@ def get_files_from_input_dir() ->list[tuple[Path, Path]]:
     spec = None
     if gitignore_path.is_file():
         log_info(f'Applying ignore patterns from {gitignore_path}')
-        with open(gitignore_path, 'r', encoding='utf-8') as f:
+        with open(gitignore_path, encoding='utf-8') as f:
             spec = pathspec.PathSpec.from_lines('gitwildmatch', f)
     default_skip_ext = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.zip',
         '.tar', '.gz', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.sqlite3',
@@ -833,7 +806,7 @@ def list_available_models():
     except requests.exceptions.RequestException as e:
         log_error(f'Failed to fetch models: {e}')
     except (json.JSONDecodeError, KeyError):
-        log_error(f'Failed to parse model list from API response.')
+        log_error('Failed to parse model list from API response.')
 
 
 def main():

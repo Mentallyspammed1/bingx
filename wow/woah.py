@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-wowxxx_search.py - Enhanced Wow.xxx Video Search Tool (Upgraded Version)
+"""wowxxx_search.py - Enhanced Wow.xxx Video Search Tool (Upgraded Version)
 This script is a specialized version of the generic video search tool,
 configured specifically for the wow.xxx platform. It includes numerous
 improvements while maintaining backward compatibility.
@@ -18,11 +16,13 @@ Key Upgrades:
 
 Usage:
   python3 wowxxx_search.py "your search query" [options]
+
 Example:
   python3 wowxxx_search.py "your query" -l 50
   python3 wowxxx_search.py "your query" --output-format json
 """
 from __future__ import annotations
+
 import argparse
 import asyncio
 import base64
@@ -40,12 +40,13 @@ import time
 import unicodedata
 import uuid
 import webbrowser
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
 from datetime import datetime
-from functools import wraps
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any
 from urllib.parse import quote_plus, urljoin, urlparse
+
 import requests
 from bs4 import BeautifulSoup
 from colorama import Fore, Style, init
@@ -60,11 +61,11 @@ except ImportError:
 
 try:
     from selenium import webdriver
+    from selenium.common.exceptions import TimeoutException, WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.webdriver.support.ui import WebDriverWait
     SELENIUM_AVAILABLE = True
 except ImportError:
     SELENIUM_AVAILABLE = False
@@ -161,7 +162,7 @@ REALISTIC_USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 OPR/101.0.0.0",
 ]
 
-def get_realistic_headers(user_agent: str) -> Dict[str, str]:
+def get_realistic_headers(user_agent: str) -> dict[str, str]:
     """Generate realistic headers with additional security measures"""
     headers = {
         "User-Agent": user_agent,
@@ -185,7 +186,7 @@ def get_realistic_headers(user_agent: str) -> Dict[str, str]:
     return headers
 
 # Enhanced configuration with more fallback options
-WOWXXX_CONFIG: Dict[str, Any] = {
+WOWXXX_CONFIG: dict[str, Any] = {
     "url": "https://www.wow.xxx",
     "search_path": "/popular/search/{query}/top-rated/",
     "page_param": None,
@@ -259,8 +260,8 @@ def enhanced_slugify(text: str) -> str:
 def build_enhanced_session(
     timeout: int = DEFAULT_TIMEOUT,
     max_retries: int = DEFAULT_MAX_RETRIES,
-    proxy: Optional[str] = None,
-    proxy_list: Optional[List[str]] = None
+    proxy: str | None = None,
+    proxy_list: list[str] | None = None
 ) -> requests.Session:
     """Build an enhanced session with improved retry logic and proxy rotation"""
     session = requests.Session()
@@ -331,14 +332,13 @@ def build_enhanced_session(
     return session
 
 def smart_delay_with_jitter(
-    delay_range: Tuple[float, float],
-    last_request_time: Optional[float] = None,
+    delay_range: tuple[float, float],
+    last_request_time: float | None = None,
     jitter: float = 0.3,
     adaptive: bool = True,
-    request_history: Optional[List[float]] = None
+    request_history: list[float] | None = None
 ) -> None:
-    """
-    Enhanced delay function with adaptive rate limiting based on request history
+    """Enhanced delay function with adaptive rate limiting based on request history
     and improved jitter calculation for more human-like behavior.
     """
     min_delay, max_delay = delay_range
@@ -390,9 +390,9 @@ def smart_delay_with_jitter(
 @asynccontextmanager
 async def aiohttp_session(
     timeout: int = 30,
-    proxy: Optional[str] = None,
-    proxy_auth: Optional[Tuple[str, str]] = None
-) -> AsyncGenerator[Optional[aiohttp.ClientSession], None]:
+    proxy: str | None = None,
+    proxy_auth: tuple[str, str] | None = None
+) -> AsyncGenerator[aiohttp.ClientSession | None, None]:
     """Enhanced aiohttp session with proxy support and better error handling"""
     if not ASYNC_AVAILABLE:
         yield None
@@ -510,10 +510,9 @@ async def download_thumbnail_async(
                     if temp_path.exists() and temp_path.stat().st_size == content_length:
                         temp_path.rename(path)
                         return True
-                    else:
-                        temp_path.unlink(missing_ok=True)
-                        if attempt < max_retries - 1:
-                            await asyncio.sleep(2 ** attempt)
+                    temp_path.unlink(missing_ok=True)
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2 ** attempt)
 
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 logger.debug(f"Async download failed for {url} (attempt {attempt + 1}): {e}")
@@ -589,7 +588,7 @@ def robust_download_sync(
 
     return False
 
-def extract_video_items(soup: BeautifulSoup, cfg: Dict) -> List:
+def extract_video_items(soup: BeautifulSoup, cfg: dict) -> list:
     """Enhanced video item extraction with better fallback handling"""
     video_items = []
 
@@ -651,7 +650,7 @@ def extract_text_safe(element, selector: str, default: str = "N/A") -> str:
         logger.debug(f"Error extracting text with selector '{selector}': {e}")
         return default
 
-def extract_video_data_enhanced(item, cfg: Dict, base_url: str) -> Optional[Dict]:
+def extract_video_data_enhanced(item, cfg: dict, base_url: str) -> dict | None:
     """Enhanced video data extraction with better validation and fallback handling"""
     try:
         # Extract title with multiple fallback options
@@ -771,7 +770,7 @@ def extract_video_data_enhanced(item, cfg: Dict, base_url: str) -> Optional[Dict
         logger.debug(f"Error extracting video data: {e}")
         return None
 
-def validate_video_data_enhanced(data: Dict) -> bool:
+def validate_video_data_enhanced(data: dict) -> bool:
     """Enhanced validation with more comprehensive checks"""
     if not isinstance(data, dict):
         return False
@@ -1113,13 +1112,13 @@ HTML_TAIL = """  </section>
 """
 
 async def build_enhanced_html_async(
-    results: Sequence[Dict],
+    results: Sequence[dict],
     query: str,
     engine: str,
     thumbs_dir: Path,
     session: requests.Session,
     workers: int,
-    output_dir: Optional[Path] = None,
+    output_dir: Path | None = None,
     open_browser: bool = True
 ) -> Path:
     """Enhanced HTML builder with better error handling and output options"""
@@ -1147,7 +1146,7 @@ async def build_enhanced_html_async(
         except Exception:
             return thumbs_dir / f"thumbnail_{idx}.jpg"
 
-    async def fetch_thumbnail_async_task(idx: int, video: Dict) -> Tuple[int, str]:
+    async def fetch_thumbnail_async_task(idx: int, video: dict) -> tuple[int, str]:
         """Enhanced thumbnail fetch task with better error handling"""
         img_url = video.get("img_url")
         if not img_url:
@@ -1196,7 +1195,7 @@ async def build_enhanced_html_async(
         # If all else fails, return placeholder
         return idx, generate_placeholder_svg("❌")
 
-    def fetch_thumbnail_sync_task(idx: int, video: Dict) -> Tuple[int, str]:
+    def fetch_thumbnail_sync_task(idx: int, video: dict) -> tuple[int, str]:
         """Synchronous thumbnail fetch task"""
         img_url = video.get("img_url")
         if not img_url:
@@ -1294,7 +1293,7 @@ async def build_enhanced_html_async(
                 timestamp=datetime.now().strftime("%Y-%m-%d %H:%M")
             ))
 
-            for video, thumbnail in zip(results, thumbnail_paths):
+            for video, thumbnail in zip(results, thumbnail_paths, strict=False):
                 meta_items = []
 
                 # Add duration if available
@@ -1359,13 +1358,13 @@ def get_wowxxx_results(
     query: str,
     limit: int,
     page: int,
-    delay_range: Tuple[float, float],
-    config: Dict[str, Any] = WOWXXX_CONFIG,
-    use_selenium: Optional[bool] = None
-) -> List[Dict[str, Any]]:
+    delay_range: tuple[float, float],
+    config: dict[str, Any] = WOWXXX_CONFIG,
+    use_selenium: bool | None = None
+) -> list[dict[str, Any]]:
     """Enhanced results fetching with better pagination and error handling"""
     base_url = config["url"]
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     last_request_time = None
     request_history = []
 
@@ -1496,13 +1495,13 @@ def get_wowxxx_results(
                             logger.info(f"No more pages available after page {current_page - 1}")
                             has_next_page = False
                             break
-                        elif e.response.status_code == 429:
+                        if e.response.status_code == 429:
                             # Too many requests - increase delay
                             delay_range = (delay_range[0] * 1.5, delay_range[1] * 1.5)
                             logger.warning(f"Rate limited. Increasing delays to {delay_range}")
                             time.sleep(random.uniform(5, 10))
                             continue
-                        elif e.response.status_code == 403:
+                        if e.response.status_code == 403:
                             logger.error("Access forbidden. Check your IP or user agent.")
                             has_next_page = False
                             break
@@ -1567,7 +1566,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description="wow.xxx Video Searcher based on web scraping (Enhanced Version).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"""\
+        epilog="""\
 Example usage:
   python3 wowxxx_search.py "teen girl"
   python3 wowxxx_search.py "milf" -l 50
@@ -1667,10 +1666,10 @@ Example usage:
 
     return parser.parse_args()
 
-def load_custom_config(config_file: str) -> Dict[str, Any]:
+def load_custom_config(config_file: str) -> dict[str, Any]:
     """Load custom configuration from JSON file"""
     try:
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, encoding='utf-8') as f:
             custom_config = json.load(f)
 
         # Merge with default config
@@ -1683,11 +1682,11 @@ def load_custom_config(config_file: str) -> Dict[str, Any]:
         logger.error(f"Failed to load custom config {config_file}: {e}")
         return WOWXXX_CONFIG
 
-def load_proxy_list(proxy_list_file: str) -> List[str]:
+def load_proxy_list(proxy_list_file: str) -> list[str]:
     """Load list of proxies from file"""
     proxies = []
     try:
-        with open(proxy_list_file, 'r', encoding='utf-8') as f:
+        with open(proxy_list_file, encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith('#'):

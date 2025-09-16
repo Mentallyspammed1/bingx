@@ -16,7 +16,7 @@ from typing import Any
 
 # Third-party Libraries
 from bing_image_downloader import downloader
-from colorama import Back, Fore, init, Style
+from colorama import Back, Fore, Style, init
 from tqdm import tqdm
 
 # Attempt to import Pillow for image metadata; provide guidance if missing

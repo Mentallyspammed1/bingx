@@ -1,15 +1,18 @@
-// core/VideoMixin.js
 'use strict';
-const enforceAbstractMethods = require('./abstractMethodFactory');
 
-const videoAbstractMethods = [
-  'videoUrl',    // Expected to return a string (URL). Params: (query, page)
-  'videoParser', // Expected to parse data and return an array. Params: (cheerioInstance, rawHtmlOrJsonData)
-];
+const OverwriteError = require('./OverwriteError');
 
 /**
- * VideoMixin - A factory function that creates a mixin to add video-related abstract method requirements.
- * @param {Function} BaseClass - The base class constructor to extend.
- * @returns {Function} A new class constructor with enforced abstract methods for videos.
+ * VideoMixin adds videoUrl and videoParser contract methods to base class.
  */
-module.exports = (BaseClass) => enforceAbstractMethods(BaseClass, videoAbstractMethods);
+const VideoMixin = (BaseClass) => class extends BaseClass {
+  videoUrl(query, page) {
+    throw new OverwriteError('videoUrl');
+  }
+
+  videoParser($, rawData) {
+    throw new OverwriteError('videoParser');
+  }
+};
+
+module.exports = VideoMixin;

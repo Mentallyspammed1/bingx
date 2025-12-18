@@ -31,34 +31,42 @@ import sys
 import time
 import webbrowser
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import as_completed
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 import aiohttp
 from aiohttp_socks import ProxyConnector
 from bs4 import BeautifulSoup
-from colorama import Fore, Style, init as colorama_init
-from pydantic import BaseModel, Field, HttpUrl, PositiveInt, ValidationError
+from colorama import Fore
+from colorama import Style
+from colorama import init as colorama_init
+from pydantic import BaseModel
+from pydantic import Field
+from pydantic import HttpUrl
+from pydantic import PositiveInt
+from pydantic import ValidationError
 
 # Optional rich import for better CLI
 try:
     from rich import print as rprint
     from rich.console import Console
     from rich.panel import Panel
-    from rich.progress import (
-        BarColumn,
-        Live,
-        Progress,
-        SpinnerColumn,
-        TaskProgressColumn,
-        TextColumn,
-    )
-    from rich.prompt import Confirm, Prompt
+    from rich.progress import BarColumn
+    from rich.progress import Live
+    from rich.progress import Progress
+    from rich.progress import SpinnerColumn
+    from rich.progress import TaskProgressColumn
+    from rich.progress import TextColumn
+    from rich.prompt import Confirm
+    from rich.prompt import Prompt
     from rich.table import Table
     RICH_AVAILABLE = True
     console = Console()

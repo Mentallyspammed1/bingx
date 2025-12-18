@@ -31,17 +31,23 @@ import time
 import unicodedata
 import uuid
 import webbrowser
-from collections.abc import AsyncGenerator, Sequence
+from collections.abc import AsyncGenerator
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote_plus, urljoin, urlparse
+from urllib.parse import quote_plus
+from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
-from colorama import Fore, Style, init
-from requests.adapters import HTTPAdapter, Retry
+from colorama import Fore
+from colorama import Style
+from colorama import init
+from requests.adapters import HTTPAdapter
+from requests.adapters import Retry
 
 # Optional async and selenium support
 try:
@@ -52,8 +58,10 @@ except ImportError:
 
 try:
     from selenium import webdriver
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.common.exceptions import TimeoutException
+    from selenium.common.exceptions import WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
+    from selenium.webdriver.chrome.service import Service as ChromeService
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.webdriver.support.ui import WebDriverWait
@@ -206,6 +214,7 @@ ENGINE_MAP: dict[str, dict[str, Any]] = {
             "link": ["a[href*='/video/']"]
         }
     },
+
     "xhamster": {
         "url": "https://xhamster.com",
         "search_path": "/search/{query}",
@@ -283,17 +292,19 @@ ENGINE_MAP: dict[str, dict[str, Any]] = {
         "search_path": "/search/{query}-{page}.html",
         "page_param": "",
         "requires_js": True,
-        "video_item_selector": "div.video-thumb",
-        "link_selector": "a.frame.video",
-        "title_selector": "div.video-title a",
-        "img_selector": "img.img-responsive.lazy",
+        "video_item_selector": "div.video-thumb, .video-card, .item",
+        "link_selector": "a.video-link, a.frame, a[href*='/videos/']",
+        "title_selector": ".video-title a, .title, .video-card-title",
+        "img_selector": "img.lazy, img.img-responsive",
         "img_attribute": "data-original",
-        "time_selector": "span.time",
-        "meta_selector": "span.views",
+        "time_selector": "span.time, .duration",
+        "meta_selector": "span.views, .view-count",
+        "channel_name_selector": ".uploader-name, .channel-name",
+        "channel_link_selector": "a.uploader-link, a.channel-link",
         "fallback_selectors": {
-            "title": ["a[title]"],
-            "img": ["img[data-original]", "img[src]"],
-            "link": ["a[href*='/videos/']"]
+            "title": ["a[title]", ".video-title"],
+            "img": ["img[data-original]", "img[src]", "img[data-src]"],
+            "link": ["a[href*='/videos/']", "a.video-thumb"]
         }
     },
     "motherless": {
@@ -319,22 +330,112 @@ ENGINE_MAP: dict[str, dict[str, Any]] = {
     },
     "wowxxx": {
         "url": "https://www.wow.xxx",
-        "search_path": "/popular/search/{query}/top-rated/",
-        "page_param": None,
+        "search_path": "/search/?q={query}",
+        "page_param": "p",
         "requires_js": True,
-        "video_item_selector": "article.video-card, div.video-item, li.video-list-item",
-        "link_selector": "a.video-card__link, a.video-item__link, a[href*='/video/']",
-        "title_selector": "h3.video-card__title, h2.video-title, span.title-text",
+        "video_item_selector": "article.video-card, div.video-item",
+        "link_selector": "a.video-card__link, a.video-item__link",
+        "title_selector": "h3.video-card__title, h2.video-title",
         "title_attribute": "title",
-        "img_selector": "img.video-card__thumbnail, img.video-thumbnail, img[data-src], img[src]",
-        "time_selector": "span.video-card__duration, span.duration, div.time",
-        "meta_selector": "span.video-card__views, span.views, div.meta-info",
-        "channel_name_selector": "a.video-card__channel-name, span.channel-name, a[href*='/channel/']",
+        "img_selector": "img.video-card__thumbnail, img.video-thumbnail",
+        "time_selector": "span.video-card__duration, span.duration",
+        "meta_selector": "span.video-card__views, span.views",
+        "channel_name_selector": "a.video-card__channel-name, span.channel-name",
         "channel_link_selector": "a.video-card__channel-link, a.channel-link",
         "fallback_selectors": {
-            "title": ["a[title]", "h2", "div.title", "span.title", "div.video-title"],
-            "img": ["img[data-src]", "img[src]", "video-preview", "img.lazy", "img.thumbnail"],
-            "link": ["a[href*='/video/']", "a[href*='/viewkey=']", "a.item-link", "a.video-link"]
+            "title": ["a[title]", "h2.title", "div.video-title"],
+            "img": ["img[data-src]", "img[src]", "img.lazyload"],
+            "link": ["a[href*='/video/']", "a.video-link"]
+        }
+    },
+    "ehentai": {
+        "url": "https://e-hentai.org",
+        "search_path": "/?f_search={query}",
+        "page_param": "page",
+        "requires_js": False,
+        "video_item_selector": "div.itg.gld, div.gallery-item",
+        "link_selector": "a[href*='/g/']",
+        "title_selector": "div.glink",
+        "img_selector": "img.lazyload",
+        "img_attribute": "data-src",
+        "meta_selector": "div.gmeta",
+        "fallback_selectors": {
+            "title": [".gtitle", "a[title]"],
+            "img": ["img[src]"],
+            "link": ["a[href*='/g/']"]
+        }
+    },
+    "eporner": {
+        "url": "https://www.eporner.com",
+        "search_path": "/search/{query}/{page}",
+        "page_param": "",
+        "requires_js": False,
+        "video_item_selector": "div.video-box, div.video-item, div.col-lg-3",
+        "link_selector": "a.video-link, a[href*='/video/'], a.fade",
+        "title_selector": "a.video-link, a[title], h3.title",
+        "img_selector": "img.lazy, img.video-thumb, img[data-src]",
+        "img_attribute": "data-src",
+        "time_selector": "span.duration, span.length",
+        "meta_selector": "span.views, span.count",
+        "channel_name_selector": "a.channel-name, a.uploader",
+        "channel_link_selector": "a.channel-name, a.uploader",
+        "fallback_selectors": {
+            "title": ["a[title]", "h3.title"],
+            "img": ["img[data-src]", "img[src]"],
+            "link": ["a[href*='/video/']"]
+        }
+    },
+    "redtube": {
+        "url": "https://www.redtube.com",
+        "search_path": "/?search={query}",
+        "page_param": "page",
+        "requires_js": False,
+        "video_item_selector": "li.video_item, .video-item",
+        "link_selector": "a.video_link, .video-item a",
+        "title_selector": "span.video_title, .video-item .title",
+        "img_selector": "img.video_thumb, .video-item img",
+        "time_selector": "span.duration, .video-item .duration",
+        "meta_selector": "span.video_count, .video-item .views",
+        "fallback_selectors": {
+            "title": ["a[title]", ".title"],
+            "img": ["img[data-src]", "img[src]"],
+            "link": ["a[href*='/']"]
+        }
+    },
+    "spankbang": {
+        "url": "https://spankbang.com",
+        "search_path": "/s/{query}/",
+        "page_param": "page",
+        "requires_js": False,
+        "video_item_selector": "div.video-item",
+        "link_selector": "a.thumb",
+        "title_selector": "a.n",
+        "img_selector": "img.lazy",
+        "img_attribute": "data-src",
+        "time_selector": "span.l",
+        "meta_selector": "span.v",
+        "fallback_selectors": {
+            "title": ["a[title]"],
+            "img": ["img[data-src]", "img[src]"],
+            "link": ["a[href*='/video/']"]
+        }
+    },
+    "youporn": {
+        "url": "https://www.youporn.com",
+        "search_path": "/search/?query={query}",
+        "page_param": "page",
+        "requires_js": False,
+        "video_item_selector": "div.video-box",
+        "link_selector": "a.video-box-image",
+        "title_selector": "div.video-box-title",
+        "img_selector": "img.lazy-load",
+        "img_attribute": "data-src",
+        "time_selector": "div.video-duration",
+        "meta_selector": "div.video-views",
+        "fallback_selectors": {
+            "title": ["a[title]"],
+            "img": ["img[data-src]", "img[src]"],
+            "link": ["a[href*='/watch/']"]
         }
     },
 }
@@ -477,7 +578,8 @@ def create_selenium_driver() -> webdriver.Chrome | None:
         }
         options.add_experimental_option("prefs", prefs)
 
-        driver = webdriver.Chrome(options=options)
+        service = ChromeService()
+        driver = webdriver.Chrome(service=service, options=options)
         driver.set_page_load_timeout(30)
         return driver
     except Exception as e:
@@ -725,7 +827,7 @@ def get_search_results(
                         continue
 
             except Exception as e:
-                logger.error(f"Request failed for page {current_page}: {e}")
+                logger.error(f"Request failed for page {current_page}: {e}", exc_info=True)
                 continue
 
     finally:
@@ -804,9 +906,10 @@ def extract_video_data_enhanced(item, cfg: dict, base_url: str) -> dict | None:
 
         # Extract image URL with comprehensive fallbacks
         img_url = None
-        img_selectors = [cfg.get("img_selector", "")]
-        if "fallback_selectors" in cfg and "img" in cfg["fallback_selectors"]:
-            img_selectors.extend(cfg["fallback_selectors"]["img"])
+        img_selectors = [cfg.get("img_selector", "")] + cfg.get("fallback_selectors", {}).get("img", [])
+
+        # Prioritize specified attribute, then common ones
+        img_attrs = ([cfg["img_attribute"]] if cfg.get("img_attribute") else []) + ["data-src", "src", "data-lazy", "data-original", "data-thumb"]
 
         for selector in img_selectors:
             if not selector:
@@ -815,8 +918,7 @@ def extract_video_data_enhanced(item, cfg: dict, base_url: str) -> dict | None:
             logger.debug(f"Attempting to select image with: {selector}")
             img_el = item.select_one(selector)
             if img_el:
-                # Try multiple attributes in order of preference
-                for attr in ["data-src", "src", "data-lazy", "data-original", "data-thumb"]:
+                for attr in img_attrs:
                     if img_el.has_attr(attr):
                         img_val = img_el[attr]
                         if img_val and not img_val.startswith("data:"):

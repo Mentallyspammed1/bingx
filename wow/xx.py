@@ -40,17 +40,23 @@ import time
 import unicodedata
 import uuid
 import webbrowser
-from collections.abc import AsyncGenerator, Sequence
+from collections.abc import AsyncGenerator
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote_plus, urljoin, urlparse
+from urllib.parse import quote_plus
+from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
-from colorama import Fore, Style, init
-from requests.adapters import HTTPAdapter, Retry
+from colorama import Fore
+from colorama import Style
+from colorama import init
+from requests.adapters import HTTPAdapter
+from requests.adapters import Retry
 
 # --- Import optional components ---
 try:
@@ -61,7 +67,8 @@ except ImportError:
 
 try:
     from selenium import webdriver
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.common.exceptions import TimeoutException
+    from selenium.common.exceptions import WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions as EC
@@ -1770,10 +1777,9 @@ def get_wowxxx_results(
                     # Validate the extracted data
                     if video_data and validate_video_data_enhanced(video_data, item_index=len(results)):
                         results.append(video_data)
-                    else:
-                        # Log validation failure if data was extracted but invalid
-                        if video_data:
-                             logger.debug(f"Item {len(results)} failed validation (data: {str(video_data)[:100]}...)", extra={'engine': 'Wowxxx', 'query': query})
+                    # Log validation failure if data was extracted but invalid
+                    elif video_data:
+                         logger.debug(f"Item {len(results)} failed validation (data: {str(video_data)[:100]}...)", extra={'engine': 'Wowxxx', 'query': query})
 
 
                 # --- Check for End of Pagination ---

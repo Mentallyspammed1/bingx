@@ -31,17 +31,23 @@ import time
 import unicodedata
 import uuid
 import webbrowser
-from collections.abc import AsyncGenerator, Sequence
+from collections.abc import AsyncGenerator
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote_plus, urljoin, urlparse
+from urllib.parse import quote_plus
+from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
-from colorama import Fore, Style, init
-from requests.adapters import HTTPAdapter, Retry
+from colorama import Fore
+from colorama import Style
+from colorama import init
+from requests.adapters import HTTPAdapter
+from requests.adapters import Retry
 
 # Optional async and selenium support
 try:
@@ -52,8 +58,10 @@ except ImportError:
 
 try:
     from selenium import webdriver
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.common.exceptions import TimeoutException
+    from selenium.common.exceptions import WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
+    from selenium.webdriver.chrome.service import Service
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.webdriver.support.ui import WebDriverWait
@@ -160,7 +168,6 @@ def get_realistic_headers(user_agent: str) -> dict[str, str]:
         "Upgrade-Insecure-Requests": "1",
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
         "Sec-Fetch-User": "?1",
         "Cache-Control": "max-age=0",
         "DNT": "1",
@@ -206,6 +213,46 @@ ENGINE_MAP: dict[str, dict[str, Any]] = {
             "link": ["a[href*='/video/']"]
         }
     },
+    "eporner": {
+        "url": "https://www.eporner.com",
+        "search_path": "/search/{query}/{page}",
+        "page_param": "",
+        "requires_js": False,
+        "video_item_selector": "div.video-box, div.mb, div.video-item",
+        "link_selector": "a.video-title, a.mb-video-link, a[href*='/video/']",
+        "title_selector": "a.video-title, a.mb-video-link, h2.title, h3.title",
+        "img_selector": "img.lazy, img[data-src], img[src]",
+        "img_attribute": "data-src",
+        "time_selector": "span.duration, .duration",
+        "meta_selector": "span.views, .views",
+        "channel_name_selector": "a.mb-user-link, .channel-name, .user-name",
+        "channel_link_selector": "a.mb-user-link, .channel-link, .user-link",
+        "fallback_selectors": {
+            "title": ["a[title]", "h2", "h3", "span.title"],
+            "img": ["img[data-src]", "img[src]", "img.lazy"],
+            "link": ["a[href*='/video/']", "a.video-link"]
+        }
+    },
+    "eporner": {
+        "url": "https://www.eporner.com",
+        "search_path": "/search/{query}/{page}",
+        "page_param": "",
+        "requires_js": False,
+        "video_item_selector": "div.video-box, div.mb, div.video-item",
+        "link_selector": "a.video-title, a.mb-video-link, a[href*='/video/']",
+        "title_selector": "a.video-title, a.mb-video-link, h2.title, h3.title",
+        "img_selector": "img.lazy, img[data-src], img[src]",
+        "img_attribute": "data-src",
+        "time_selector": "span.duration, .duration",
+        "meta_selector": "span.views, .views",
+        "channel_name_selector": "a.mb-user-link, .channel-name, .user-name",
+        "channel_link_selector": "a.mb-user-link, .channel-link, .user-link",
+        "fallback_selectors": {
+            "title": ["a[title]", "h2", "h3", "span.title"],
+            "img": ["img[data-src]", "img[src]", "img.lazy"],
+            "link": ["a[href*='/video/']", "a.video-link"]
+        }
+    },
     "xhamster": {
         "url": "https://xhamster.com",
         "search_path": "/search/{query}",
@@ -230,16 +277,16 @@ ENGINE_MAP: dict[str, dict[str, Any]] = {
         "search_path": "/video/search?search={query}",
         "page_param": "page",
         "requires_js": False,
-        "video_item_selector": "li.pcVideoListItem, .video-item, div.videoblock",
-        "link_selector": "a.previewVideo, a.thumb, .video-link, .videoblock__link",
-        "title_selector": "a.previewVideo .title, a.thumb .title, .video-title, .videoblock__title",
-        "img_selector": "img[src], img[data-src], img[data-lazy]",
-        "time_selector": "var.duration, .duration, .videoblock__duration",
-        "channel_name_selector": ".usernameWrap a, .channel-name, .videoblock__channel",
+        "video_item_selector": "div[class*='video'], a[href*='/view_video.php'], li[class*='video']",
+        "link_selector": "a[href*='/view_video.php'], a[class*='video']",
+        "title_selector": "a[title], .title, h2, h3",
+        "img_selector": "img[data-src], img[src], img[data-thumb]",
+        "time_selector": ".duration, var.duration",
+        "channel_name_selector": ".usernameWrap a, .channel-name",
         "channel_link_selector": ".usernameWrap a, .channel-link",
-        "meta_selector": ".views, .video-views, .videoblock__views",
+        "meta_selector": ".views, .video-views",
         "fallback_selectors": {
-            "title": [".title", "a[title]", "[data-title]"],
+            "title": ["a[title]", ".title", "[data-title]"],
             "img": ["img[data-thumb]", "img[src]"],
             "link": ["a[href*='/view_video.php']", "a.video-link"]
         }
@@ -456,6 +503,7 @@ def smart_delay_with_jitter(
 def create_selenium_driver() -> webdriver.Chrome | None:
     """Create Selenium driver for JavaScript-heavy sites[2]."""
     if not SELENIUM_AVAILABLE:
+        logger.warning("Selenium is not available. Please install selenium and a compatible webdriver.")
         return None
 
     try:
@@ -479,19 +527,21 @@ def create_selenium_driver() -> webdriver.Chrome | None:
 
         driver = webdriver.Chrome(options=options)
         driver.set_page_load_timeout(30)
+        logger.info("Selenium driver created successfully.")
         return driver
     except Exception as e:
-        logger.warning(f"Failed to create Selenium driver: {e}")
+        logger.error(f"Failed to create Selenium driver: {e}")
         return None
 
 
 def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: dict) -> list:
     """Extract data using Selenium for JavaScript-heavy sites[2]."""
+    logger.info(f"Selenium: Processing URL: {url}")
     try:
         driver.get(url)
 
         # Wait for video items to load
-        wait = WebDriverWait(driver, 10)
+        wait = WebDriverWait(driver, 20) # Increased timeout to 20 seconds
         found_element = False
         for selector in cfg["video_item_selector"].split(','):
             try:
@@ -505,10 +555,11 @@ def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: dict) -> list
 
         if not found_element:
             logger.warning(f"Selenium could not find any video items with provided selectors for {url}")
+            logger.debug(f"Selenium page source for {url}:\n{driver.page_source}") # Log page source
             return []
 
         # Additional wait to ensure dynamic content loads
-        time.sleep(2)
+        time.sleep(3) # Increased sleep to 3 seconds
 
         # Get page source and parse with BeautifulSoup
         soup = BeautifulSoup(driver.page_source, "html.parser")
@@ -652,9 +703,10 @@ def get_search_results(
 
     # Create Selenium driver if needed for JavaScript content
     if cfg.get("requires_js", False) and SELENIUM_AVAILABLE:
+        logger.debug(f"Attempting to create Selenium driver for {engine}.")
         driver = create_selenium_driver()
         if not driver:
-            logger.warning(f"JavaScript required for {engine} but Selenium unavailable")
+            logger.warning(f"JavaScript required for {engine} but Selenium driver could not be created.")
 
     try:
         items_per_page = 30
@@ -689,21 +741,35 @@ def get_search_results(
             try:
                 # Use Selenium for JavaScript sites, otherwise requests
                 if driver and cfg.get("requires_js", False):
+                    logger.debug(f"Using Selenium to extract data for {url}.")
                     video_items = extract_with_selenium(driver, url, cfg)
                 else:
                     # Rotate User-Agent and headers
                     user_agent = random.choice(REALISTIC_USER_AGENTS)
                     session.headers.update(get_realistic_headers(user_agent))
 
-                    response = session.get(url, timeout=session.timeout)
-                    response.raise_for_status()
+                    try:
+                        response = session.get(url, timeout=session.timeout)
+                        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
 
-                    if response.status_code != 200:
-                        logger.warning(f"Unexpected status {response.status_code} for {url}")
+                        if response.status_code != 200:
+                            logger.warning(f"Unexpected status {response.status_code} for {url}")
+                            continue
+
+                        soup = BeautifulSoup(response.text, "html.parser")
+                        if not soup.select(cfg["video_item_selector"].split(", ")[0].strip()):
+                            logger.debug(f"No primary video item selector found. Raw HTML for {url}:\n{response.text[:1000]}...")
+                        video_items = extract_video_items(soup, cfg)
+
+                    except requests.exceptions.Timeout:
+                        logger.error(f"Request timed out for {url}")
                         continue
-
-                    soup = BeautifulSoup(response.text, "html.parser")
-                    video_items = extract_video_items(soup, cfg)
+                    except requests.exceptions.RequestException as e:
+                        logger.error(f"Request failed for {url}: {e}")
+                        continue
+                    except Exception as e:
+                        logger.error(f"Error during initial parsing for {url}: {e}")
+                        continue
 
                 if not video_items:
                     logger.warning(f"No video items found on page {current_page}")

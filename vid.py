@@ -7,7 +7,9 @@ import webbrowser
 from datetime import datetime
 
 import requests  # Added for downloading thumbnails
-from colorama import Fore, Style, init
+from colorama import Fore
+from colorama import Style
+from colorama import init
 
 # Initialize Colorama for cross-platform colored output
 init(autoreset=True)

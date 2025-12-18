@@ -1,4 +1,4 @@
-const path = require('path');
+const path = require('path')
 
 module.exports = {
     global: {
@@ -23,4 +23,4 @@ module.exports = {
         //    apiKey: 'some_api_key_if_needed'
         // }
     }
-};
+}

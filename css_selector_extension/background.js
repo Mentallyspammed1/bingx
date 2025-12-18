@@ -1,12 +1,12 @@
-let isEnabled = false;
-let lastSelector = null;
+let isEnabled = false
+let lastSelector = null
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'toggle') {
-    isEnabled = request.isEnabled;
+    isEnabled = request.isEnabled
   } else if (request.action === 'saveSelector') {
-    lastSelector = request.selector;
+    lastSelector = request.selector
   } else if (request.action === 'getState') {
-    sendResponse({ isEnabled: isEnabled, lastSelector: lastSelector });
+    sendResponse({ isEnabled: isEnabled, lastSelector: lastSelector })
   }
-});
+})

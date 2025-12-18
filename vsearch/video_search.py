@@ -40,38 +40,48 @@ import threading
 import time
 import unicodedata
 import uuid
-from collections import defaultdict, deque
-from collections.abc import AsyncGenerator, Iterator, Sequence
-from contextlib import asynccontextmanager, contextmanager, suppress
+from collections import defaultdict
+from collections import deque
+from collections.abc import AsyncGenerator
+from collections.abc import Iterator
+from collections.abc import Sequence
+from contextlib import asynccontextmanager
+from contextlib import contextmanager
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum, auto
+from enum import Enum
+from enum import auto
 from pathlib import Path
-from typing import (
-    Any,
-    NamedTuple,
-    TypeVar,
-)
+from typing import Any
+from typing import NamedTuple
+from typing import TypeVar
 from urllib.parse import urlparse
 
 # ── third-party ───────────────────────────────────────────────────────────
 import requests
-from colorama import Fore, Style, init
-from requests.adapters import HTTPAdapter, Retry
+from colorama import Fore
+from colorama import Style
+from colorama import init
+from requests.adapters import HTTPAdapter
+from requests.adapters import Retry
 
 # Optional async & selenium support
 try:
     import aiofiles
     import aiohttp
-    from aiohttp import ClientTimeout, TCPConnector
-    from aiohttp_retry import ExponentialRetry, RetryClient
+    from aiohttp import ClientTimeout
+    from aiohttp import TCPConnector
+    from aiohttp_retry import ExponentialRetry
+    from aiohttp_retry import RetryClient
     ASYNC_AVAILABLE = True
 except ImportError:
     ASYNC_AVAILABLE = False
 
 try:
     from selenium import webdriver
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.common.exceptions import TimeoutException
+    from selenium.common.exceptions import WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions as EC
@@ -775,13 +785,12 @@ async def download_thumbnail_async(
                                 await f.write(content)
                         else:
                             dest_path.write_bytes(content)
+                # Save raw
+                elif ASYNC_AVAILABLE:
+                    async with aiofiles.open(dest_path, "wb") as f:
+                        await f.write(content)
                 else:
-                    # Save raw
-                    if ASYNC_AVAILABLE:
-                        async with aiofiles.open(dest_path, "wb") as f:
-                            await f.write(content)
-                    else:
-                        dest_path.write_bytes(content)
+                    dest_path.write_bytes(content)
 
                 return dest_path.exists() and dest_path.stat().st_size > 0
 

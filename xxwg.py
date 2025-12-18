@@ -10,9 +10,14 @@ from urllib.parse import quote  # Correct import for URL encoding
 
 import aiohttp
 from bs4 import BeautifulSoup
-from colorama import Fore, Style, init
+from colorama import Fore
+from colorama import Style
+from colorama import init
 from fake_useragent import UserAgent
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+from tenacity import retry
+from tenacity import retry_if_exception_type
+from tenacity import stop_after_attempt
+from tenacity import wait_fixed
 from tqdm.asyncio import tqdm_asyncio  # CORRECTED: Import tqdm_asyncio
 
 # Initialize Colorama for colored output

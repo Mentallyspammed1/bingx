@@ -17,8 +17,10 @@ import json
 import logging
 import os
 import sys
-from concurrent.futures import Future, ThreadPoolExecutor
-from datetime import datetime, timedelta
+from concurrent.futures import Future
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +37,10 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from colorama import Back, Fore, Style, init
+    from colorama import Back
+    from colorama import Fore
+    from colorama import Style
+    from colorama import init
     COLORAMA_AVAILABLE = True
 except ImportError:
     COLORAMA_AVAILABLE = False
@@ -56,7 +61,9 @@ except ImportError:
 
 # Attempt to import Pillow for image metadata; provide guidance if missing
 try:
-    from PIL import Image, ImageSequence, UnidentifiedImageError
+    from PIL import Image
+    from PIL import ImageSequence
+    from PIL import UnidentifiedImageError
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False

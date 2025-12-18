@@ -1,33 +1,33 @@
-const AbstractModule = require('../core/AbstractModule');
-const VideoMixin = require('../core/VideoMixin');
-const GifMixin = require('../core/GifMixin');
-const { makeAbsolute, extractPreview, sanitizeText } = require('./driver-utils.js');
+const AbstractModule = require('../core/AbstractModule')
+const VideoMixin = require('../core/VideoMixin')
+const GifMixin = require('../core/GifMixin')
+const { makeAbsolute, extractPreview, sanitizeText } = require('./driver-utils.js')
 
-const BASE_URL = 'https://www.sex.com';
-const DRIVER_NAME = 'Sex.com';
+const BASE_URL = 'https://www.sex.com'
+const DRIVER_NAME = 'Sex.com'
 
-const BaseSexComClass = AbstractModule.with(VideoMixin, GifMixin);
+const BaseSexComClass = AbstractModule.with(VideoMixin, GifMixin)
 
 class SexComDriver extends BaseSexComClass {
     constructor(options = {}) {
-        super(options);
-        this.logger = require('../core/log.js').child({ module: 'SexComDriver' });
+        super(options)
+        this.logger = require('../core/log.js').child({ module: 'SexComDriver' })
     }
 
     get supportsVideos() {
-        return true;
+        return true
     }
 
     get supportsGifs() {
-        return true;
+        return true
     }
 
     get name() {
-        return DRIVER_NAME;
+        return DRIVER_NAME
     }
 
     get baseUrl() {
-        return BASE_URL;
+        return BASE_URL
     }
 
     /**
@@ -39,16 +39,16 @@ class SexComDriver extends BaseSexComClass {
      */
     getVideoSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
-            throw new Error(`Search query is not set for video search.`);
+            throw new Error(`Search query is not set for video search.`)
         }
-        const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
+        const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage)
 
-        const searchUrl = new URL('/search/videos', this.baseUrl); // Specific path for videos
-        searchUrl.searchParams.set('query', query.trim());
-        searchUrl.searchParams.set('page', String(searchPage));
+        const searchUrl = new URL('/search/videos', this.baseUrl) // Specific path for videos
+        searchUrl.searchParams.set('query', query.trim())
+        searchUrl.searchParams.set('page', String(searchPage))
 
         // console.log(`[${this.name}] Generated video URL: ${searchUrl.href}`);
-        return searchUrl.href;
+        return searchUrl.href
     }
 
     /**
@@ -60,16 +60,16 @@ class SexComDriver extends BaseSexComClass {
      */
     getGifSearchUrl(query, page) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
-            throw new Error(`Search query is not set for GIF search.`);
+            throw new Error(`Search query is not set for GIF search.`)
         }
-        const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage);
+        const searchPage = Math.max(1, parseInt(page, 10) || this.firstpage)
 
-        const searchUrl = new URL('/search/gifs', this.baseUrl); // Specific path for gifs
-        searchUrl.searchParams.set('query', query.trim());
-        searchUrl.searchParams.set('page', String(searchPage));
+        const searchUrl = new URL('/search/gifs', this.baseUrl) // Specific path for gifs
+        searchUrl.searchParams.set('query', query.trim())
+        searchUrl.searchParams.set('page', String(searchPage))
 
         // console.log(`[${this.name}] Generated GIF URL: ${searchUrl.href}`);
-        return searchUrl.href;
+        return searchUrl.href
     }
 
     /**
@@ -80,87 +80,87 @@ class SexComDriver extends BaseSexComClass {
      * @returns {Array<object>} Array of MediaResult objects.
      */
     parseResults($, htmlOrJsonData, parserOptions) {
-        const { isMock } = parserOptions;
+        const { isMock } = parserOptions
         if (!$) {
-            this.logger.warn(`Cheerio object ($) is null. Expecting HTML.`);
-            return [];
+            this.logger.warn(`Cheerio object ($) is null. Expecting HTML.`)
+            return []
         }
 
         if (!isMock) {
             // Check for common indicators of no results or a block page
-            const noResultsText = $('div.no-results-message, p.no-results').text();
+            const noResultsText = $('div.no-results-message, p.no-results').text()
             if (noResultsText.length > 0) {
-                this.logger.warn(`No results found or block page detected for query: "${parserOptions.query}". Message: ${noResultsText.trim().substring(0, 100)}`);
-                return [];
+                this.logger.warn(`No results found or block page detected for query: "${parserOptions.query}". Message: ${noResultsText.trim().substring(0, 100)}`)
+                return []
             }
 
             // Check for Cloudflare or other common block page elements
             if ($('#cf-wrapper').length > 0 || $('body:contains("Attention Required!")').length > 0) {
-                this.logger.error(`Cloudflare or similar block page detected for query: "${parserOptions.query}".`);
-                return [];
+                this.logger.error(`Cloudflare or similar block page detected for query: "${parserOptions.query}".`)
+                return []
             }
         }
 
-        const results = [];
-        const isGifSearch = parserOptions.type === 'gifs';
+        const results = []
+        const isGifSearch = parserOptions.type === 'gifs'
 
         // Selectors for Sex.com are highly speculative and need verification.
         // Common list item classes: 'masonry_box', 'thumb', 'item'
-        const itemSelector = 'div.masonry_box';
+        const itemSelector = 'div.masonry_box'
 
         $(itemSelector).each((i, el) => {
-            const item = $(el);
+            const item = $(el)
 
-            const pageUrlFromVideo = item.find('a[href*="/video/"]').attr('href');
-            const pageUrlFromGif = item.find('a[href*="/gifs/"]').attr('href');
+            const pageUrlFromVideo = item.find('a[href*="/video/"]').attr('href')
+            const pageUrlFromGif = item.find('a[href*="/gifs/"]').attr('href')
 
-            if (isGifSearch && !pageUrlFromGif) return;
-            if (!isGifSearch && !pageUrlFromVideo) return;
+            if (isGifSearch && !pageUrlFromGif) return
+            if (!isGifSearch && !pageUrlFromVideo) return
 
-            const linkElement = item.find('a.image_wrapper, a.title_link, a.box_link').first();
-            let pageUrl = linkElement.attr('href');
+            const linkElement = item.find('a.image_wrapper, a.title_link, a.box_link').first()
+            let pageUrl = linkElement.attr('href')
 
             let title = item.find('p.title, h2.title, div.video_title').text()?.trim() ||
                         linkElement.attr('title')?.trim() ||
-                        item.find('img').attr('alt')?.trim();
+                        item.find('img').attr('alt')?.trim()
 
             if (!pageUrl) {
                  // Try to find a link within a known wrapper if the primary one failed
-                const fallbackLink = item.find('.image_wrapper a, .video_shortlink_container a').first();
-                pageUrl = fallbackLink.attr('href');
-                if (!title) title = fallbackLink.attr('title')?.trim();
+                const fallbackLink = item.find('.image_wrapper a, .video_shortlink_container a').first()
+                pageUrl = fallbackLink.attr('href')
+                if (!title) title = fallbackLink.attr('title')?.trim()
             }
 
             if (!pageUrl || !title) {
-                this.logger.warn(`Item ${i} (${parserOptions.type}): Skipping due to missing title or page URL.`);
-                return;
+                this.logger.warn(`Item ${i} (${parserOptions.type}): Skipping due to missing title or page URL.`)
+                return
             }
 
-            const imgElement = item.find('img.responsive_image, img.main_image, img.thumb_image').first();
-            let thumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src');
+            const imgElement = item.find('img.responsive_image, img.main_image, img.thumb_image').first()
+            let thumbnailUrl = imgElement.attr('data-src') || imgElement.attr('src')
 
-            let previewUrl = extractPreview($, item, this.name, this.baseUrl);
+            let previewUrl = extractPreview($, item, this.name, this.baseUrl)
 
-            const durationText = isGifSearch ? undefined : item.find('span.duration, .video_duration').text()?.trim();
+            const durationText = isGifSearch ? undefined : item.find('span.duration, .video_duration').text()?.trim()
 
             // ID extraction for Sex.com (speculative)
             // URLs might be like /video/123456-title or /gifs/123456-title
-            let mediaId = null;
-            const idMatch = pageUrl.match(/\/(?:video|gifs)\/(\d+)/);
+            let mediaId = null
+            const idMatch = pageUrl.match(/\/(?:video|gifs)\/(\d+)/)
             if (idMatch && idMatch[1]) {
-                mediaId = idMatch[1];
+                mediaId = idMatch[1]
             } else {
-                 mediaId = item.attr('data-id') || item.attr('id');
-                 if (mediaId && mediaId.includes('_')) mediaId = mediaId.split('_').pop();
+                 mediaId = item.attr('data-id') || item.attr('id')
+                 if (mediaId && mediaId.includes('_')) mediaId = mediaId.split('_').pop()
             }
 
-            const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl);
-            const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl);
-            const absolutePreview = makeAbsolute(previewUrl, this.baseUrl);
+            const absoluteUrl = makeAbsolute(pageUrl, this.baseUrl)
+            const absoluteThumbnail = makeAbsolute(thumbnailUrl, this.baseUrl)
+            const absolutePreview = makeAbsolute(previewUrl, this.baseUrl)
 
             if (!absoluteUrl || !title) {
-                this.logger.warn(`Item ${i}: Failed to resolve absolute URL or title is missing.`);
-                return;
+                this.logger.warn(`Item ${i}: Failed to resolve absolute URL or title is missing.`)
+                return
             }
 
             results.push({
@@ -172,12 +172,12 @@ class SexComDriver extends BaseSexComClass {
                 preview_video: absolutePreview || (isGifSearch ? absoluteThumbnail : ''),
                 source: this.name,
                 type: parserOptions.type
-            });
-        });
+            })
+        })
 
-        this.logger.info(`Parsed ${results.length} ${parserOptions.type} items.`);
-        return results;
+        this.logger.info(`Parsed ${results.length} ${parserOptions.type} items.`)
+        return results
     }
 }
 
-module.exports = SexComDriver;
+module.exports = SexComDriver

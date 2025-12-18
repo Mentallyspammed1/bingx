@@ -21,8 +21,10 @@ import subprocess
 import sys
 import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import as_completed
+from dataclasses import dataclass
+from dataclasses import field
 from datetime import datetime
 from pathlib import Path
 
@@ -30,7 +32,9 @@ import astor  # external library: pip install astor
 import pathspec  # external library: pip install pathspec
 import requests
 import tqdm  # Requires: pip install tqdm
-from colorama import Fore, Style, init
+from colorama import Fore
+from colorama import Style
+from colorama import init
 from dotenv import load_dotenv  # For .env file support
 
 # Summon the colors of the terminal for vibrant enchantment

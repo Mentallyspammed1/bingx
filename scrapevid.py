@@ -15,7 +15,9 @@ from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
-from colorama import Fore, Style, init
+from colorama import Fore
+from colorama import Style
+from colorama import init
 
 # ── Enhanced Color Setup ────────────────────────────────────────────────
 init(autoreset=True)
@@ -73,7 +75,8 @@ except ImportError:
 try:
     import undetected_chromedriver as uc
     from selenium import webdriver
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.common.exceptions import TimeoutException
+    from selenium.common.exceptions import WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions as EC

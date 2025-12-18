@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any  # Explicitly import Optional
 
 import pornLib  # Assuming this library exists and is installed
-from ratelimit import limits, sleep_and_retry  # type: ignore
+from ratelimit import limits  # type: ignore
+from ratelimit import sleep_and_retry  # type: ignore
 
 # ==============================================================================
 # Configuration

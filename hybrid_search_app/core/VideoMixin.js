@@ -1,6 +1,6 @@
-'use strict';
+'use strict'
 
-const abstractMethodFactory = require('./abstractMethodFactory');
+const abstractMethodFactory = require('./abstractMethodFactory')
 
 /**
  * @core/VideoMixin.js
@@ -15,11 +15,11 @@ module.exports = function VideoMixin(BaseClass) {
      * @returns {boolean}
      */
     hasVideoSupport() {
-      return false; // Default to false; concrete drivers must explicitly set to true.
+      return false // Default to false; concrete drivers must explicitly set to true.
     }
-  };
+  }
 
   // Use the factory to add the abstract method 'getVideoSearchUrl'.
   // This enforces that any class using this mixin must implement the method.
-  return abstractMethodFactory(WithVideoFeatures, ['getVideoSearchUrl']);
-};
+  return abstractMethodFactory(WithVideoFeatures, ['getVideoSearchUrl'])
+}

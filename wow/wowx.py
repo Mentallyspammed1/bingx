@@ -34,7 +34,8 @@ from typing import Any
 import requests
 from bs4 import BeautifulSoup
 from colorama import init
-from requests.adapters import HTTPAdapter, Retry
+from requests.adapters import HTTPAdapter
+from requests.adapters import Retry
 
 # Optional imports
 try:
@@ -45,7 +46,8 @@ except ImportError:
 
 try:
     from selenium import webdriver
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.common.exceptions import TimeoutException
+    from selenium.common.exceptions import WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions as EC

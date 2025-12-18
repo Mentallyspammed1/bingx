@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Neon Search | Videos & GIFs</title>
+<style>
+  body { background-color: #000; color: #0ff; font-family: monospace; text-align: center; padding: 2rem; }
+  input, select, button { font-size: 1.2rem; margin: 0.5rem; padding: 0.3rem; }
+  #results { margin-top: 20px; }
+</style>
+</head>
+<body>
+<h1>Neon Search App</h1>
+<p>Enter query and options to search videos or GIFs.</p>
+<input id="search" placeholder="Search term" />
+<select id="driver">
+  <option value="pornhub">Pornhub</option>
+  <option value="xvideos">Xvideos</option>
+  <option value="xhamster">Xhamster</option>
+  <option value="youporn">Youporn</option>
+  <option value="sex">Sex.com</option>
+  <option value="redtube">Redtube</option>
+  <option value="mock">Mock</option>
+</select>
+<select id="type">
+  <option value="videos">Videos</option>
+  <option value="gifs">GIFs</option>
+</select>
+<button onclick="searchNeon()">Search</button>
+<div id="results"></div>
+<script>
+  async function searchNeon() {
+    const query = document.getElementById('search').value;
+    const driver = document.getElementById('driver').value;
+    const type = document.getElementById('type').value;
+    if(!query) {
+      alert('Enter a search term');
+      return;
+    }
+    const res = await fetch(`/api/search?query=${encodeURIComponent(query)}&driver=${driver}&type=${type}`);
+    const data = await res.json();
+    if(data.error) {
+      document.getElementById('results').textContent = `Error: ${data.error}`;
+      return;
+    }
+    if(data.length === 0) {
+      document.getElementById('results').textContent = 'No results.';
+      return;
+    }
+    const html = data.map(item => `
+      <div style="margin: 1rem; border: 1px solid #0ff; padding: 1rem;">
+        <h3>${item.title}</h3>
+        <p>Source: ${item.source} | Type: ${item.type}</p>
+        <a href="${item.url}" target="_blank">
+          <img src="${item.thumbnail}" alt="${item.title}" width="320" />
+        </a>
+        ${item.duration ? `<p>Duration: ${item.duration}</p>` : ''}
+      </div>
+    `).join('');
+    document.getElementById('results').innerHTML = html;
+  }
+</script>
+</body>
+</html>

@@ -26,7 +26,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote_plus, urljoin, urlparse
+from urllib.parse import quote_plus
+from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 import aiohttp
 import httpx
@@ -34,15 +36,20 @@ import orjson
 import requests
 from bs4 import BeautifulSoup
 from colorama import init
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI
+from fastapi import HTTPException
+from fastapi import Query
 from fastapi.responses import HTMLResponse
 from playwright.async_api import async_playwright
 from pydantic import BaseModel
 from redis import Redis
-from requests.adapters import HTTPAdapter, Retry
+from requests.adapters import HTTPAdapter
+from requests.adapters import Retry
 from rich.console import Console
 from rich.logging import RichHandler
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry
+from tenacity import stop_after_attempt
+from tenacity import wait_exponential
 
 # Initialize colorama for colored terminal output
 init(autoreset=True)

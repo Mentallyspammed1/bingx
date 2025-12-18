@@ -31,17 +31,23 @@ import time
 import unicodedata
 import uuid
 import webbrowser
-from collections.abc import AsyncGenerator, Sequence
+from collections.abc import AsyncGenerator
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote_plus, urljoin, urlparse
+from urllib.parse import quote_plus
+from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
-from colorama import Fore, Style, init
-from requests.adapters import HTTPAdapter, Retry
+from colorama import Fore
+from colorama import Style
+from colorama import init
+from requests.adapters import HTTPAdapter
+from requests.adapters import Retry
 
 # Optional async and selenium support
 try:
@@ -52,7 +58,8 @@ except ImportError:
 
 try:
     from selenium import webdriver
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.common.exceptions import TimeoutException
+    from selenium.common.exceptions import WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions as EC
@@ -169,41 +176,58 @@ def get_realistic_headers(user_agent: str) -> dict[str, str]:
 
 
 # ── Enhanced Engine Configurations ─────────────────────────────────────────
+# Updated with more specific selectors and comprehensive fallbacks for robustness.
 ENGINE_MAP: dict[str, dict[str, Any]] = {
     "pexels": {
         "url": "https://www.pexels.com",
         "search_path": "/search/videos/{query}/",
         "page_param": "page",
         "requires_js": False,
-        "video_item_selector": "article.hide-favorite-badge-container, article[data-testid='video-card']",
-        "link_selector": 'a[data-testid="video-card-link"], a.video-link',
-        "title_selector": 'img[data-testid="video-card-img"], .video-title',
-        "title_attribute": "alt",
-        "img_selector": 'img[data-testid="video-card-img"], img.video-thumbnail',
-        "channel_name_selector": 'a[data-testid="video-card-user-avatar-link"] > span, .author-name',
-        "channel_link_selector": 'a[data-testid="video-card-user-avatar-link"], .author-link',
+        # Primary selectors for video items
+        "video_item_selector": "article[data-testid='video-card'], article.hide-favorite-badge-container",
+        # Primary selectors for video link, title, image, channel, and metadata
+        "link_selector": 'a[data-testid="video-card-link"], a[href*="/videos/"]',
+        "title_selector": 'img[data-testid="video-card-img"], .video-title, h3',
+        "title_attribute": "alt", # Attribute to get title from if element is an img
+        "img_selector": 'img[data-testid="video-card-img"], img.video-thumbnail, img[data-src]',
+        "channel_name_selector": 'a[data-testid="video-card-user-avatar-link"] > span, .author-name, .channel-name',
+        "channel_link_selector": 'a[data-testid="video-card-user-avatar-link"], .author-link, .channel-link',
+        "time_selector": ".video-duration, .duration", # Added time selector
+        "meta_selector": ".video-views, .views", # Added views selector
+        # Comprehensive fallback selectors for robustness
         "fallback_selectors": {
-            "title": ["img[alt]", ".video-title", "h3", "a[title]"],
-            "img": ["img[data-src]", "img[src]", "img[data-lazy]"],
-            "link": ["a[href*='/video/']", "a.video-link"]
+            "container": ["article", "div[data-testid='video-card']", "div.video-item"], # Fallback for the main container
+            "title": ["img[alt]", ".video-title", "h3", "a[title]", "a[data-testid='video-card-link']"],
+            "img": ["img[data-src]", "img[src]", "img[data-lazy]", "img[data-original]", "img[data-thumb]"],
+            "link": ["a[href*='/video/']", "a.video-link", "a[data-testid='video-card-link']", "a[href*='/videos/']"],
+            "channel_name": [".author-name", ".channel-name", "span[data-testid='video-card-user-avatar-link'] > span"],
+            "channel_link": [".author-link", ".channel-link", "a[data-testid='video-card-user-avatar-link']"],
+            "time": [".duration", ".video-duration", "span.time"],
+            "meta": [".views", ".video-views", "span.meta-item"],
         }
     },
     "dailymotion": {
         "url": "https://www.dailymotion.com",
         "search_path": "/search/{query}/videos",
         "page_param": "page",
-        "requires_js": False,  # Dailymotion loads content dynamically
-        "video_item_selector": 'div[data-testid="video-card"], .video-item',
-        "link_selector": 'a[data-testid="card-link"], .video-link',
-        "title_selector": 'div[data-testid="card-title"], .video-title',
-        "img_selector": 'img[data-testid="card-thumbnail"], img.thumbnail',
-        "time_selector": 'span[data-testid="card-duration"], .duration',
-        "channel_name_selector": 'div[data-testid="card-owner-name"], .owner-name',
-        "channel_link_selector": 'a[data-testid="card-owner-link"], .owner-link',
+        "requires_js": False,
+        "video_item_selector": "div[data-testid='video-card'], .video-item, article.video-item",
+        "link_selector": 'a[data-testid="card-link"], .video-link, a[href*="/video/"]',
+        "title_selector": 'div[data-testid="card-title"], .video-title, h3',
+        "img_selector": 'img[data-testid="card-thumbnail"], img.thumbnail, img[data-src]',
+        "time_selector": 'span[data-testid="card-duration"], .duration, .video-duration',
+        "channel_name_selector": 'div[data-testid="card-owner-name"], .owner-name, .channel-name',
+        "channel_link_selector": 'a[data-testid="card-owner-link"], .owner-link, .channel-link',
+        "meta_selector": 'span[data-testid="card-views"], .views, .video-views',
         "fallback_selectors": {
-            "title": [".video-title", "h3", "[title]"],
-            "img": ["img[src]", "img[data-src]"],
-            "link": ["a[href*='/video/']"]
+            "container": ["article", "div[data-testid='video-card']", "div.video-item"],
+            "title": [".video-title", "h3", "[title]", "a[data-testid='card-link']"],
+            "img": ["img[src]", "img[data-src]", "img[data-lazy]", "img[data-original]"],
+            "link": ["a[href*='/video/']", ".video-link", "a[data-testid='card-link']"],
+            "channel_name": [".owner-name", ".channel-name", "div[data-testid='card-owner-name']"],
+            "channel_link": [".owner-link", ".channel-link", "a[data-testid='card-owner-link']"],
+            "time": [".duration", ".video-duration", "span.time"],
+            "meta": [".views", ".video-views", "span.meta-item"],
         }
     },
     "xhamster": {
@@ -211,18 +235,23 @@ ENGINE_MAP: dict[str, dict[str, Any]] = {
         "search_path": "/search/{query}",
         "page_param": "page",
         "requires_js": True,
-        "video_item_selector": "div.thumb-list__item.video-thumb",
-        "link_selector": "a.video-thumb__image-container[data-role='thumb-link']",
-        "title_selector": "a.video-thumb-info__name[data-role='thumb-link']",
-        "img_selector": "img.thumb-image-container__image[data-role='thumb-preview-img']",
-        "time_selector": "div.thumb-image-container__duration div.tiny-8643e",
-        "meta_selector": "div.video-thumb-views",
-        "channel_name_selector": "a.video-uploader__name",
-        "channel_link_selector": "a.video-uploader__name",
+        "video_item_selector": "div.thumb-list__item.video-thumb, article.video-item",
+        "link_selector": "a.video-thumb__image-container[data-role='thumb-link'], a[href*='/videos/']",
+        "title_selector": "a.video-thumb-info__name[data-role='thumb-link'], .video-title, h3",
+        "img_selector": "img.thumb-image-container__image[data-role='thumb-preview-img'], img[data-src], img[src]",
+        "time_selector": "div.thumb-image-container__duration div.tiny-8643e, .duration, .video-duration",
+        "meta_selector": "div.video-thumb-views, .views, .video-views",
+        "channel_name_selector": "a.video-uploader__name, .channel-name",
+        "channel_link_selector": "a.video-uploader__name, .channel-link",
         "fallback_selectors": {
-            "title": ["a[title]"],
-            "img": ["img[data-src]", "img[src]"],
-            "link": ["a[href*='/videos/']"]
+            "container": ["div.thumb-list__item", "article.video-item", "div.video-block"],
+            "title": ["a[title]", ".video-title", "h3", "a[data-role='thumb-link']"],
+            "img": ["img[data-src]", "img[src]", "img[data-lazy]", "img[data-original]"],
+            "link": ["a[href*='/videos/']", "a.video-thumb__image-container", "a.video-link"],
+            "channel_name": [".channel-name", "a.video-uploader__name"],
+            "channel_link": [".channel-link", "a.video-uploader__name"],
+            "time": [".duration", ".video-duration", "span.time"],
+            "meta": [".views", ".video-views", "span.meta-item"],
         }
     },
     "pornhub": {
@@ -230,18 +259,23 @@ ENGINE_MAP: dict[str, dict[str, Any]] = {
         "search_path": "/video/search?search={query}",
         "page_param": "page",
         "requires_js": False,
-        "video_item_selector": "li.pcVideoListItem, .video-item, div.videoblock",
-        "link_selector": "a.previewVideo, a.thumb, .video-link, .videoblock__link",
-        "title_selector": "a.previewVideo .title, a.thumb .title, .video-title, .videoblock__title",
-        "img_selector": "img[src], img[data-src], img[data-lazy]",
-        "time_selector": "var.duration, .duration, .videoblock__duration",
-        "channel_name_selector": ".usernameWrap a, .channel-name, .videoblock__channel",
-        "channel_link_selector": ".usernameWrap a, .channel-link",
-        "meta_selector": ".views, .video-views, .videoblock__views",
+        "video_item_selector": "li.pcVideoListItem, .video-item, div.videoblock, article.video-box",
+        "link_selector": "a.previewVideo, a.thumb, .video-link, .videoblock__link, article.video-box a[href*='/view_video.php']",
+        "title_selector": "a.previewVideo .title, a.thumb .title, .video-title, .videoblock__title, article.video-box .title",
+        "img_selector": "img[src], img[data-src], img[data-lazy], img[data-thumb]",
+        "time_selector": "var.duration, .duration, .videoblock__duration, .video-duration",
+        "channel_name_selector": ".usernameWrap a, .channel-name, .videoblock__channel, .video-uploader__name",
+        "channel_link_selector": ".usernameWrap a, .channel-link, .videoblock__channel a, .video-uploader__name",
+        "meta_selector": ".views, .video-views, .videoblock__views, .video-meta-item",
         "fallback_selectors": {
-            "title": [".title", "a[title]", "[data-title]"],
-            "img": ["img[data-thumb]", "img[src]"],
-            "link": ["a[href*='/view_video.php']", "a.video-link"]
+            "container": ["li.pcVideoListItem", ".video-item", "div.videoblock", "article.video-box"],
+            "title": [".title", "a[title]", "[data-title]", "a.video-link", "h3"],
+            "img": ["img[data-thumb]", "img[src]", "img[data-src]", "img[data-lazy]", "img[data-original]"],
+            "link": ["a[href*='/view_video.php']", "a.video-link", ".videoblock__link", "a.thumb"],
+            "channel_name": [".channel-name", ".video-uploader__name", ".usernameWrap a"],
+            "channel_link": [".channel-link", ".video-uploader__name", ".usernameWrap a"],
+            "time": [".duration", ".video-duration", "span.time"],
+            "meta": [".views", ".video-views", "span.meta-item"],
         }
     },
     "xvideos": {
@@ -249,16 +283,23 @@ ENGINE_MAP: dict[str, dict[str, Any]] = {
         "search_path": "/?k={query}",
         "page_param": "p",
         "requires_js": False,
-        "video_item_selector": "div.mozaique > div, .video-block, .thumb-block",
-        "link_selector": ".thumb-under > a, .video-link, .thumb-block__header a",
-        "title_selector": ".thumb-under > a, .video-title, .thumb-block__header a",
-        "img_selector": "img, img[data-src], .thumb img",
-        "time_selector": ".duration, .thumb-block__duration",
+        "video_item_selector": "div.mozaique > div, .video-block, .thumb-block, article.video-item",
+        "link_selector": ".thumb-under > a, .video-link, .thumb-block__header a, a[href*='/video/']",
+        "title_selector": ".thumb-under > a, .video-title, .thumb-block__header a, h3",
+        "img_selector": "img, img[data-src], .thumb img, img[data-original]",
+        "time_selector": ".duration, .thumb-block__duration, .video-duration",
         "meta_selector": ".video-views, .views, .thumb-block__views",
+        "channel_name_selector": ".video-uploader__name, .channel-name",
+        "channel_link_selector": ".video-uploader__name, .channel-link",
         "fallback_selectors": {
-            "title": ["a[title]", ".title", "p.title"],
-            "img": ["img[data-src]", "img[src]"],
-            "link": ["a[href*='/video']"]
+            "container": ["div.mozaique > div", ".video-block", ".thumb-block", "article.video-item"],
+            "title": ["a[title]", ".title", "p.title", "h3", ".thumb-under > a"],
+            "img": ["img[data-src]", "img[src]", ".thumb img", "img[data-lazy]", "img[data-original]"],
+            "link": ["a[href*='/video']", ".thumb-under > a", ".video-link", ".thumb-block__header a"],
+            "channel_name": [".channel-name", ".video-uploader__name"],
+            "channel_link": [".channel-link", ".video-uploader__name"],
+            "time": [".duration", ".video-duration", "span.time"],
+            "meta": [".views", ".video-views", "span.meta-item"],
         }
     },
     "xnxx": {
@@ -266,34 +307,48 @@ ENGINE_MAP: dict[str, dict[str, Any]] = {
         "search_path": "/search/{query}/",
         "page_param": "p",
         "requires_js": False,
-        "video_item_selector": "div.mozaique > div.thumb-block, .video-block",
-        "link_selector": ".thumb-under > a, .video-link",
-        "title_selector": ".thumb-under > a, .video-title",
-        "img_selector": "img[data-src], .thumb img",
+        "video_item_selector": "div.mozaique > div.thumb-block, .video-block, article.video-item",
+        "link_selector": ".thumb-under > a, .video-link, a[href*='/video/']",
+        "title_selector": ".thumb-under > a, .video-title, h3",
+        "img_selector": "img[data-src], .thumb img, img[src], img[data-original]",
         "time_selector": ".duration, .video-duration",
         "meta_selector": ".video-views, .views",
+        "channel_name_selector": ".video-uploader__name, .channel-name",
+        "channel_link_selector": ".video-uploader__name, .channel-link",
         "fallback_selectors": {
-            "title": ["a[title]", ".title", "p.title"],
-            "img": ["img[data-src]", "img[src]"],
-            "link": ["a[href*='/video']"]
+            "container": ["div.mozaique > div.thumb-block", ".video-block", "article.video-item"],
+            "title": ["a[title]", ".title", "p.title", "h3", ".thumb-under > a"],
+            "img": ["img[data-src]", "img[src]", ".thumb img", "img[data-lazy]", "img[data-original]"],
+            "link": ["a[href*='/video']", ".thumb-under > a", ".video-link"],
+            "channel_name": [".channel-name", ".video-uploader__name"],
+            "channel_link": [".channel-link", ".video-uploader__name"],
+            "time": [".duration", ".video-duration", "span.time"],
+            "meta": [".views", ".video-views", "span.meta-item"],
         }
     },
     "youjizz": {
         "url": "https://www.youjizz.com",
         "search_path": "/search/{query}-{page}.html",
-        "page_param": "",
+        "page_param": "", # Page is part of the path for this engine
         "requires_js": True,
-        "video_item_selector": "div.video-thumb",
-        "link_selector": "a.frame.video",
-        "title_selector": "div.video-title a",
-        "img_selector": "img.img-responsive.lazy",
-        "img_attribute": "data-original",
-        "time_selector": "span.time",
-        "meta_selector": "span.views",
+        "video_item_selector": "div.video-thumb, article.video-item",
+        "link_selector": "a.frame.video, a[href*='/videos/']",
+        "title_selector": "div.video-title a, h3",
+        "img_selector": "img.img-responsive.lazy, img[data-src]",
+        "img_attribute": "data-original", # Specific attribute for this engine's images
+        "time_selector": "span.time, .duration",
+        "meta_selector": "span.views, .video-views",
+        "channel_name_selector": "div.video-uploader__name, .channel-name",
+        "channel_link_selector": "div.video-uploader__name, .channel-link",
         "fallback_selectors": {
-            "title": ["a[title]"],
-            "img": ["img[data-original]", "img[src]"],
-            "link": ["a[href*='/videos/']"]
+            "container": ["div.video-thumb", "article.video-item", "div.video-block"],
+            "title": ["a[title]", ".video-title a", "h3", "a.frame.video"],
+            "img": ["img[data-src]", "img[src]", "img[data-lazy]", "img[data-original]"],
+            "link": ["a[href*='/videos/']", "a.frame.video", ".video-link"],
+            "channel_name": [".channel-name", "div.video-uploader__name"],
+            "channel_link": [".channel-link", "div.video-uploader__name"],
+            "time": [".duration", "span.time"],
+            "meta": [".views", ".video-views", "span.meta-item"],
         }
     },
 }
@@ -452,14 +507,21 @@ def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: dict) -> list
         # Wait for video items to load
         wait = WebDriverWait(driver, 10)
         found_element = False
-        for selector in cfg["video_item_selector"].split(','):
+        # Iterate through primary and fallback selectors for video items
+        selectors_to_try = cfg["video_item_selector"].split(',')
+        if "fallback_selectors" in cfg and "container" in cfg["fallback_selectors"]:
+            selectors_to_try.extend(cfg["fallback_selectors"]["container"])
+
+        for selector in selectors_to_try:
+            selector = selector.strip()
+            if not selector: continue
             try:
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector.strip())))
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
                 found_element = True
-                logger.debug(f"Selenium found element with selector: {selector.strip()}")
+                logger.debug(f"Selenium found element with selector: {selector}")
                 break
             except TimeoutException:
-                logger.debug(f"Selenium did not find element with selector: {selector.strip()}")
+                logger.debug(f"Selenium did not find element with selector: {selector}")
                 continue
 
         if not found_element:
@@ -471,7 +533,7 @@ def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: dict) -> list
 
         # Get page source and parse with BeautifulSoup
         soup = BeautifulSoup(driver.page_source, "html.parser")
-        logger.debug(f"Selenium parsed soup: {soup.prettify()}")
+        logger.debug(f"Selenium parsed soup for {url}")
         return extract_video_items(soup, cfg)
 
     except (TimeoutException, WebDriverException) as e:
@@ -629,6 +691,7 @@ def get_search_results(
 
     try:
         items_per_page = 30
+        # Fetch up to 5 pages or until the limit is reached
         pages_to_fetch = min(5, (limit + items_per_page - 1) // items_per_page)
 
         logger.info(f"Searching {engine} for '{query}' (up to {pages_to_fetch} pages)",
@@ -643,16 +706,20 @@ def get_search_results(
             last_request_time = time.time()
 
             # Build URL
-            if "{page}" in cfg["search_path"]:
-                search_path = cfg["search_path"].format(query=quote_plus(query), page=current_page)
+            search_path_template = cfg["search_path"]
+            url_params = {"query": quote_plus(query), "page": current_page}
+
+            # Handle page number insertion based on template
+            if "{page}" in search_path_template:
+                search_path = search_path_template.format(**url_params)
             else:
-                search_path = cfg["search_path"].format(query=quote_plus(query))
+                search_path = search_path_template.format(query=url_params["query"])
+                # Append page number as query parameter if not in path and page_param is defined
+                if current_page > 1 and cfg.get("page_param"):
+                    separator = "&" if "?" in search_path else "?"
+                    search_path += f"{separator}{cfg.get('page_param')}={current_page}"
 
             url = urljoin(base_url, search_path)
-
-            if current_page > 1 and "{page}" not in cfg["search_path"] and cfg.get("page_param"):
-                separator = "&" if "?" in url else "?"
-                url += f"{separator}{cfg.get('page_param')}={current_page}"
 
             logger.info(f"Fetching page {current_page}: {url}",
                        extra={'engine': engine, 'query': query})
@@ -662,7 +729,7 @@ def get_search_results(
                 if driver and cfg.get("requires_js", False):
                     video_items = extract_with_selenium(driver, url, cfg)
                 else:
-                    # Rotate User-Agent and headers
+                    # Rotate User-Agent and headers for each request
                     user_agent = random.choice(REALISTIC_USER_AGENTS)
                     session.headers.update(get_realistic_headers(user_agent))
 
@@ -677,7 +744,9 @@ def get_search_results(
                     video_items = extract_video_items(soup, cfg)
 
                 if not video_items:
-                    logger.warning(f"No video items found on page {current_page}")
+                    logger.warning(f"No video items found on page {current_page} for {engine}")
+                    # If no items are found, it might be the end of results or a block.
+                    # Consider breaking if this happens consistently for a few pages.
                     continue
 
                 logger.debug(f"Found {len(video_items)} video items on page {current_page}")
@@ -692,11 +761,11 @@ def get_search_results(
                         if video_data and validate_video_data_enhanced(video_data):
                             results.append(video_data)
                     except Exception as e:
-                        logger.debug(f"Failed to extract video data: {e}")
+                        logger.debug(f"Failed to extract or validate video data: {e}")
                         continue
 
             except Exception as e:
-                logger.error(f"Request failed for page {current_page}: {e}")
+                logger.error(f"Request failed for page {current_page} ({url}): {e}")
                 continue
 
     finally:
@@ -706,7 +775,7 @@ def get_search_results(
             except Exception:
                 pass
 
-    logger.info(f"Successfully extracted {len(results)} videos",
+    logger.info(f"Successfully extracted {len(results)} videos for '{query}' from {engine}",
                extra={'engine': engine, 'query': query})
     return results[:limit]
 
@@ -715,18 +784,34 @@ def extract_video_items(soup: BeautifulSoup, cfg: dict) -> list:
     """Extract video items with comprehensive fallback logic."""
     video_items = []
 
-    # Try primary selectors
-    for selector in cfg["video_item_selector"].split(", "):
-        video_items = soup.select(selector.strip())
-        if video_items:
-            break
+    # Try primary selectors first
+    primary_selectors = cfg.get("video_item_selector", "").split(",")
+    for selector in primary_selectors:
+        selector = selector.strip()
+        if not selector: continue
+        items = soup.select(selector)
+        if items:
+            video_items.extend(items)
+            logger.debug(f"Found {len(items)} items using primary selector: {selector}")
+            # If we found items, we can potentially stop or continue to gather more if needed
+            # For now, let's collect all from primary selectors
+            # break # Uncomment to stop after first successful primary selector
 
-    # Try fallback selectors if needed
-    if not video_items and "fallback_selectors" in cfg:
-        for selector in cfg["fallback_selectors"].get("container", []):
-            video_items = soup.select(selector)
-            if video_items:
+    # If no items found with primary selectors, try fallback selectors
+    if not video_items and "fallback_selectors" in cfg and "container" in cfg["fallback_selectors"]:
+        fallback_selectors = cfg["fallback_selectors"]["container"]
+        for selector in fallback_selectors:
+            selector = selector.strip()
+            if not selector: continue
+            items = soup.select(selector)
+            if items:
+                video_items.extend(items)
+                logger.debug(f"Found {len(items)} items using fallback selector: {selector}")
+                # Break if we found items using fallbacks to avoid redundant searches
                 break
+
+    if not video_items:
+        logger.debug("No video items found using primary or fallback selectors.")
 
     return video_items
 
@@ -734,16 +819,15 @@ def extract_video_items(soup: BeautifulSoup, cfg: dict) -> list:
 def extract_video_data_enhanced(item, cfg: dict, base_url: str) -> dict | None:
     """Enhanced video data extraction with comprehensive fallbacks[3]."""
     try:
-        # Extract title with multiple fallback strategies
+        # --- Extract Title ---
         title = "Untitled"
         title_selectors = [cfg.get("title_selector", "")]
         if "fallback_selectors" in cfg and "title" in cfg["fallback_selectors"]:
             title_selectors.extend(cfg["fallback_selectors"]["title"])
 
         for selector in title_selectors:
-            if not selector:
-                logger.debug("Skipping empty title selector.")
-                continue
+            selector = selector.strip()
+            if not selector: continue
             logger.debug(f"Attempting to select title with: {selector}")
             title_el = item.select_one(selector)
             if title_el:
@@ -753,50 +837,54 @@ def extract_video_data_enhanced(item, cfg: dict, base_url: str) -> dict | None:
                 else:
                     title = title_el.get_text(strip=True)
                 if title and title != "Untitled":
-                    break
+                    break # Found a valid title
 
-        # Extract link with fallbacks
+        # --- Extract Link ---
         link = "#"
         link_selectors = [cfg.get("link_selector", "")]
         if "fallback_selectors" in cfg and "link" in cfg["fallback_selectors"]:
             link_selectors.extend(cfg["fallback_selectors"]["link"])
 
         for selector in link_selectors:
-            if not selector:
-                logger.debug("Skipping empty link selector.")
-                continue
+            selector = selector.strip()
+            if not selector: continue
             logger.debug(f"Attempting to select link with: {selector}")
             link_el = item.select_one(selector)
             if link_el and link_el.has_attr("href"):
                 href = link_el["href"]
                 if href and href != "#":
                     link = urljoin(base_url, href)
-                    break
+                    break # Found a valid link
 
-        # Extract image URL with comprehensive fallbacks
+        # --- Extract Image URL ---
         img_url = None
         img_selectors = [cfg.get("img_selector", "")]
+        img_attribute = cfg.get("img_attribute", "") # Specific attribute like data-original
         if "fallback_selectors" in cfg and "img" in cfg["fallback_selectors"]:
             img_selectors.extend(cfg["fallback_selectors"]["img"])
 
         for selector in img_selectors:
-            if not selector:
-                logger.debug("Skipping empty image selector.")
-                continue
+            selector = selector.strip()
+            if not selector: continue
             logger.debug(f"Attempting to select image with: {selector}")
             img_el = item.select_one(selector)
             if img_el:
-                # Try multiple attributes in order of preference
-                for attr in ["data-src", "src", "data-lazy", "data-original", "data-thumb"]:
+                # Try specific attribute first, then common ones
+                attributes_to_try = []
+                if img_attribute:
+                    attributes_to_try.append(img_attribute)
+                attributes_to_try.extend(["data-src", "src", "data-lazy", "data-original", "data-thumb"])
+
+                for attr in attributes_to_try:
                     if img_el.has_attr(attr):
                         img_val = img_el[attr]
-                        if img_val and not img_val.startswith("data:"):
+                        if img_val and not img_val.startswith("data:"): # Avoid data URIs for now
                             img_url = urljoin(base_url, img_val)
-                            break
+                            break # Found a valid image URL
                 if img_url:
-                    break
+                    break # Found an image URL
 
-        # Extract metadata with safe handling
+        # --- Extract Metadata ---
         duration = extract_text_safe(item, cfg.get("time_selector", ""), "N/A")
         views = extract_text_safe(item, cfg.get("meta_selector", ""), "N/A")
         channel_name = extract_text_safe(item, cfg.get("channel_name_selector", ""), "N/A")
@@ -804,11 +892,16 @@ def extract_video_data_enhanced(item, cfg: dict, base_url: str) -> dict | None:
         channel_link = "#"
         channel_link_selector = cfg.get("channel_link_selector", "")
         if channel_link_selector:
-            channel_link_el = item.select_one(channel_link_selector)
-            if channel_link_el and channel_link_el.has_attr("href"):
-                href = channel_link_el["href"]
-                if href and href != "#":
-                    channel_link = urljoin(base_url, href)
+            for selector in channel_link_selector.split(','):
+                selector = selector.strip()
+                if not selector: continue
+                logger.debug(f"Attempting to select channel link with: {selector}")
+                channel_link_el = item.select_one(selector)
+                if channel_link_el and channel_link_el.has_attr("href"):
+                    href = channel_link_el["href"]
+                    if href and href != "#":
+                        channel_link = urljoin(base_url, href)
+                        break # Found a valid channel link
 
         return {
             "title": html.escape(title[:200]),
@@ -828,19 +921,28 @@ def extract_video_data_enhanced(item, cfg: dict, base_url: str) -> dict | None:
 
 
 def extract_text_safe(element, selector: str, default: str = "N/A") -> str:
-    """Safely extract text with comprehensive error handling."""
+    """Safely extract text with comprehensive error handling and fallbacks."""
     if not selector:
         logger.debug(f"extract_text_safe received empty selector, returning default: {default}")
         return default
-    try:
-        logger.debug(f"Attempting to extract text with selector: {selector}")
-        el = element.select_one(selector)
-        if el:
-            text = el.get_text(strip=True)
-            return text if text else default
-        return default
-    except Exception:
-        return default
+
+    # Split selectors by comma and try each one
+    selectors = [s.strip() for s in selector.split(',')]
+    for sel in selectors:
+        if not sel: continue
+        try:
+            logger.debug(f"Attempting to extract text with selector: {sel}")
+            el = element.select_one(sel)
+            if el:
+                text = el.get_text(strip=True)
+                if text and text != "N/A": # Return first non-empty, non-default text
+                    return text
+        except Exception as e:
+            logger.debug(f"Error with selector '{sel}': {e}")
+            continue # Try next selector
+
+    # If no text found with any selector, return default
+    return default
 
 
 def validate_video_data_enhanced(data: dict) -> bool:
@@ -852,20 +954,36 @@ def validate_video_data_enhanced(data: dict) -> bool:
     required_fields = ["title", "link"]
     for field in required_fields:
         if not data.get(field) or data[field] in ["", "Untitled", "#"]:
+            logger.debug(f"Validation failed: Missing or invalid required field '{field}'")
             return False
 
     # URL validation
     try:
         parsed_link = urlparse(data["link"])
         if not parsed_link.scheme or not parsed_link.netloc:
+            logger.debug(f"Validation failed: Invalid link URL '{data['link']}'")
             return False
     except Exception:
+        logger.debug(f"Validation failed: Exception parsing link URL '{data['link']}'")
         return False
 
     # Title validation
     title = data.get("title", "")
     if len(title) < 3 or title.lower() in ["untitled", "n/a", "error"]:
+        logger.debug(f"Validation failed: Invalid title '{title}'")
         return False
+
+    # Image URL validation (optional, but good practice)
+    img_url = data.get("img_url")
+    if img_url:
+        try:
+            parsed_img_url = urlparse(img_url)
+            if not parsed_img_url.scheme or not parsed_img_url.netloc:
+                logger.debug(f"Validation failed: Invalid image URL '{img_url}'")
+                return False
+        except Exception:
+            logger.debug(f"Validation failed: Exception parsing image URL '{img_url}'")
+            return False
 
     return True
 
@@ -1014,6 +1132,9 @@ ENHANCED_HTML_HEAD = """<!DOCTYPE html>
             height: 200px;
             overflow: hidden;
             background: var(--bg-primary);
+            display: flex; /* Use flex for centering placeholder */
+            align-items: center;
+            justify-content: center;
         }}
 
         .thumbnail img {{
@@ -1042,7 +1163,7 @@ ENHANCED_HTML_HEAD = """<!DOCTYPE html>
             cursor: pointer;
         }}
 
-        .video-card:hover .play-overlay {{
+        .video-card:hover .play-overlay {{ 
             opacity: 1;
             transform: translate(-50%, -50%) scale(1.1);
         }}
@@ -1130,6 +1251,8 @@ ENHANCED_HTML_HEAD = """<!DOCTYPE html>
             justify-content: center;
             color: var(--text-muted);
             font-size: 1.5rem;
+            width: 100%;
+            height: 100%;
         }}
 
         @media (max-width: 768px) {{
@@ -1148,7 +1271,7 @@ ENHANCED_HTML_HEAD = """<!DOCTYPE html>
 <body>
     <div class="container">
         <header class="header">
-            <h1>{query}</h1>
+            <h1>{title}</h1>
             <p class="subtitle">Search results from {engine}</p>
             <div class="stats">
                 <div class="stat">🎬 {count} videos</div>
@@ -1161,31 +1284,36 @@ ENHANCED_HTML_HEAD = """<!DOCTYPE html>
 ENHANCED_HTML_TAIL = """        </main>
     </div>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {{
+        document.addEventListener('DOMContentLoaded', function() {
             const images = document.querySelectorAll('img[data-src]');
-            const imageObserver = new IntersectionObserver((entries, observer) => {{
-                entries.forEach(entry => {{
-                    if (entry.isIntersecting) {{
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
                         const img = entry.target;
-                        const placeholder = img.parentElement;
+                        const placeholderContainer = img.parentElement; // The div containing the img
                         
-                        placeholder.classList.add('loading-placeholder');
+                        // Add loading animation to the container
+                        placeholderContainer.classList.add('loading-placeholder');
                         
                         img.src = img.dataset.src;
-                        img.onload = () => {{
+                        img.onload = () => {
                             img.removeAttribute('data-src');
-                            placeholder.classList.remove('loading-placeholder');
-                        }};
-                        img.onerror = () => {{
-                            placeholder.innerHTML = '<div class="error-placeholder">❌</div>';
-                        }};
+                            placeholderContainer.classList.remove('loading-placeholder');
+                        };
+                        img.onerror = () => {
+                            // Replace placeholder with error icon if image fails to load
+                            placeholderContainer.innerHTML = '<div class="error-placeholder">❌</div>';
+                        };
                         imageObserver.unobserve(img);
-                    }}
-                }});
-            }});
+                    }
+                });
+            });
 
-            images.forEach(img => imageObserver.observe(img));
-        }});
+            images.forEach(img => {
+                // Ensure the img element itself is observed, not just its parent
+                imageObserver.observe(img);
+            });
+        });
     </script>
 </body>
 </html>"""
@@ -1202,51 +1330,62 @@ async def build_enhanced_html_async(
     """Build enhanced HTML with async thumbnail downloads."""
     ensure_dir(thumbs_dir)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{engine}_{enhanced_slugify(query)}_{timestamp}_{uuid.uuid4().hex[:8]}.html"
+    # Sanitize query for filename and ensure uniqueness with UUID
+    safe_query_filename = enhanced_slugify(query)[:50]
+    filename = f"{engine}_{safe_query_filename}_{timestamp}_{uuid.uuid4().hex[:8]}.html"
     outfile = Path(filename)
 
     def get_thumb_path(img_url: str, title: str, idx: int) -> Path:
         """Generate a consistent, safe file path for a thumbnail."""
-        ext = os.path.splitext(urlparse(img_url).path)[1] or ".jpg"
+        # Extract extension from URL, default to .jpg if not found or invalid
+        parsed_url = urlparse(img_url)
+        _, ext = os.path.splitext(parsed_url.path)
+        if not ext or ext.lower() not in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+            ext = ".jpg" # Default to jpg if extension is missing or unsupported
+
         safe_title = enhanced_slugify(title)[:50]
+        # Ensure filename is unique and safe
         return thumbs_dir / f"{safe_title}_{idx}{ext}"
 
     def generate_placeholder_svg(icon: str) -> str:
-        """Generate SVG placeholder."""
+        """Generate SVG placeholder for thumbnails."""
+        # Using a dark background matching the card background
         svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
             <rect width="100%" height="100%" fill="#16213e"/>
             <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" 
                   font-family="sans-serif" font-size="2rem" fill="#666">{icon}</text>
         </svg>'''
+        # Base64 encode the SVG for embedding in HTML
         return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
 
     async def fetch_thumbnail_async_task(idx: int, video: dict) -> tuple[int, str]:
         """Download thumbnail async with caching and fallbacks."""
         img_url = video.get("img_url")
         if not img_url:
-            return idx, generate_placeholder_svg("🎬")
+            return idx, generate_placeholder_svg("🎬") # Placeholder for missing image URL
 
         dest_path = get_thumb_path(img_url, video.get("title", "video"), idx)
 
-        # Use cached version if it exists and is valid
+        # Use cached version if it exists and is valid (non-empty)
         if dest_path.exists() and dest_path.stat().st_size > 0:
-            return idx, str(dest_path).replace("\\", "/")
+            return idx, str(dest_path).replace("\", "/") # Return path relative to script
 
         try:
             # Try async download first
             async with aiohttp_session() as async_session:
                 if async_session:
-                    semaphore = asyncio.Semaphore(workers)
+                    semaphore = asyncio.Semaphore(workers) # Limit concurrent downloads
                     if await async_download_thumbnail(async_session, img_url, dest_path, semaphore):
-                        return idx, str(dest_path).replace("\\", "/")
+                        return idx, str(dest_path).replace("\", "/")
 
-            # Fallback to sync download
+            # Fallback to sync download if async fails or is unavailable
             if robust_download_sync(session, img_url, dest_path):
-                return idx, str(dest_path).replace("\\", "/")
+                return idx, str(dest_path).replace("\", "/")
 
         except Exception as e:
             logger.debug(f"Error during thumbnail fetch for {img_url}: {e}")
 
+        # Return error placeholder if all download attempts fail
         return idx, generate_placeholder_svg("❌")
 
     def fetch_thumbnail_sync_task(idx: int, video: dict) -> tuple[int, str]:
@@ -1259,33 +1398,40 @@ async def build_enhanced_html_async(
 
         # Use cached version if it exists and is valid
         if dest_path.exists() and dest_path.stat().st_size > 0:
-            return idx, str(dest_path).replace("\\", "/")
+            return idx, str(dest_path).replace("\", "/")
 
         if robust_download_sync(session, img_url, dest_path):
-            return idx, str(dest_path).replace("\\", "/")
+            return idx, str(dest_path).replace("\", "/")
 
         return idx, generate_placeholder_svg("❌")
 
-    # Download thumbnails
+    # Download thumbnails concurrently
     thumbnail_paths = [""] * len(results)
 
-    if ASYNC_AVAILABLE:
+    if ASYNC_AVAILABLE and not args.no_async: # Use async if available and not disabled
         tasks = [fetch_thumbnail_async_task(i, video) for i, video in enumerate(results)]
+        # Gather results, handling potential exceptions from tasks
         results_with_idx = await asyncio.gather(*tasks, return_exceptions=True)
         for result in results_with_idx:
             if isinstance(result, tuple) and len(result) == 2:
                 idx, path = result
                 thumbnail_paths[idx] = path
-            else:
+            elif isinstance(result, Exception):
                 logger.debug(f"Error gathering async thumbnail result: {result}")
+                # Assign a placeholder if an exception occurred for a specific task
+                # This requires knowing which task failed, which gather doesn't directly provide without more complex handling.
+                # For simplicity, we'll rely on the task itself returning a placeholder on error.
+            else:
+                logger.debug(f"Unexpected result format from asyncio.gather: {result}")
     else:
-        # Fallback to threaded downloads
+        # Fallback to threaded downloads if async is not available or disabled
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(workers, 20)) as executor:
             future_to_idx = {
                 executor.submit(fetch_thumbnail_sync_task, i, video): i
                 for i, video in enumerate(results)
             }
 
+            # Use tqdm for progress bar during threaded downloads
             for future in tqdm(
                 concurrent.futures.as_completed(future_to_idx),
                 total=len(future_to_idx),
@@ -1299,20 +1445,21 @@ async def build_enhanced_html_async(
                     thumbnail_paths[i] = path
                 except Exception as e:
                     logger.debug(f"Error with threaded download for item {i}: {e}")
-                    thumbnail_paths[i] = generate_placeholder_svg("❌")
+                    thumbnail_paths[i] = generate_placeholder_svg("❌") # Assign placeholder on error
 
     # Generate HTML
     with open(outfile, "w", encoding="utf-8") as f:
         f.write(ENHANCED_HTML_HEAD.format(
-            title=f"{html.escape(query)} - {engine}",
+            title=f"{html.escape(query)} - {engine.title()}", # Use title-cased engine name
             query=html.escape(query),
             engine=engine.title(),
             count=len(results),
             timestamp=datetime.now().strftime("%Y-%m-%d %H:%M")
         ))
 
-        for video, thumbnail in zip(results, thumbnail_paths, strict=False):
-            # Build meta items
+        # Iterate through results and their corresponding thumbnail paths
+        for video, thumbnail in zip(results, thumbnail_paths, strict=False): # strict=False to handle potential length mismatch gracefully
+            # Build meta items for display
             meta_items = []
             if video.get("time", "N/A") != "N/A":
                 meta_items.append(f'<span class="meta-item">⏱️ {html.escape(video["time"])}</span>')
@@ -1327,6 +1474,7 @@ async def build_enhanced_html_async(
             if video.get("meta", "N/A") != "N/A":
                 meta_items.append(f'<span class="meta-item">👁️ {html.escape(video["meta"])}</span>')
 
+            # Write video card HTML
             f.write(f'''
             <div class="video-card">
                 <a href="{html.escape(video['link'])}" target="_blank" rel="noopener noreferrer">
@@ -1359,12 +1507,12 @@ def main():
     parser = argparse.ArgumentParser(
         description="Enhanced video search with web scraping.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""\
+        epilog="""
 Example usage:
   python3 video_search.py "cats in space"
   python3 video_search.py "ocean waves" -e pexels -l 50 -p 2 -o json
   python3 video_search.py "daily news" -e dailymotion --no-async --no-open
-  python3 video_search.py "search term" -e pornhub -x http://user:pass@host:port
+  python3 video_search.py "search term" -x http://user:pass@host:port
 """
     )
 
@@ -1414,10 +1562,11 @@ Example usage:
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    # Check for async availability
+    # Check for async availability and user override
     global ASYNC_AVAILABLE
     if args.no_async:
         ASYNC_AVAILABLE = False
+        logger.info("Async downloading disabled by user.")
 
     # Handle KeyboardInterrupt gracefully
     def signal_handler(sig, frame):
@@ -1472,8 +1621,8 @@ Example usage:
                     )
                 )
             else:
-                # Synchronous fallback
-                async def sync_wrapper():
+                # Synchronous fallback for HTML generation
+                async def sync_html_builder_wrapper():
                     return await build_enhanced_html_async(
                         results=results,
                         query=args.query,
@@ -1482,14 +1631,19 @@ Example usage:
                         session=session,
                         workers=args.workers,
                     )
-                outfile = asyncio.run(sync_wrapper())
+                # Run the async function synchronously
+                outfile = asyncio.run(sync_html_builder_wrapper())
 
-            # Open the file
+            # Open the file in the browser if not disabled
             if not args.no_open and outfile.exists():
                 try:
-                    webbrowser.open(f"file://{os.path.abspath(outfile)}")
+                    # Ensure absolute path for file:// URL
+                    abs_outfile_path = os.path.abspath(outfile)
+                    webbrowser.open(f"file://{abs_outfile_path}")
+                    print(f"{NEON['CYAN']}HTML results saved to: {outfile}{NEON['RESET']}")
                 except Exception as e:
-                    print(f"{NEON['YELLOW']}Failed to open browser: {e}{NEON['RESET']}")
+                    print(f"{NEON['YELLOW']}Failed to open browser automatically: {e}{NEON['RESET']}")
+                    print(f"{NEON['YELLOW']}Please open the file manually: {os.path.abspath(outfile)}{NEON['RESET']}")
 
     except Exception as e:
         logger.critical(f"An unhandled error occurred: {e}", exc_info=True)
@@ -1497,4 +1651,3 @@ Example usage:
 
 if __name__ == "__main__":
     main()
-

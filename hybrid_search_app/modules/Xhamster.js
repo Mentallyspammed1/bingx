@@ -1,21 +1,21 @@
-'use strict';
+'use strict'
 
 // Core module and mixins
-const AbstractModule = require('../core/AbstractModule.js');
-const VideoMixin = require('../core/VideoMixin.js');
-const GifMixin = require('../core/GifMixin.js');
+const AbstractModule = require('../core/AbstractModule.js')
+const VideoMixin = require('../core/VideoMixin.js')
+const GifMixin = require('../core/GifMixin.js')
 
 // Utility functions for logging, URL handling, and preview extraction
-const { logger, makeAbsolute, extractPreview, sanitizeText } = require('./driver-utils.js');
+const { logger, makeAbsolute, extractPreview, sanitizeText } = require('./driver-utils.js')
 
 // Base URL for Xhamster.com
-const BASE_URL = 'https://www.xhamster.com';
-const XHAMSTER_VIDEO_SEARCH_PATH = '/videos/search/'; // Path for video search
-const XHAMSTER_GIF_SEARCH_PATH = '/gifs/search/'; // Path for GIF search
-const DRIVER_NAME = 'Xhamster';
+const BASE_URL = 'https://www.xhamster.com'
+const XHAMSTER_VIDEO_SEARCH_PATH = '/videos/search/' // Path for video search
+const XHAMSTER_GIF_SEARCH_PATH = '/gifs/search/' // Path for GIF search
+const DRIVER_NAME = 'Xhamster'
 
 // Apply mixins to AbstractModule.
-const BaseXhamsterClass = AbstractModule.with(VideoMixin, GifMixin);
+const BaseXhamsterClass = AbstractModule.with(VideoMixin, GifMixin)
 
 /**
  * @class XhamsterDriver
@@ -29,8 +29,8 @@ class XhamsterDriver extends BaseXhamsterClass {
    * @param {object} [options={}] - Options for the driver, passed to AbstractModule.
    */
   constructor(options = {}) {
-    super(options);
-    logger.debug(`[${DRIVER_NAME}] Initialized.`);
+    super(options)
+    logger.debug(`[${DRIVER_NAME}] Initialized.`)
   }
 
   /**
@@ -39,7 +39,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    * @readonly
    */
   get name() {
-    return DRIVER_NAME;
+    return DRIVER_NAME
   }
 
   /**
@@ -48,7 +48,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    * @readonly
    */
   get baseUrl() {
-    return BASE_URL;
+    return BASE_URL
   }
 
   /**
@@ -56,7 +56,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    * @returns {boolean}
    */
   get supportsVideos() {
-    return true;
+    return true
   }
 
   /**
@@ -64,7 +64,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    * @returns {boolean}
    */
   get supportsGifs() {
-    return true;
+    return true
   }
 
   /**
@@ -76,10 +76,10 @@ class XhamsterDriver extends BaseXhamsterClass {
    * @returns {string} The full URL for the video search.
    */
   getVideoSearchUrl(query, page) {
-    const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage);
-    const searchUrl = new URL(`${XHAMSTER_VIDEO_SEARCH_PATH}${encodeURIComponent(query.trim())}/${pageNumber}/`, this.baseUrl);
-    logger.debug(`[${this.name}] Generated video search URL: ${searchUrl.href}`);
-    return searchUrl.href;
+    const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage)
+    const searchUrl = new URL(`${XHAMSTER_VIDEO_SEARCH_PATH}${encodeURIComponent(query.trim())}/${pageNumber}/`, this.baseUrl)
+    logger.debug(`[${this.name}] Generated video search URL: ${searchUrl.href}`)
+    return searchUrl.href
   }
 
   /**
@@ -91,10 +91,10 @@ class XhamsterDriver extends BaseXhamsterClass {
    * @returns {string} The full URL for the GIF search.
    */
   getGifSearchUrl(query, page) {
-    const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage);
-    const searchUrl = new URL(`${XHAMSTER_GIF_SEARCH_PATH}${encodeURIComponent(query.trim())}/${pageNumber}/`, this.baseUrl);
-    logger.debug(`[${this.name}] Generated GIF search URL: ${searchUrl.href}`);
-    return searchUrl.href;
+    const pageNumber = Math.max(1, parseInt(page, 10) || this.firstpage)
+    const searchUrl = new URL(`${XHAMSTER_GIF_SEARCH_PATH}${encodeURIComponent(query.trim())}/${pageNumber}/`, this.baseUrl)
+    logger.debug(`[${this.name}] Generated GIF search URL: ${searchUrl.href}`)
+    return searchUrl.href
   }
 
   /**
@@ -109,53 +109,53 @@ class XhamsterDriver extends BaseXhamsterClass {
    * @returns {Array<import('../Pornsearch').MediaResult>} An array of structured media results.
    */
   parseResults($, rawData, options) {
-    const { type, sourceName } = options;
-    const results = [];
+    const { type, sourceName } = options
+    const results = []
 
     if (!$) {
-      logger.error(`[${sourceName}] parseResults received null Cheerio instance. Expected HTML for parsing.`);
-      return [];
+      logger.error(`[${sourceName}] parseResults received null Cheerio instance. Expected HTML for parsing.`)
+      return []
     }
 
-    logger.info(`[${sourceName}] Parsing ${type} results...`);
+    logger.info(`[${sourceName}] Parsing ${type} results...`)
 
     if (type === 'videos') {
-      const videoItems = $('div.video-thumb');
+      const videoItems = $('div.video-thumb')
 
       if (!videoItems.length) {
-        logger.warn(`[${sourceName}] No video items found with current selectors. Page structure may have changed.`);
-        return [];
+        logger.warn(`[${sourceName}] No video items found with current selectors. Page structure may have changed.`)
+        return []
       }
 
       videoItems.each((index, element) => {
-        const item = $(element);
+        const item = $(element)
 
-        const linkElement = item.find('a.video-thumb__image-container').first();
-        let videoUrl = linkElement.attr('href');
-        let title = item.find('a.video-thumb__name').text() || linkElement.attr('title');
+        const linkElement = item.find('a.video-thumb__image-container').first()
+        let videoUrl = linkElement.attr('href')
+        let title = item.find('a.video-thumb__name').text() || linkElement.attr('title')
 
-        let videoId = item.attr('data-video-id');
+        let videoId = item.attr('data-video-id')
         
-        const thumbElement = item.find('img.video-thumb__image').first();
-        let thumbnailUrl = thumbElement.attr('src');
+        const thumbElement = item.find('img.video-thumb__image').first()
+        let thumbnailUrl = thumbElement.attr('src')
 
-        let duration = item.find('.video-thumb__duration').text();
-        duration = sanitizeText(duration);
+        let duration = item.find('.video-thumb__duration').text()
+        duration = sanitizeText(duration)
 
-        const previewVideoUrl = extractPreview($, item, sourceName, this.baseUrl);
-        logger.debug(`[${sourceName}] Raw video data - Item ${index}: videoId=${videoId}, title=${title}, videoUrl=${videoUrl}, thumbnailUrl=${thumbnailUrl}`);
+        const previewVideoUrl = extractPreview($, item, sourceName, this.baseUrl)
+        logger.debug(`[${sourceName}] Raw video data - Item ${index}: videoId=${videoId}, title=${title}, videoUrl=${videoUrl}, thumbnailUrl=${thumbnailUrl}`)
 
         if (!videoUrl || !title || !thumbnailUrl || !videoId) {
-          logger.warn(`[${sourceName}] Skipping malformed video item (missing essential data):`, { title, videoUrl, thumbnailUrl, videoId, index });
-          return;
+          logger.warn(`[${sourceName}] Skipping malformed video item (missing essential data):`, { title, videoUrl, thumbnailUrl, videoId, index })
+          return
         }
 
-        videoUrl = makeAbsolute(videoUrl, this.baseUrl);
-        thumbnailUrl = makeAbsolute(thumbnailUrl, this.baseUrl);
+        videoUrl = makeAbsolute(videoUrl, this.baseUrl)
+        thumbnailUrl = makeAbsolute(thumbnailUrl, this.baseUrl)
 
         if (!videoUrl || !thumbnailUrl) { // Re-validate after making absolute
-           logger.warn(`[${sourceName}] Skipping video item "${title}": Failed to resolve absolute URLs.`);
-           return;
+           logger.warn(`[${sourceName}] Skipping video item "${title}": Failed to resolve absolute URLs.`)
+           return
         }
 
         results.push({
@@ -167,8 +167,8 @@ class XhamsterDriver extends BaseXhamsterClass {
           preview_video: previewVideoUrl,
           source: sourceName,
           type: 'videos'
-        });
-      });
+        })
+      })
       // --- END SPECULATIVE VIDEO CSS SELECTORS ---
 
     } else if (type === 'gifs') {
@@ -176,52 +176,52 @@ class XhamsterDriver extends BaseXhamsterClass {
       // Common selectors for GIF items on Xhamster search results.
       // Often similar to video items, but might have different classes or structures.
       // const gifItems = $('div.gif-item, li.gif-thumb, div.gif-box'); // Original
-      const gifItems = $('div.photo-thumb, div.gif-thumb, div.gallery-thumb'); // Updated based on xhamster_gifs_page1.html
+      const gifItems = $('div.photo-thumb, div.gif-thumb, div.gallery-thumb') // Updated based on xhamster_gifs_page1.html
 
       if (!gifItems.length) {
-        this.logger.warn(`No GIF items found with current selectors. Page structure may have changed.`);
-        return [];
+        this.logger.warn(`No GIF items found with current selectors. Page structure may have changed.`)
+        return []
       }
 
       gifItems.each((index, element) => {
-        const item = $(element);
+        const item = $(element)
 
         // GIF Page URL: often an `<a>` tag wrapping the GIF.
         // const linkElement = item.find('a.gif-link, a[href*="/gifs/"]').first(); // Original
-        const linkElement = item.find('a[href]').first(); // Simplified to find any link with href
-        let gifPageUrl = linkElement.attr('href');
+        const linkElement = item.find('a[href]').first() // Simplified to find any link with href
+        let gifPageUrl = linkElement.attr('href')
 
         // GIF ID: often part of the URL path or a data attribute.
-        let gifId = gifPageUrl ? gifPageUrl.match(/-(\d+)$/)?.[1] || gifPageUrl.split('/').pop() : null;
-        if (!gifId) gifId = item.attr('data-id'); // Fallback to data-id
+        let gifId = gifPageUrl ? gifPageUrl.match(/-(\d+)$/)?.[1] || gifPageUrl.split('/').pop() : null
+        if (!gifId) gifId = item.attr('data-id') // Fallback to data-id
 
         // GIF Title: usually `alt` or `title` of the image, or a text element.
-        let title = item.find('img').attr('alt') || linkElement.attr('title') || item.find('.title, h3 a').text();
-        title = sanitizeText(title);
+        let title = item.find('img').attr('alt') || linkElement.attr('title') || item.find('.title, h3 a').text()
+        title = sanitizeText(title)
 
         // Animated GIF URL (the actual .gif file) or a video preview (mp4/webm)
         // Use extractPreview, as GIFs often have video previews or are directly linked.
-        const animatedGifUrl = extractPreview($, item, sourceName, this.baseUrl);
+        const animatedGifUrl = extractPreview($, item, sourceName, this.baseUrl)
 
         // Static Thumbnail URL: often `src` or `data-src` of an `<img>` tag, or a `poster` attribute.
-        const thumbElement = item.find('img[src], img[data-src]').first();
-        let thumbnailUrl = thumbElement.attr('data-src') || thumbElement.attr('src') || item.attr('data-poster');
+        const thumbElement = item.find('img[src], img[data-src]').first()
+        let thumbnailUrl = thumbElement.attr('data-src') || thumbElement.attr('src') || item.attr('data-poster')
 
         // --- Data validation and normalization ---
-        this.logger.debug(`Raw GIF data - Item ${index}: gifId=${gifId}, title=${title}, gifPageUrl=${gifPageUrl}, animatedGifUrl=${animatedGifUrl}, thumbnailUrl=${thumbnailUrl}`);
+        this.logger.debug(`Raw GIF data - Item ${index}: gifId=${gifId}, title=${title}, gifPageUrl=${gifPageUrl}, animatedGifUrl=${animatedGifUrl}, thumbnailUrl=${thumbnailUrl}`)
 
         if (!gifPageUrl || !title || !animatedGifUrl || !thumbnailUrl || !gifId) {
-          this.logger.warn(`Skipping malformed GIF item (missing essential data):`, { title, gifPageUrl, animatedGifUrl, thumbnailUrl, gifId, index });
-          return;
+          this.logger.warn(`Skipping malformed GIF item (missing essential data):`, { title, gifPageUrl, animatedGifUrl, thumbnailUrl, gifId, index })
+          return
         }
 
         // Make URLs absolute
-        gifPageUrl = makeAbsolute(gifPageUrl, this.baseUrl);
-        thumbnailUrl = makeAbsolute(thumbnailUrl, this.baseUrl);
+        gifPageUrl = makeAbsolute(gifPageUrl, this.baseUrl)
+        thumbnailUrl = makeAbsolute(thumbnailUrl, this.baseUrl)
 
         if (!gifPageUrl || !thumbnailUrl) {
-           this.logger.warn(`Skipping GIF item "${title}": Failed to resolve absolute URLs.`);
-           return;
+           this.logger.warn(`Skipping GIF item "${title}": Failed to resolve absolute URLs.`)
+           return
         }
 
         results.push({
@@ -232,14 +232,14 @@ class XhamsterDriver extends BaseXhamsterClass {
           preview_video: animatedGifUrl, // For GIFs, this is usually the animated GIF or a video preview
           source: sourceName,
           type: 'gifs'
-        });
-      });
+        })
+      })
       // --- END SPECULATIVE GIF CSS SELECTORS ---
     }
 
-    this.logger.info(`Parsed ${results.length} ${type} results.`);
-    return results;
+    this.logger.info(`Parsed ${results.length} ${type} results.`)
+    return results
   }
 }
 
-module.exports = XhamsterDriver;
+module.exports = XhamsterDriver

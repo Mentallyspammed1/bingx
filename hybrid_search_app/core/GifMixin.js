@@ -1,6 +1,6 @@
-'use strict';
+'use strict'
 
-const abstractMethodFactory = require('./abstractMethodFactory');
+const abstractMethodFactory = require('./abstractMethodFactory')
 
 /**
  * @file GifMixin.js
@@ -16,11 +16,11 @@ module.exports = function GifMixin(BaseClass) {
      * @returns {boolean}
      */
     hasGifSupport() {
-      return false; // Default to false; concrete drivers must explicitly set to true.
+      return false // Default to false; concrete drivers must explicitly set to true.
     }
-  };
+  }
 
   // Use the factory to add the abstract method 'getGifSearchUrl'.
   // This enforces that any class using this mixin must implement the method.
-  return abstractMethodFactory(WithGifFeatures, ['getGifSearchUrl']);
-};
+  return abstractMethodFactory(WithGifFeatures, ['getGifSearchUrl'])
+}

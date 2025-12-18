@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Any
 
 # Assuming ratelimit is installed
-from ratelimit import limits, sleep_and_retry  # type: ignore
+from ratelimit import limits  # type: ignore
+from ratelimit import sleep_and_retry  # type: ignore
 
 # Static imports for pornLib clients will be removed and handled dynamically.
 

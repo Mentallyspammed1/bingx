@@ -16,12 +16,16 @@ from typing import Any
 
 # Third-party Libraries
 from bing_image_downloader import downloader
-from colorama import Back, Fore, Style, init
+from colorama import Back
+from colorama import Fore
+from colorama import Style
+from colorama import init
 from tqdm import tqdm
 
 # Attempt to import Pillow for image metadata; provide guidance if missing
 try:
-    from PIL import Image, UnidentifiedImageError
+    from PIL import Image
+    from PIL import UnidentifiedImageError
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False

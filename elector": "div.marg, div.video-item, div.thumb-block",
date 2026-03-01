@@ -1,0 +1,105 @@
+[1m--- /data/data/com.termux/files/usr/tmp/sent_v1_1770642372846	2026-02-09 07:06:14.143542995 -0600[0m
+[1m+++ /data/data/com.termux/files/usr/tmp/sent_v2_1770642372846	2026-02-09 07:06:14.647542995 -0600[0m
+[36m@@ -19,13 +19,13 @@[0m
+ )
+ logger = logging.getLogger(__name__)
+ 
+[31m-class FullPornXXXScraper:[0m
+[31m-    BASE_URL = "https://fullpornxxx.net"[0m
+[32m+class PornHatScraper:[0m
+[32m+    BASE_URL = "https://www.pornhat.com"[0m
+     DEFAULT_HEADERS = {
+         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+         'Accept-Language': 'en-US,en;q=0.5',
+[31m-        'Referer': 'https://fullpornxxx.net/',[0m
+[32m+        'Referer': 'https://www.pornhat.com/',[0m
+         'DNT': '1',
+         'Connection': 'keep-alive',
+         'Upgrade-Insecure-Requests': '1',
+[36m@@ -65,15 +65,15 @@[0m
+ 
+     def stream_search(self, query: str, limit: int, pages: int) -> Generator[Dict[str, Any], None, None]:
+         count = 0
+[31m-        encoded_query = quote(query.replace(' ', '-'))[0m
+[32m+        encoded_query = quote(query)[0m
+ 
+         for page in range(1, pages + 1):
+             if count >= limit:
+                 break
+ 
+[31m-            url = f"{self.BASE_URL}/search/videos/{encoded_query}/"[0m
+[32m+            url = f"{self.BASE_URL}/search/{encoded_query}/"[0m
+             if page > 1:
+[31m-                url = f"{self.BASE_URL}/search/videos/{encoded_query}/{page}/"[0m
+[32m+                url = f"{self.BASE_URL}/search/{encoded_query}/?page={page}"[0m
+ 
+             try:
+                 logger.info(f"Fetching: {url}")
+[36m@@ -83,7 +83,7 @@[0m
+                 response.raise_for_status()
+ 
+                 soup = BeautifulSoup(response.content, 'lxml', parse_only=self._strainer)
+[31m-                items = soup.select('div.well-sm, div.video-item, div.thumb-video, div.item')[0m
+[32m+                items = soup.select('div.video-item, div.thumb-video, .item')[0m
+                 
+                 if not items:
+                     break
+[36m@@ -106,24 +106,24 @@[0m
+ 
+     def _parse_item(self, item: Any) -> Optional[Dict[str, Any]]:
+         try:
+[31m-            link_tag = item.select_one('a[href*="/video/"], a[href*="/watch/"]') or item.find('a', href=True)[0m
+[32m+            link_tag = item.select_one('a[href*="/video/"]')[0m
+             if not link_tag:
+                 return None
+             
+             href = link_tag['href']
+             url = urljoin(self.BASE_URL, href)
+             
+[31m-            title_elem = item.select_one('.video-title, .title, h3, h4, strong')[0m
+[31m-            title = (link_tag.get('title') or (title_elem.get_text() if title_elem else 'Unknown')).strip()[0m
+[32m+            title_elem = item.select_one('.title, h3, h4')[0m
+[32m+            title = (title_elem.get_text() if title_elem else link_tag.get('title', 'Unknown')).strip()[0m
+ 
+             img = item.find('img')
+             thumb = ""
+             if img:
+[31m-                thumb = img.get('data-src') or img.get('data-original') or img.get('src') or ""[0m
+[32m+                thumb = img.get('data-src') or img.get('src') or ""[0m
+                 thumb = urljoin(self.BASE_URL, thumb)
+ 
+[31m-            duration = self._extract_text(item, '.duration, .time, span.length')[0m
+[31m-            views = self._extract_text(item, '.views, .video-views, .metadata')[0m
+[32m+            duration = self._extract_text(item, '.duration, .time')[0m
+[32m+            views = self._extract_text(item, '.views, .metadata')[0m
+             
+             return {
+                 'title': title,
+[36m@@ -141,7 +141,7 @@[0m
+         return target.get_text(strip=True) if target else ""
+ 
+ def main():
+[31m-    parser = argparse.ArgumentParser(description="FPNet Optimized Scraper")[0m
+[32m+    parser = argparse.ArgumentParser(description="PornHat Optimized Scraper")[0m
+     parser.add_argument("query", help="Search query")
+     parser.add_argument("-l", "--limit", type=int, default=50, help="Max results")
+     parser.add_argument("-p", "--pages", type=int, default=1, help="Max pages")
+[36m@@ -150,7 +150,7 @@[0m
+     
+     args = parser.parse_args()
+     
+[31m-    scraper = FullPornXXXScraper(proxy=args.proxy)[0m
+[32m+    scraper = PornHatScraper(proxy=args.proxy)[0m
+     results = scraper.search(args.query, limit=args.limit, pages=args.pages)
+     
+     if not results:
+[36m@@ -163,7 +163,7 @@[0m
+         if res['duration']:
+             print(f"     Meta: {res['duration']} | {res['views']}")
+ 
+[31m-    output_path = args.output or f"fpnet_{int(time.time())}.json"[0m
+[32m+    output_path = args.output or f"pornhat_{int(time.time())}.json"[0m
+     try:
+         with open(output_path, 'w', encoding='utf-8') as f:
+             json.dump(results, f, indent=2, ensure_ascii=False)

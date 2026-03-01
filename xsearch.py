@@ -15,31 +15,30 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import base64
-import concurrent.futures
 import html
-import json
 import logging
 import os
 import random
 import re
-import signal
 import sys
 import time
-import shutil
-from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from string import Template
 from typing import Any
-from urllib.parse import quote_plus, urljoin, urlparse
+from urllib.parse import quote_plus
+from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 # 3rd Party Imports
 import requests
 from bs4 import BeautifulSoup
-from colorama import Fore, Style, init
-from requests.adapters import HTTPAdapter, Retry
+from colorama import Fore
+from colorama import Style
+from colorama import init
+from requests.adapters import HTTPAdapter
+from requests.adapters import Retry
 
 # ── Optional Dependencies Check ──────────────────────────────────────────
 try:
@@ -50,7 +49,8 @@ except ImportError:
 
 try:
     from selenium import webdriver
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.common.exceptions import TimeoutException
+    from selenium.common.exceptions import WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.chrome.service import Service as ChromeService
     from selenium.webdriver.common.by import By
@@ -258,7 +258,7 @@ ENGINE_MAP: dict[str, dict[str, Any]] = {
         "requires_js": False,
         "video_item_selector": "div.video-item",
         "link_selector": "a.thumb",
-        "title_selector": "img.thumb", 
+        "title_selector": "img.thumb",
         "title_attribute": "alt",
         "img_selector": "img.thumb",
         "time_selector": "span.l", # length
@@ -335,7 +335,7 @@ def smart_sleep(delay_range: tuple[float, float]) -> None:
 def build_enhanced_session(proxies: list[str] | None = None) -> requests.Session:
     """Create a requests session tuned for scraping."""
     session = requests.Session()
-    
+
     # Retry Strategy
     retries = Retry(
         total=DEFAULT_MAX_RETRIES,
@@ -346,22 +346,22 @@ def build_enhanced_session(proxies: list[str] | None = None) -> requests.Session
     adapter = HTTPAdapter(max_retries=retries)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
-    
+
     # Headers & Proxy
     session.headers.update(get_realistic_headers(random.choice(REALISTIC_USER_AGENTS)))
-    
+
     if proxies:
         proxy = random.choice(proxies)
         logger.info(f"{NEON['MAGENTA']}🌐 Routing via proxy: {urlparse(proxy).netloc}{NEON['RESET']}")
         session.proxies = {"http": proxy, "https": proxy}
-        
+
     return session
 
 def create_selenium_driver() -> webdriver.Chrome | None:
     """Instantiate a headless Chrome driver if available."""
     if not SELENIUM_AVAILABLE:
         return None
-    
+
     try:
         options = ChromeOptions()
         options.add_argument("--headless=new")
@@ -372,7 +372,7 @@ def create_selenium_driver() -> webdriver.Chrome | None:
         options.add_argument(f"--user-agent={random.choice(REALISTIC_USER_AGENTS)}")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
-        
+
         # Try to locate chromedriver in path or use Selenium Manager (default in newer Selenium)
         driver = webdriver.Chrome(options=options)
         driver.set_page_load_timeout(15)
@@ -394,11 +394,11 @@ def extract_with_selenium(driver: webdriver.Chrome, url: str, cfg: dict) -> list
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
         except TimeoutException:
             logger.debug(f"Selenium wait timed out for {selector}")
-        
+
         # Scroll down slightly to trigger lazy loads
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight/3);")
         time.sleep(1)
-        
+
         soup = BeautifulSoup(driver.page_source, "html.parser")
         return extract_video_items(soup, cfg)
     except Exception as e:
@@ -440,7 +440,7 @@ def extract_video_data_enhanced(item: Any, cfg: dict, base_url: str) -> dict | N
                 else:
                     title = el.get_text(strip=True)
                 if title: break
-        
+
         # Link
         link = "#"
         link_selectors = [cfg.get("link_selector")] + cfg.get("fallback_selectors", {}).get("link", [])
@@ -449,7 +449,7 @@ def extract_video_data_enhanced(item: Any, cfg: dict, base_url: str) -> dict | N
             if el and el.has_attr("href"):
                 link = urljoin(base_url, el["href"])
                 break
-        
+
         # Image
         img_url = None
         img_selectors = [cfg.get("img_selector")] + cfg.get("fallback_selectors", {}).get("img", [])
@@ -465,12 +465,12 @@ def extract_video_data_enhanced(item: Any, cfg: dict, base_url: str) -> dict | N
                             img_url = urljoin(base_url, val)
                             break
                 if img_url: break
-        
+
         # Metadata
         duration = safe_extract_text(item, cfg.get("time_selector", ""))
         views = safe_extract_text(item, cfg.get("meta_selector", ""))
         channel = safe_extract_text(item, cfg.get("channel_name_selector", ""))
-        
+
         # Validation
         if link == "#" or not img_url:
             return None
@@ -491,49 +491,49 @@ def extract_video_data_enhanced(item: Any, cfg: dict, base_url: str) -> dict | N
 # ── Search & Scrape Loop ─────────────────────────────────────────────────
 
 def get_search_results(
-    session: requests.Session, 
-    engine: str, 
-    query: str, 
-    limit: int, 
+    session: requests.Session,
+    engine: str,
+    query: str,
+    limit: int,
     page_start: int
 ) -> list[dict]:
     """Main orchestration function for scraping."""
     if engine not in ENGINE_MAP:
         logger.error(f"Invalid Engine: {engine}")
         return []
-    
+
     cfg = ENGINE_MAP[engine]
     results = []
     driver = None
-    
+
     # Init Selenium if needed
     if cfg.get("requires_js") and SELENIUM_AVAILABLE:
         driver = create_selenium_driver()
         if not driver:
             logger.warning("Falling back to Requests (Selenium init failed)")
-    
+
     try:
         items_per_page_est = 30
         pages = (limit // items_per_page_est) + 1
-        
+
         for page in range(page_start, page_start + pages):
             if len(results) >= limit:
                 break
-            
+
             # Construct URL
             path_tmpl = cfg["search_path"]
             if "{page}" in path_tmpl:
                 path = path_tmpl.format(query=quote_plus(query), page=page)
             else:
                 path = path_tmpl.format(query=quote_plus(query))
-            
+
             url = urljoin(cfg["url"], path)
             if "{page}" not in path_tmpl and cfg.get("page_param") and page > 1:
                 sep = "&" if "?" in url else "?"
                 url += f"{sep}{cfg['page_param']}={page}"
-            
+
             logger.info(f"{NEON['CYAN']}🔍 Scraping {engine} - Page {page}: {url}{NEON['RESET']}")
-            
+
             raw_items = []
             try:
                 if driver:
@@ -545,26 +545,26 @@ def get_search_results(
                         continue
                     soup = BeautifulSoup(resp.text, "html.parser")
                     raw_items = extract_video_items(soup, cfg)
-                
+
                 if not raw_items:
                     logger.warning(f"{NEON['YELLOW']}No items found on page {page}. Stopping.{NEON['RESET']}")
                     break
-                
+
                 for item in raw_items:
                     if len(results) >= limit: break
                     data = extract_video_data_enhanced(item, cfg, cfg["url"])
                     if data: results.append(data)
-                
+
                 smart_sleep(DEFAULT_DELAY)
-                
+
             except Exception as e:
                 logger.error(f"Page {page} failed: {e}")
                 continue
-                
+
     finally:
         if driver:
             driver.quit()
-            
+
     return results[:limit]
 
 # ── Async Thumbnail Downloading ──────────────────────────────────────────
@@ -604,7 +604,7 @@ def sync_download_fallback(url: str, path: Path, session: requests.Session) -> b
 async def process_thumbnails(results: list[dict], session_sync: requests.Session) -> list[str]:
     ensure_dir(THUMBNAILS_DIR)
     paths = []
-    
+
     # Prepare tasks
     tasks = []
     if ASYNC_AVAILABLE:
@@ -615,18 +615,18 @@ async def process_thumbnails(results: list[dict], session_sync: requests.Session
                 fname = f"{enhanced_slugify(vid['title'])}_{idx}{ext}"
                 fpath = THUMBNAILS_DIR / fname
                 vid['_local_path'] = fpath
-                
+
                 if not fpath.exists():
                     tasks.append(download_one_thumb(aio_session, vid['img_url'], fpath))
                 else:
                     tasks.append(asyncio.sleep(0)) # No-op
-            
+
             # Execute Async
             if tasks:
                 logger.info(f"{NEON['MAGENTA']}⬇️ Downloading {len(tasks)} thumbnails async...{NEON['RESET']}")
                 for f in tqdm(asyncio.as_completed(tasks), total=len(tasks), unit="img"):
                     await f
-    
+
     # Fallback / Path Collection
     for vid in results:
         fpath = vid.get('_local_path')
@@ -640,15 +640,14 @@ async def process_thumbnails(results: list[dict], session_sync: requests.Session
                 # For Termux/Local, relative from output dir is best if possible.
                 # Here we copy/link or just use absolute path.
                 paths.append(f"file://{fpath.absolute()}")
-        else:
-            # Sync Retry
-            if fpath:
-                if sync_download_fallback(vid['img_url'], fpath, session_sync):
-                     paths.append(f"file://{fpath.absolute()}")
-                else:
-                    paths.append(vid['img_url']) # Failover to remote URL
+        # Sync Retry
+        elif fpath:
+            if sync_download_fallback(vid['img_url'], fpath, session_sync):
+                 paths.append(f"file://{fpath.absolute()}")
             else:
-                paths.append(vid['img_url'])
+                paths.append(vid['img_url']) # Failover to remote URL
+        else:
+            paths.append(vid['img_url'])
 
     return paths
 
@@ -738,7 +737,7 @@ def generate_html(results: list[dict], thumbnails: list[str], engine: str, query
     for vid, thumb in zip(results, thumbnails):
         # Fallback image if local thumb failed
         if not thumb: thumb = vid['img_url']
-        
+
         card = f"""
         <div class="card">
             <div class="thumb-container">
@@ -759,10 +758,10 @@ def generate_html(results: list[dict], thumbnails: list[str], engine: str, query
         </div>
         """
         cards.append(card)
-    
+
     ensure_dir(OUTPUT_DIR)
     filename = OUTPUT_DIR / f"{engine}_{enhanced_slugify(query)}.html"
-    
+
     html_content = HTML_TEMPLATE.substitute(
         engine=engine.title(),
         query=query,
@@ -770,10 +769,10 @@ def generate_html(results: list[dict], thumbnails: list[str], engine: str, query
         date=datetime.now().strftime("%Y-%m-%d %H:%M"),
         cards="\n".join(cards)
     )
-    
+
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html_content)
-    
+
     return filename
 
 # ── Main Ritual ──────────────────────────────────────────────────────────
@@ -787,9 +786,9 @@ def main():
     parser.add_argument("--no-async", action="store_true", help="Disable async downloads")
     parser.add_argument("--no-open", action="store_true", help="Don't open browser after completion")
     parser.add_argument("-x", "--proxy", help="Proxy string (http://user:pass@ip:port)")
-    
+
     args = parser.parse_args()
-    
+
     print(f"{NEON['CYAN']}{Style.BRIGHT}>>> VSEARCH 2025: {args.engine.upper()} SEARCH INITIATED <<<{NEON['RESET']}")
     print(f"{NEON['WHITE']}Target: {args.query} | Limit: {args.limit}{NEON['RESET']}")
 
@@ -823,9 +822,9 @@ def main():
 
     # 3. Generate Report
     outfile = generate_html(results, thumbnails, args.engine, args.query)
-    
+
     print(f"{NEON['CYAN']}✔ Done! Output saved to:{NEON['RESET']} {outfile}")
-    
+
     if not args.no_open:
         try:
             import webbrowser

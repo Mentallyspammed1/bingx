@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/data/data/com.termux/files/usr/bin/bash
 
 # ==============================================================================
 # NEON SEARCH APP - SETUP SCRIPT
@@ -1773,7 +1773,7 @@ EOF
 # Main application files
 echo "Creating server.js..."
 cat << 'EOF' > server.js
-#!/usr/bin/env node
+#!/data/data/com.termux/files/usr/bin/env node
 
 const express = require('express');
 const cors = require('cors'); // Import cors

@@ -145,172 +145,239 @@ def get_realistic_headers(user_agent: str) -> dict[str, str]:
 ENGINE_MAP: dict[str, dict[str, Any]] = {
     "pexels": {
         "url": "https://www.pexels.com",
-        "search_path": "/search/videos/{query}/",
-        "page_param": "page",
+        "search_path": "/search/videos/{query}/?page={page}",
         "requires_js": False,
-        "video_item_selector": "article.hide-favorite-badge-container, article[data-testid='video-card']",
-        "link_selector": 'a[data-testid="video-card-link"], a.video-link',
-        "title_selector": 'img[data-testid="video-card-img"], .video-title',
+        "video_item_selector": "article[data-testid='video-card']",
+        "link_selector": "a[data-testid='video-card-link']",
+        "title_selector": "img[data-testid='video-card-img']",
         "title_attribute": "alt",
-        "img_selector": 'img[data-testid="video-card-img"], img.video-thumbnail',
-        "channel_name_selector": 'a[data-testid="video-card-user-avatar-link"] > span, .author-name',
-        "channel_link_selector": 'a[data-testid="video-card-user-avatar-link"], .author-link',
-        "fallback_selectors": {
-            "title": ["img[alt]", ".video-title", "h3", "a[title]"],
-            "img": ["img[data-src]", "img[src]", "img[data-lazy]"],
-            "link": ["a[href*='/video/']", "a.video-link"]
-        }
+        "img_selector": "img[data-testid='video-card-img']",
+        "fallback_selectors": {"title": [], "img": [], "link": []}
     },
     "dailymotion": {
         "url": "https://www.dailymotion.com",
-        "search_path": "/search/{query}/videos",
-        "page_param": "page",
+        "search_path": "/search/{query}/videos?page={page}",
         "requires_js": True,
-        "video_item_selector": 'div[data-testid="video-card"], .video-item',
-        "link_selector": 'a[data-testid="card-link"], .video-link',
-        "title_selector": 'div[data-testid="card-title"], .video-title',
-        "img_selector": 'img[data-testid="card-thumbnail"], img.thumbnail',
-        "time_selector": 'span[data-testid="card-duration"], .duration',
-        "channel_name_selector": 'div[data-testid="card-owner-name"], .owner-name',
-        "channel_link_selector": 'a[data-testid="card-owner-link"], .owner-link',
-        "fallback_selectors": {
-            "title": [".video-title", "h3", "[title]"],
-            "img": ["img[src]", "img[data-src]"],
-            "link": ["a[href*='/video/']"]
-        }
+        "video_item_selector": "div[data-testid='video-card']",
+        "link_selector": "a[data-testid='card-link']",
+        "title_selector": "div[data-testid='card-title']",
+        "img_selector": "img[data-testid='card-thumbnail']",
+        "time_selector": "span[data-testid='card-duration']",
+        "fallback_selectors": {"title": [], "img": [], "link": []}
     },
-    "xhamster": {
-        "url": "https://xhamster.com",
-        "search_path": "/search/{query}",
-        "page_param": "page",
-        "requires_js": True,
-        "video_item_selector": "div.thumb-list__item.video-thumb",
-        "link_selector": "a.video-thumb__image-container[data-role='thumb-link']",
-        "title_selector": "a.video-thumb-info__name[data-role='thumb-link']",
-        "img_selector": "img.thumb-image-container__image[data-role='thumb-preview-img']",
-        "time_selector": "div.thumb-image-container__duration div.tiny-8643e",
-        "meta_selector": "div.video-thumb-views",
-        "channel_name_selector": "a.video-uploader__name",
-        "channel_link_selector": "a.video-uploader__name",
-        "fallback_selectors": {
-            "title": ["a[title]", "h3", ".video-title"],
-            "img": ["img[data-src]", "img[src]", "img[data-preview]"],
-            "link": ["a[href*='/videos/']"]
-        }
-    },
-    "pornhub": {
-        "url": "https://www.pornhub.com",
-        "search_path": "/video/search?search={query}",
-        "page_param": "page",
+    "xnxx": {
+        "url": "https://www.xnxx.com",
+        "search_path": "/search/{query}/{page}/",
         "requires_js": False,
-        "video_item_selector": "li.pcVideoListItem, .video-item, div.videoblock",
-        "link_selector": "a.previewVideo, a.thumb, .video-link, .videoblock__link",
-        "title_selector": "a.previewVideo .title, a.thumb .title, .video-title, .videoblock__title",
-        "img_selector": "img[src], img[data-src], img[data-lazy], img[data-thumb]",
-        "time_selector": "var.duration, .duration, .videoblock__duration",
-        "channel_name_selector": ".usernameWrap a, .channel-name, .videoblock__channel",
-        "channel_link_selector": ".usernameWrap a, .channel-link",
-        "meta_selector": ".views, .video-views, .videoblock__views",
+        "video_item_selector": "div.mosaic-video, div.thumb-block, div.mosaic-element",
+        "link_selector": "a[data-videoid], a[href*='/video-']",
+        "title_selector": "p.videoThumbTitle a, .title a",
+        "img_selector": "img.lazy, img[data-src], img.thumb-image",
+        "time_selector": "span.duration, .duration",
         "fallback_selectors": {
-            "title": [".title", "a[title]", "[data-title]"],
-            "img": ["img[data-thumb]", "img[src]", "img[data-src]"],
-            "link": ["a[href*='/view_video.php']", "a.video-link"]
+            "title": [".title a"],
+            "img": ["img[data-src]", "img.thumb-image"],
+            "link": ["a[href*='/video-']"]
         }
     },
     "xvideos": {
         "url": "https://www.xvideos.com",
-        "search_path": "/?k={query}",
-        "page_param": "p",
+        "search_path": "/?k={query}&p={page}",
         "requires_js": False,
-        "video_item_selector": "div.mozaique > div, .video-block, .thumb-block",
-        "link_selector": ".thumb-under > a, .video-link, .thumb-block__header a",
-        "title_selector": ".thumb-under > a, .video-title, .thumb-block__header a",
-        "img_selector": "img, img[data-src], .thumb img",
-        "time_selector": ".duration, .thumb-block__duration",
-        "meta_selector": ".video-views, .views, .thumb-block__views",
+        "video_item_selector": "div.mozaique, div.thumb-block",
+        "link_selector": ".thumb-block .title a, a[href*='/video']",
+        "title_selector": ".thumb-block .title a, .thumb-under .title a",
+        "img_selector": ".thumb img, img[data-src]",
+        "time_selector": ".duration, .thumb-under .duration",
         "fallback_selectors": {
-            "title": ["a[title]", ".title", "p.title"],
-            "img": ["img[data-src]", "img[src]", "img[data-preview]"],
+            "title": [".thumb-under .title a"],
+            "img": ["img[data-src]"],
             "link": ["a[href*='/video']"]
         }
     },
-    "xnxx": {
-        "url": "https://www.xnxx.com",
-        "search_path": "/search/{query}/",
-        "page_param": "p",
-        "requires_js": False,
-        "video_item_selector": "div.mozaique > div.thumb-block, .video-block",
-        "link_selector": ".thumb-under > a, .video-link",
-        "title_selector": ".thumb-under > a, .video-title",
-        "img_selector": "img[data-src], .thumb img",
-        "time_selector": ".duration, .video-duration",
-        "meta_selector": ".video-views, .views",
-        "fallback_selectors": {
-            "title": ["a[title]", ".title", "p.title"],
-            "img": ["img[data-src]", "img[src]", "img[data-preview]"],
-            "link": ["a[href*='/video']"]
-        }
-    },
-    "youjizz": {
-        "url": "https://www.youjizz.com",
-        "search_path": "/search/{query}-{page}.html",
-        "page_param": "",
+    "pornhub": {
+        "url": "https://www.pornhub.com",
+        "search_path": "/video/search?search={query}&page={page}",
         "requires_js": True,
-        "video_item_selector": "div.video-thumb",
-        "link_selector": "a.frame.video",
-        "title_selector": "div.video-title a",
-        "img_selector": "img.img-responsive.lazy",
-        "img_attribute": "data-original",
-        "time_selector": "span.time",
-        "meta_selector": "span.views",
-        "channel_name_selector": "a.channel-name",
-        "channel_link_selector": "a.channel-name",
+        "video_item_selector": "div[data-vid], div.pcVideoListItem, div.videoBox",
+        "link_selector": "a[data-uuid], a[href*='/view_video.php']",
+        "title_selector": ".title a, .video-title",
+        "img_selector": "img[data-mediabook], img[data-src], img.thumb_img",
+        "time_selector": ".duration, span.video-duration",
         "fallback_selectors": {
-            "title": ["a[title]", ".video-title", "h3"],
-            "img": ["img[data-original]", "img[src]", "img[data-src]"],
-            "link": ["a[href*='/videos/']"]
+            "title": [".video-title"],
+            "img": ["img[data-src]", "img.thumb_img"],
+            "link": ["a[href*='/view_video.php']"]
         }
     },
-    "motherless": {
-        "url": "https://www.motherless.com",
-        "search_path": "/term/videos/{query}?page={page}",
-        "page_param": "",
+    "pornhub_gifs": {
+        "url": "https://www.pornhub.com",
+        "search_path": "/gifs/search?search={query}&page={page}",
         "requires_js": False,
-        "video_item_selector": "div.thumb.video",
-        "link_selector": "a[href*='/video']",
-        "title_selector": ".thumb-caption a",
-        "title_attribute": "title",
-        "img_selector": "img.thumb-img",
-        "img_attribute": "src",
-        "time_selector": ".thumb-duration",
-        "meta_selector": ".thumb-views",
-        "channel_name_selector": ".thumb-member a",
-        "channel_link_selector": ".thumb-member a",
+        "video_item_selector": "li.gifVideoBlock",
+        "link_selector": "a",
+        "title_selector": ".title",
+        "img_selector": "video, img",
+        "fallback_selectors": {"title": [], "img": ["img"], "link": []}
+    },
+    "xhamster": {
+        "url": "https://xhamster.com",
+        "search_path": "/search/{query}/{page}",
+        "requires_js": True,
+        "video_item_selector": "div[class*='thumb'], div.video-thumb, div[data-video-id]",
+        "link_selector": "a[href*='/videos/'], .thumb-link",
+        "title_selector": ".video-title, .title a",
+        "img_selector": "img[data-src], img[data-mfsrc]",
+        "time_selector": ".duration, .video-time, span.time",
         "fallback_selectors": {
-            "title": ["a[title]", ".caption-title", "h3"],
-            "img": ["img[src]", "img[data-src]"],
-            "link": ["a[href*='/video/']"]
+            "title": [".title a"],
+            "img": ["img[data-mfsrc]"],
+            "link": [".thumb-link"]
         }
     },
     "spankbang": {
         "url": "https://spankbang.com",
         "search_path": "/s/{query}/{page}/",
-        "page_param": "",
         "requires_js": True,
-        "video_item_selector": "div.video-item",
-        "link_selector": "a.thumb",
-        "title_selector": "h2.n",
-        "img_selector": "img.thumb",
-        "img_attribute": "data-src",
-        "time_selector": "span.l",
-        "meta_selector": "span.v",
-        "channel_name_selector": "a.u",
-        "channel_link_selector": "a.u",
+        "video_item_selector": "div.video-item, article[data-id]",
+        "link_selector": "a.title, a[data-video-id]",
+        "title_selector": "a.title, .video-title",
+        "img_selector": "img[data-src], img.cover",
+        "time_selector": ".time, span.l",
         "fallback_selectors": {
-            "title": ["h2.n", "a[title]", ".video-title"],
-            "img": ["img[data-src]", "img[src]", "img[data-preview]"],
-            "link": ["a[href*='/video/']", "a.thumb"]
+            "title": [".video-title"],
+            "img": ["img.cover"],
+            "link": ["a[data-video-id]"]
         }
+    },
+    "redtube": {
+        "url": "https://www.redtube.com",
+        "search_path": "/?search={query}&page={page}",
+        "requires_js": False,
+        "video_item_selector": "li.video_item, .video-item",
+        "link_selector": "a.video_link, a[href*='/video-']",
+        "title_selector": "span.video_title, .video-title a",
+        "img_selector": "img.video_thumb, img[data-src]",
+        "time_selector": "span.duration, .duration",
+        "fallback_selectors": {
+            "title": [".video-title a"],
+            "img": ["img[data-src]"],
+            "link": ["a[href*='/video-']"]
+        }
+    },
+    "thumbzilla": {
+        "url": "https://www.thumbzilla.com",
+        "search_path": "/video/search?q={query}&page={page}",
+        "requires_js": True,
+        "video_item_selector": "div.video-card, div.js-item, div.tz-grid__item",
+        "link_selector": "a.video-card-link, a[href*='/video/']",
+        "title_selector": ".video-title, .video-card__title a",
+        "img_selector": "img[data-src], img.thumb-image",
+        "time_selector": ".duration, .video-duration",
+        "fallback_selectors": {
+            "title": [".video-card__title a"],
+            "img": ["img.thumb-image"],
+            "link": ["a[href*='/video/']"]
+        }
+    },
+    "eporner": {
+        "url": "https://www.eporner.com",
+        "search_path": "/search/{query}/{page}/",
+        "requires_js": False,
+        "video_item_selector": "div.jsVideoItemGrid, div.boxVideo",
+        "link_selector": "a[data-vid], a.videoLink",
+        "title_selector": "a.videoLink, a[data-vid]",
+        "img_selector": "img[data-src], img.lazy",
+        "time_selector": ".duration, span.duration",
+        "fallback_selectors": {
+            "title": ["a[data-vid]"],
+            "img": ["img.lazy"],
+            "link": ["a.videoLink"]
+        }
+    },
+    "beeg": {
+        "url": "https://beeg.com",
+        "search_path": "/search/?q={query}&p={page}",
+        "requires_js": True,
+        "video_item_selector": "article[data-vid], div.video-item",
+        "link_selector": "a[href*='/video/'], .video-title-link",
+        "title_selector": ".title a, .video-title a",
+        "img_selector": "img[data-src], img[src*='thumb']",
+        "time_selector": ".duration, span.time",
+        "fallback_selectors": {
+            "title": [".video-title a"],
+            "img": ["img[src*='thumb']"],
+            "link": [".video-title-link"]
+        }
+    },
+    "youjizz": {
+        "url": "https://www.youjizz.com",
+        "search_path": "/search/{query}-{page}.html",
+        "requires_js": True,
+        "video_item_selector": "div.video-thumb",
+        "link_selector": "a.frame",
+        "title_selector": ".video-title",
+        "img_selector": "img.lazy, img[data-original]",
+        "time_selector": "span.time",
+        "fallback_selectors": {
+            "title": [],
+            "img": ["img[data-original]"],
+            "link": []
+        }
+    },
+    "tube8": {
+        "url": "https://www.tube8.com",
+        "search_path": "/searches.html?q={query}&page={page}",
+        "requires_js": False,
+        "video_item_selector": "div.video_box",
+        "link_selector": "a",
+        "title_selector": "div.video_title",
+        "img_selector": "img, img[data-src]",
+        "time_selector": "span.video_duration",
+        "fallback_selectors": {"title": [], "img": ["img[data-src]"], "link": []}
+    },
+    "motherless": {
+        "url": "https://www.motherless.com",
+        "search_path": "/term/videos/{query}?page={page}",
+        "requires_js": False,
+        "video_item_selector": "div.thumb",
+        "link_selector": "a.img-container",
+        "title_selector": ".caption-title",
+        "img_selector": "img.static, img",
+        "time_selector": ".thumb-duration",
+        "fallback_selectors": {"title": [], "img": ["img"], "link": []}
+    },
+    "hqporner": {
+        "url": "https://hqporner.com",
+        "search_path": "/search/{query}/page/{page}/",
+        "requires_js": False,
+        "video_item_selector": "div.video-item",
+        "link_selector": "a.video-link, a",
+        "title_selector": "a.video-link, a",
+        "img_selector": "img.video-img, img",
+        "time_selector": "span.duration",
+        "fallback_selectors": {"title": ["a"], "img": ["img"], "link": ["a"]}
+    },
+    "txxx": {
+        "url": "https://txxx.com",
+        "search_path": "/search/{query}/?p={page}",
+        "requires_js": False,
+        "video_item_selector": "div.video-item",
+        "link_selector": "a.video-link, a",
+        "title_selector": "a.video-link, a",
+        "img_selector": "img, img[data-src]",
+        "time_selector": "span.duration",
+        "fallback_selectors": {"title": ["a"], "img": ["img[data-src]"], "link": ["a"]}
+    },
+    "hentaihaven": {
+        "url": "https://hentaihaven.red",
+        "search_path": "/?s={query}",
+        "requires_js": False,
+        "video_item_selector": "div.post-item",
+        "link_selector": "a",
+        "title_selector": "h3.title, a",
+        "img_selector": "img",
+        "fallback_selectors": {"title": ["a"], "img": [], "link": []}
     }
 }
 

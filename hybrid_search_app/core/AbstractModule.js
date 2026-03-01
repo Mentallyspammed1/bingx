@@ -8,6 +8,7 @@ class AbstractModule {
   constructor(options = {}) {
     this.query = (options.query || '').trim()
     this.page = parseInt(options.page, 10) || this.firstpage
+    this.logger = logger // Assign logger to instance
 
     this.httpClient = axios.create({
       headers: {
@@ -15,16 +16,16 @@ class AbstractModule {
       },
       timeout: 20000, // 20 seconds timeout
     })
-    logger.debug(`[AbstractModule] Initialized. Query: "${this.query}", Page: ${this.page}`)
+    this.logger.debug(`[AbstractModule] Initialized. Query: "${this.query}", Page: ${this.page}`)
   }
 
   setQuery(newQuery) {
     if (typeof newQuery !== 'string' || newQuery.trim() === '') {
-      logger.warn(`[${this.name || 'AbstractModule'}] Attempted to set an invalid query: "${newQuery}". Query must be a non-empty string.`)
+      this.logger.warn(`[${this.name || 'AbstractModule'}] Attempted to set an invalid query: "${newQuery}". Query must be a non-empty string.`)
       return
     }
     this.query = newQuery.trim()
-    logger.debug(`[${this.name || 'AbstractModule'}] Query updated to: "${this.query}"`)
+    this.logger.debug(`[${this.name || 'AbstractModule'}] Query updated to: "${this.query}"`)
   }
 
   get name() {
@@ -57,11 +58,11 @@ class AbstractModule {
       return response.data
     } catch (error) {
       if (error.response) {
-        logger.error(`[${this.name || 'AbstractModule'} _fetchHtml] Status: ${error.response.status} for URL ${url}`)
+        this.logger.error(`[${this.name || 'AbstractModule'} _fetchHtml] Status: ${error.response.status} for URL ${url}`)
       } else if (error.request) {
-        logger.error(`[${this.name || 'AbstractModule'} _fetchHtml] No response received for request to ${url}`)
+        this.logger.error(`[${this.name || 'AbstractModule'} _fetchHtml] No response received for request to ${url}`)
       } else {
-        logger.error(`[${this.name || 'AbstractModule'} _fetchHtml] Error fetching URL ${url}:`, error.message)
+        this.logger.error(`[${this.name || 'AbstractModule'} _fetchHtml] Error fetching URL ${url}:`, error.message)
       }
       throw new Error(`Failed to fetch HTML from ${url} for driver ${this.name}. Original error: ${error.message}`)
     }
@@ -79,7 +80,7 @@ class AbstractModule {
       const effectiveBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
       return new URL(urlString, effectiveBase).href
     } catch (e) {
-      logger.warn(`[${this.name || 'AbstractModule'}] _makeAbsolute: Failed to resolve URL "${urlString}" with base "${baseUrl}". Error: ${e.message}`)
+      this.logger.warn(`[${this.name || 'AbstractModule'}] _makeAbsolute: Failed to resolve URL "${urlString}" with base "${baseUrl}". Error: ${e.message}`)
       return undefined
     }
   }
@@ -90,7 +91,7 @@ class AbstractModule {
         if (typeof mixinFactory === 'function') {
             ClassToExtend = mixinFactory(ClassToExtend)
         } else {
-            log.warn('[AbstractModule.with] Encountered a non-function in mixinFactories array:', mixinFactory)
+            this.logger.warn('[AbstractModule.with] Encountered a non-function in mixinFactories array:', mixinFactory)
         }
     }
     return ClassToExtend

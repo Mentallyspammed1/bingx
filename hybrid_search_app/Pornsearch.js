@@ -8,10 +8,9 @@ let pLimitModule
 // Dynamically import p-limit as it's an ESM module
 async function loadPLimit() {
     if (!pLimitModule) {
-        pLimitModule = await import('p-limit')
+        pLimitModule = require('p-limit')
     }
-    return pLimitModule.default
-}
+    return pLimitModule
 const log = require('./core/log.js')
 const { fetchWithRetry, getRandomUserAgent } = require('./modules/driver-utils.js')
 

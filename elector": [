@@ -1,0 +1,284 @@
+[1m--- /data/data/com.termux/files/usr/tmp/sent_v1_1770642042129	2026-02-09 07:00:42.307542976 -0600[0m
+[1m+++ /data/data/com.termux/files/usr/tmp/sent_v2_1770642042129	2026-02-09 07:00:42.775542976 -0600[0m
+[36m@@ -4,45 +4,58 @@[0m
+ Optimized for performance, security, and pattern robustness.
+ """
+ 
+[31m-import requests[0m
+[31m-from bs4 import BeautifulSoup, SoupStrainer[0m
+[32m+import argparse[0m
+ import json
+[31m-import time[0m
+[31m-import sys[0m
+ import logging
+[31m-import argparse[0m
+[31m-from urllib.parse import urljoin, quote[0m
+[31m-from urllib3.util.retry import Retry[0m
+[32m+import sys[0m
+[32m+import time[0m
+[32m+from typing import Dict, List, Optional, Generator[0m
+[32m+from urllib.parse import quote, urljoin[0m
+[32m+[0m
+[32m+import requests[0m
+[32m+from bs4 import BeautifulSoup, SoupStrainer, Tag[0m
+ from requests.adapters import HTTPAdapter
+[32m+from urllib3.util.retry import Retry[0m
+ 
+[32m+# Configure logging[0m
+ logging.basicConfig(
+     level=logging.INFO,
+[31m-    format='%(asctime)s - %(levelname)s - %(message)s'[0m
+[32m+    format='%(asctime)s - %(levelname)s - %(message)s',[0m
+[32m+    handlers=[logging.StreamHandler(sys.stdout)][0m
+ )
+ logger = logging.getLogger(__name__)
+ 
+ class FullPornXXXScraper:
+[32m+    """[0m
+[32m+    Scraper for fullpornxxx.net with optimized session management and parsing.[0m
+[32m+    """[0m
+     BASE_URL = "https://fullpornxxx.net"
+     
+[31m-    ITEM_SELECTORS = ([0m
+[31m-        'div.well-sm', 'div.well.well-sm', 'div.video-item', [0m
+[31m-        'div.thumb-video', '.video-block', '.thumb-block',[0m
+[31m-        'div.item', '.video-thumb'[0m
+[32m+    # Combined CSS selector for performance[0m
+[32m+    ITEM_SELECTOR = ([0m
+[32m+        'div.well-sm, div.well.well-sm, div.video-item, '[0m
+[32m+        'div.thumb-video, .video-block, .thumb-block, '[0m
+[32m+        'div.item, .video-thumb'[0m
+     )
+ 
+[31m-    def __init__(self, proxy=None, timeout=15):[0m
+[32m+    def __init__(self, proxy: Optional[str] = None, timeout: int = 15):[0m
+         self.timeout = timeout
+         self.session = self._build_session(proxy)
+[31m-        [0m
+[31m-    def _build_session(self, proxy):[0m
+[32m+        # Pre-compile strainer for performance[0m
+[32m+        self._strainer = SoupStrainer(['div', 'span', 'a', 'img', 'h3', 'h4'])[0m
+[32m+[0m
+[32m+    def _build_session(self, proxy: Optional[str]) -> requests.Session:[0m
+[32m+        """[0m
+[32m+        Builds a robust requests session with retries and modern headers.[0m
+[32m+        """[0m
+         session = requests.Session()
+         retries = Retry(
+[31m-            total=3,[0m
+[31m-            backoff_factor=1,[0m
+[32m+            total=5,[0m
+[32m+            backoff_factor=1.5,[0m
+             status_forcelist=[429, 500, 502, 503, 504],
+             raise_on_status=False
+         )
+[31m-        adapter = HTTPAdapter(max_retries=retries)[0m
+[32m+        adapter = HTTPAdapter(max_retries=retries, pool_connections=10, pool_maxsize=10)[0m
+         session.mount("http://", adapter)
+         session.mount("https://", adapter)
+         
+[36m@@ -50,87 +63,88 @@[0m
+             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+             'Accept-Language': 'en-US,en;q=0.5',
+[31m-            'Accept-Encoding': 'gzip, deflate, br',[0m
+             'DNT': '1',
+[31m-            'Connection': 'keep-alive',[0m
+[31m-            'Upgrade-Insecure-Requests': '1',[0m
+             'Sec-Fetch-Dest': 'document',
+             'Sec-Fetch-Mode': 'navigate',
+             'Sec-Fetch-Site': 'none',
+[31m-            'Sec-Fetch-User': '?1',[0m
+[32m+            'Upgrade-Insecure-Requests': '1',[0m
+         })
+         
+         if proxy:
+             session.proxies = {'http': proxy, 'https': proxy}
+         return session
+ 
+[31m-    def search_videos(self, query, limit=50, pages=1):[0m
+[31m-        all_results = [][0m
+[32m+    def search_videos(self, query: str, limit: int = 50, pages: int = 1) -> List[Dict[str, str]]:[0m
+[32m+        """[0m
+[32m+        Executes search and returns a list of video metadata.[0m
+[32m+        """[0m
+[32m+        return list(self._search_generator(query, limit, pages))[0m
+[32m+[0m
+[32m+    def _search_generator(self, query: str, limit: int, pages: int) -> Generator[Dict[str, str], None, None]:[0m
+[32m+        """[0m
+[32m+        Generator-based search to optimize memory usage.[0m
+[32m+        """[0m
+[32m+        count = 0[0m
+         encoded_query = quote(query)
+[31m-        [0m
+[31m-        # Use SoupStrainer to optimize parsing performance[0m
+[31m-        strainer = SoupStrainer(['div', 'span', 'a', 'img'])[0m
+ 
+         for page in range(1, pages + 1):
+[31m-            if len(all_results) >= limit:[0m
+[32m+            if count >= limit:[0m
+                 break
+                 
+             search_url = f"{self.BASE_URL}/search/videos/{encoded_query}/"
+             if page > 1:
+                 search_url = f"{self.BASE_URL}/search/videos/{encoded_query}/page/{page}/"
+             
+[31m-            logger.info(f"Requesting page {page}: {search_url}")[0m
+[32m+            logger.info(f"Fetching page {page}: {search_url}")[0m
+             
+             try:
+                 response = self.session.get(search_url, timeout=self.timeout)
+                 response.raise_for_status()
+                 
+[31m-                soup = BeautifulSoup(response.text, 'lxml', parse_only=strainer)[0m
+[31m-                [0m
+[31m-                items = [][0m
+[31m-                for selector in self.ITEM_SELECTORS:[0m
+[31m-                    items = soup.select(selector)[0m
+[31m-                    if items:[0m
+[31m-                        break[0m
+[32m+                soup = BeautifulSoup(response.content, 'lxml', parse_only=self._strainer)[0m
+[32m+                items = soup.select(self.ITEM_SELECTOR)[0m
+                 
+                 if not items:
+[31m-                    logger.warning(f"No items found on page {page} using known selectors.")[0m
+[31m-                    continue[0m
+[32m+                    logger.warning(f"No items found on page {page}.")[0m
+[32m+                    break[0m
+                 
+                 for item in items:
+[31m-                    if len(all_results) >= limit:[0m
+[31m-                        break[0m
+[32m+                    if count >= limit:[0m
+[32m+                        return[0m
+[32m+                    [0m
+                     video_data = self._extract_video_data(item)
+                     if video_data:
+[31m-                        all_results.append(video_data)[0m
+[32m+                        yield video_data[0m
+[32m+                        count += 1[0m
+                 
+                 if page < pages:
+[31m-                    time.sleep(1.2) # Rate limiting compliance[0m
+[32m+                    time.sleep(1.5) # Compliance delay[0m
+                     
+             except requests.exceptions.RequestException as e:
+                 logger.error(f"Network error on page {page}: {e}")
+[31m-                continue[0m
+[32m+                break[0m
+             except Exception as e:
+[31m-                logger.error(f"Unexpected error on page {page}: {e}")[0m
+[32m+                logger.error(f"Parsing error on page {page}: {e}")[0m
+                 continue
+[31m-        [0m
+[31m-        return all_results[0m
+ 
+[31m-    def _extract_video_data(self, item):[0m
+[32m+    def _extract_video_data(self, item: Tag) -> Optional[Dict[str, str]]:[0m
+[32m+        """[0m
+[32m+        Extracts specific fields from a video item tag.[0m
+[32m+        """[0m
+         try:
+[31m-            # Link extraction[0m
+[31m-            link_elem = item.select_one('a[href*="/video/"], a[href*="/watch/"], a')[0m
+[31m-            if not link_elem or not link_elem.get('href'):[0m
+[32m+            # Link extraction with priority on video-specific paths[0m
+[32m+            link_elem = item.select_one('a[href*="/video/"], a[href*="/watch/"]') or item.find('a', href=True)[0m
+[32m+            if not link_elem:[0m
+                 return None
+             
+[31m-            raw_href = link_elem['href'][0m
+[32m+            raw_href = link_elem.get('href', '')[0m
+             link = urljoin(self.BASE_URL, raw_href)
+             
+[31m-            # Title extraction[0m
+[31m-            title_elem = (item.select_one('span.video-title, .title, a[title], h3, h4') or link_elem)[0m
+[31m-            title = (title_elem.get('title') or title_elem.get_text() or 'Untitled').strip()[:255][0m
+[32m+            # Title extraction with fallback logic[0m
+[32m+            title_elem = item.select_one('span.video-title, .title, h3, h4') or link_elem[0m
+[32m+            title = (title_elem.get('title') or title_elem.get_text() or 'Untitled').strip()[0m
+             
+[31m-            # Thumbnail extraction[0m
+[32m+            # Thumbnail extraction (lazy-loading support)[0m
+             img_elem = item.select_one('img[data-src], img[src*="thumb"], img')
+             thumb = ''
+             if img_elem:
+[36m@@ -138,49 +152,52 @@[0m
+                 thumb = urljoin(self.BASE_URL, thumb_url.strip())
+             
+             # Metadata extraction
+[31m-            duration_elem = item.select_one('span.duration, .duration, .time')[0m
+[31m-            duration = duration_elem.get_text(strip=True) if duration_elem else None[0m
+[31m-            [0m
+[31m-            views_elem = item.select_one('span.views, .views, .metadata')[0m
+[31m-            views = views_elem.get_text(strip=True) if views_elem else None[0m
+[32m+            duration = self._get_text(item, 'span.duration, .duration, .time')[0m
+[32m+            views = self._get_text(item, 'span.views, .views, .metadata')[0m
+             
+             return {
+[31m-                'title': title,[0m
+[32m+                'title': title[:255],[0m
+                 'url': link,
+                 'thumb': thumb,
+                 'duration': duration,
+                 'views': views
+             }
+         except Exception as e:
+[31m-            logger.debug(f"Extraction failed for item: {e}")[0m
+[32m+            logger.debug(f"Extraction failed: {e}")[0m
+             return None
+ 
+[32m+    @staticmethod[0m
+[32m+    def _get_text(item: Tag, selector: str) -> Optional[str]:[0m
+[32m+        """Helper to safely extract text from a selector."""[0m
+[32m+        elem = item.select_one(selector)[0m
+[32m+        return elem.get_text(strip=True) if elem else None[0m
+[32m+[0m
+ def main():
+     parser = argparse.ArgumentParser(description="FullPornXXX Video Search Scraper")
+     parser.add_argument("query", help="Search term")
+[31m-    parser.add_argument("-l", "--limit", type=int, default=50, help="Maximum results (default: 50)")[0m
+[32m+    parser.add_argument("-l", "--limit", type=int, default=50, help="Max results (default: 50)")[0m
+     parser.add_argument("-p", "--pages", type=int, default=1, help="Pages to crawl (default: 1)")
+     parser.add_argument("-o", "--output", help="Output JSON file path")
+[31m-    parser.add_argument("--proxy", help="Proxy URL (e.g. http://user:pass@host:port)")[0m
+[32m+    parser.add_argument("--proxy", help="Proxy URL")[0m
+     
+     args = parser.parse_args()
+     
+     scraper = FullPornXXXScraper(proxy=args.proxy)
+     results = scraper.search_videos(args.query, limit=args.limit, pages=args.pages)
+     
+[31m-    print(f"\nFound {len(results)} videos for '{args.query}':\n")[0m
+[32m+    print(f"\n[+] Found {len(results)} videos for '{args.query}'")[0m
+     
+     for i, video in enumerate(results, 1):
+         print(f"{i:3}. {video['title']}")
+         print(f"     URL: {video['url']}")
+         if video['duration']:
+[31m-            print(f"     Duration: {video['duration']} | Views: {video.get('views', 'N/A')}")[0m
+[32m+            print(f"     Duration: {video['duration']} | Views: {video.get('views') or 'N/A'}")[0m
+     
+[31m-    output_file = args.output or f"fpnet_{quote(args.query)}_{int(time.time())}.json"[0m
+[32m+    output_file = args.output or f"fpnet_{int(time.time())}.json"[0m
+     try:
+         with open(output_file, 'w', encoding='utf-8') as f:
+             json.dump(results, f, indent=2, ensure_ascii=False)
+[31m-        print(f"\nResults exported to {output_file}")[0m
+[32m+        print(f"\n[!] Results exported to {output_file}")[0m
+     except IOError as e:
+         logger.error(f"Failed to save results: {e}")
+ 
+[36m@@ -188,5 +205,8 @@[0m
+     try:
+         main()
+     except KeyboardInterrupt:
+[31m-        print("\nAborted by user.")[0m
+[31m-        sys.exit(0)[0m
+\ No newline at end of file
+[32m+        print("\n[!] Operation aborted by user.")[0m
+[32m+        sys.exit(0)[0m
+[32m+    except Exception as e:[0m
+[32m+        logger.critical(f"Fatal error: {e}")[0m
+[32m+        sys.exit(1)[0m
+\ No newline at end of file

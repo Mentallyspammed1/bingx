@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/data/data/com.termux/files/usr/bin/bash
 
 # Ritual of Preparation: Attuning Termux for Enhanced Image Scrying and Manifestation
 
@@ -103,7 +103,7 @@ if [ -f "scrapey.py" ]; then
 else
     echo -e "${BLUE}Forging 'scrapey.py', the Enhanced Scrying Script...${NC}"
     cat << 'EOF' > scrapey.py
-#!/usr/bin/env python3
+#!/data/data/com.termux/files/usr/bin/env python3
 
 """Enhanced Bing Image Downloader Script
 -------------------------------------

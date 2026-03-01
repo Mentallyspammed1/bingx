@@ -11,6 +11,7 @@ and saves the metadata to a JSON file in the base output directory.
 import json
 import logging
 import os
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -107,11 +108,11 @@ def print_info(text: str) -> None:
 # --- Utility Functions ---
 def sanitize_filename(name: str) -> str:
     """Removes/replaces invalid filename chars and truncates."""
-    # Remove characters invalid in most file systems
-    sanitized = "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).strip()
-    # Replace spaces with underscores and ensure no leading/trailing underscores
-    sanitized = "_".join(filter(None, sanitized.split(" ")))
-    sanitized = "_".join(filter(None, sanitized.split("_"))) # Collapse multiple underscores
+    # Replace invalid characters with an underscore
+    sanitized = re.sub(r'[<>:"/\\|?*]', '_', name)
+    # Replace spaces with underscores and collapse multiple underscores
+    sanitized = re.sub(r'\s+', '_', sanitized)
+    sanitized = re.sub(r'_+', '_', sanitized).strip('_')
     # Limit length
     return sanitized[:MAX_FILENAME_LENGTH]
 
@@ -129,9 +130,7 @@ def create_directory(path: str) -> bool:
 
 def rename_files(file_paths: list[str], base_query: str) -> list[str]:
     """Renames downloaded files sequentially with a sanitized query prefix.
-    Returns a list of final paths for files that were processed.
-    If a file is renamed, its new path is in the list.
-    If renaming failed or was skipped for an existing file, its original path is in the list.
+    Returns a list of final paths for files that were successfully processed (renamed or kept original name).
     Files from input that were not found or were not files are skipped and not in the output list.
     """
     final_paths_after_rename: list[str] = []
@@ -144,112 +143,88 @@ def rename_files(file_paths: list[str], base_query: str) -> list[str]:
         sanitized_query = "image"  # Fallback base name
         print_warning(f"Query '{base_query}' sanitized to empty string, using fallback 'image'.")
 
-    # Assuming all files are in the same directory, get it from the first valid path.
-    # This dir_name is used for joining new filenames.
-    first_valid_dir = next((os.path.dirname(p) for p in file_paths if p), None)
-    if first_valid_dir is None and file_paths: # All paths are empty strings or None, or file_paths is not empty but contains no valid paths
-         print_error("Cannot determine directory for renaming files. All paths are invalid.")
-         return list(file_paths) # Return original paths as is, though they are problematic
-    if first_valid_dir is None and not file_paths: # Should be caught by earlier check
-         return []
-
-    dir_name = first_valid_dir if first_valid_dir is not None else "." # Fallback to CWD if all paths were relative without dir
+    # Determine the common directory for all files.
+    # Assume all files are intended to be in the same directory.
+    # If file_paths contains mixed directories, this will use the directory of the first valid file.
+    first_valid_path = next((p for p in file_paths if p and os.path.exists(p) and os.path.isfile(p)), None)
+    if first_valid_path is None:
+        print_warning("No valid existing files found among provided paths for renaming.")
+        return []
+    dir_name = os.path.dirname(first_valid_path) or "." # Use '.' for current directory if path is just a filename
 
     print_info(f"Attempting to rename {len(file_paths)} files in '{dir_name}' with prefix '{sanitized_query}'...")
 
-    # Sort to ensure consistent numbering (e.g., _1, _2, _3)
-    # Original file_paths order might not be alphabetical/numerical.
+    # Sort to ensure consistent numbering
     sorted_file_paths = sorted(file_paths)
-
     actual_renames_count = 0
 
     for idx, old_path in enumerate(
         tqdm(sorted_file_paths, desc=Fore.BLUE + "🔄 Renaming Files", unit="file", ncols=100, leave=False), start=1
     ):
-        current_file_final_path = old_path  # Default to original path if any step fails or is skipped
+        current_file_final_path = old_path  # Default to original path
 
         try:
             if not os.path.exists(old_path):
-                print_warning(f"File not found for renaming (already renamed or deleted?): {old_path}")
-                # This file won't be added to final_paths_after_rename if we `continue`
-                # To ensure metadata step gets it (and potentially reports an error), we could add old_path.
-                # However, the contract is to return paths of *processed* files.
-                # If it's gone, it can't be processed.
-                continue
+                print_warning(f"File not found for renaming (might have been moved/deleted): {old_path}")
+                continue # Skip this file, it's gone
             if not os.path.isfile(old_path):
-                 print_warning(f"Path is not a file, skipping rename: {old_path}")
-                 continue # Skip, not added to final_paths_after_rename
+                print_warning(f"Path is not a file, skipping rename: {old_path}")
+                continue # Skip, not a file
 
             _, ext = os.path.splitext(old_path)
-            # Generate new name, ensuring it's within the same directory as the first file
-            # (or CWD if dir_name was determined as '')
             new_base_name = f"{sanitized_query}_{idx}"
-            new_filename = f"{new_base_name}{ext}"
-            potential_new_path = os.path.join(dir_name, new_filename)
+            potential_new_filename = f"{new_base_name}{ext}"
+            target_path_for_rename = os.path.join(dir_name, potential_new_filename)
 
-            target_path_for_rename = potential_new_path
             collision_counter = 1
+            original_target_path = target_path_for_rename # Keep track of the first generated target path
 
-            # Handle potential filename collisions
             while os.path.exists(target_path_for_rename):
-                # Check if it's the *same* file we are trying to rename
+                # If the target path already exists and is the *same file* as old_path, no rename is needed.
                 try:
                     if os.path.samefile(old_path, target_path_for_rename):
-                        logger.debug(f"Skipping rename for {os.path.basename(old_path)} as target name '{os.path.basename(target_path_for_rename)}' is identical and points to the same file.")
-                        # current_file_final_path remains old_path, no actual rename op needed
-                        target_path_for_rename = old_path # Signal that no rename op should occur
-                        break  # Exit the collision resolution while loop
-                except FileNotFoundError: # old_path or target_path_for_rename might disappear
-                    print_warning(f"File not found during samefile check: {old_path} or {target_path_for_rename}")
-                    target_path_for_rename = old_path # Fallback if issue during check
+                        logger.debug(f"Target name '{os.path.basename(target_path_for_rename)}' is identical to '{os.path.basename(old_path)}' and points to the same file. Skipping rename.")
+                        target_path_for_rename = old_path # Mark as no-op
+                        break
+                except FileNotFoundError:
+                    print_warning(f"File disappeared during samefile check: {old_path} or {target_path_for_rename}. Skipping rename.")
+                    target_path_for_rename = old_path # Fallback to original path, but it might be gone
                     break
 
-
                 # If it's a different file, append counter to base name
-                new_filename = f"{new_base_name}_{collision_counter}{ext}"
-                target_path_for_rename = os.path.join(dir_name, new_filename)
+                new_filename_with_counter = f"{new_base_name}_{collision_counter}{ext}"
+                target_path_for_rename = os.path.join(dir_name, new_filename_with_counter)
                 collision_counter += 1
-                if collision_counter > 100:  # Safety break
-                    print_error(f"Could not find unique name for {os.path.basename(old_path)} after 100 attempts. Skipping rename for this file.")
+                if collision_counter > 1000:  # Safety break for excessive collisions
+                    print_error(f"Could not find unique name for {os.path.basename(old_path)} after 1000 attempts. Skipping rename for this file.")
                     target_path_for_rename = old_path # Fallback to original path
                     break
 
-            # At this point, target_path_for_rename is either a unique new path,
-            # or old_path if it was samefile or collision resolution failed.
-
             if old_path == target_path_for_rename:
-                # No rename operation needed (already correct, or samefile, or collision fallback)
-                # current_file_final_path is already old_path
-                pass
+                # No actual rename operation performed (either samefile, or collision fallback)
+                final_paths_after_rename.append(old_path)
             else:
-                # Attempt actual rename
+                # Perform the rename
                 try:
                     os.rename(old_path, target_path_for_rename)
                     current_file_final_path = target_path_for_rename
-                    actual_renames_count +=1
+                    actual_renames_count += 1
+                    final_paths_after_rename.append(current_file_final_path)
                 except OSError as e:
-                    print_error(f"Error renaming {os.path.basename(old_path)} to {os.path.basename(target_path_for_rename)}: {e}")
-                    # current_file_final_path remains old_path
-                except Exception as e: # Catch any other unexpected error during rename
-                    print_error(f"Unexpected error renaming {os.path.basename(old_path)} to {os.path.basename(target_path_for_rename)}: {e}")
-                    # current_file_final_path remains old_path
+                    print_error(f"Error renaming '{os.path.basename(old_path)}' to '{os.path.basename(target_path_for_rename)}': {e}. Keeping original path.")
+                    final_paths_after_rename.append(old_path) # Keep original path if rename fails
+                except Exception as e:
+                    print_error(f"Unexpected error during rename of '{os.path.basename(old_path)}' to '{os.path.basename(target_path_for_rename)}': {e}. Keeping original path.")
+                    final_paths_after_rename.append(old_path) # Keep original path if rename fails
 
-            final_paths_after_rename.append(current_file_final_path)
-
-        except Exception as e: # Catch errors in the processing of a single file
-            print_error(f"Unexpected error processing {os.path.basename(old_path)} for renaming: {e}. Retaining original path.")
-            # Ensure even with unexpected errors, if the file existed at start, its original path is tracked
-            if os.path.exists(old_path): # Check again, might have been affected by the error
-                 final_paths_after_rename.append(old_path)
-            # If it doesn't exist anymore, it's effectively skipped
+        except Exception as e:
+            print_error(f"Unexpected error processing '{os.path.basename(old_path)}' for renaming: {e}. This file will be skipped.")
+            # This file is not added to final_paths_after_rename if an unexpected error occurs during its processing
 
     if final_paths_after_rename:
-        # This counts files that were confirmed to exist and were processed (renamed or kept original name).
-        # `actual_renames_count` tracks how many `os.rename` calls were successful.
         print_success(f"Processed {len(final_paths_after_rename)} files for renaming. Actual renames: {actual_renames_count}.")
-    elif file_paths: # Input was not empty, but output is
-        print_warning("No files were successfully processed for renaming (e.g., all source files missing).")
-    # If file_paths was empty, initial warning already shown.
+    elif file_paths:
+        print_warning("No files were successfully processed for renaming (e.g., all source files missing or errors).")
 
     return final_paths_after_rename
 

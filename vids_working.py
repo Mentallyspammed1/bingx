@@ -1129,7 +1129,8 @@ ENHANCED_HTML_HEAD = """<!DOCTYPE html>
         .thumbnail {{
             position: relative;
             width: 100%;
-            height: 200px;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0; /* Important for padding-top to work as aspect ratio */
             overflow: hidden;
             background: var(--bg-primary);
             display: flex; /* Use flex for centering placeholder */
@@ -1137,16 +1138,25 @@ ENHANCED_HTML_HEAD = """<!DOCTYPE html>
             justify-content: center;
         }}
 
-        .thumbnail img {{
+        .thumbnail img,
+        .thumbnail video {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: transform 0.3s ease;
-        }}
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
 
-        .video-card:hover .thumbnail img {{ transform: scale(1.1); }}
+        .thumbnail video {
+            opacity: 0; /* Hidden by default */
+        }
 
-        .play-overlay {{
+        .video-card:hover .thumbnail img { transform: scale(1.1); opacity: 0; }
+        .video-card:hover .thumbnail video { opacity: 1; transform: scale(1.1); }
+
+        .play-overlay {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -1158,22 +1168,22 @@ ENHANCED_HTML_HEAD = """<!DOCTYPE html>
             display: flex;
             align-items: center;
             justify-content: center;
-            opacity: 0;
+            opacity: 1; /* Always visible for static image, hidden for video on hover */
             transition: all 0.3s ease;
             cursor: pointer;
-        }}
+        }
 
-        .video-card:hover .play-overlay {{ 
-            opacity: 1;
+        .video-card:hover .play-overlay { 
+            opacity: 0; /* Hide play overlay when video plays on hover */
             transform: translate(-50%, -50%) scale(1.1);
-        }}
+        }
 
-        .play-overlay::before {{
+        .play-overlay::before {
             content: '▶';
             color: white;
             font-size: 1.2rem;
             margin-left: 3px;
-        }}
+        }
 
         .video-info {{
             padding: 1.5rem;
@@ -1285,38 +1295,69 @@ ENHANCED_HTML_TAIL = """        </main>
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const images = document.querySelectorAll('img[data-src]');
-            const imageObserver = new IntersectionObserver((entries, observer) => {
+            const mediaElements = document.querySelectorAll('img[data-src], video[data-src]');
+            const mediaObserver = new IntersectionObserver((entries, observer) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
-                        const img = entry.target;
-                        const placeholderContainer = img.parentElement; // The div containing the img
+                        const media = entry.target;
+                        const placeholderContainer = media.parentElement;
                         
-                        // Add loading animation to the container
                         placeholderContainer.classList.add('loading-placeholder');
                         
-                        img.src = img.dataset.src;
-                        img.onload = () => {
-                            img.removeAttribute('data-src');
-                            placeholderContainer.classList.remove('loading-placeholder');
-                        };
-                        img.onerror = () => {
-                            // Replace placeholder with error icon if image fails to load
-                            placeholderContainer.innerHTML = '<div class="error-placeholder">❌</div>';
-                        };
-                        imageObserver.unobserve(img);
+                        if (media.tagName === 'IMG') {
+                            media.src = media.dataset.src;
+                            media.onload = () => {
+                                media.removeAttribute('data-src');
+                                placeholderContainer.classList.remove('loading-placeholder');
+                            };
+                            media.onerror = () => {
+                                placeholderContainer.innerHTML = '<div class="error-placeholder">❌</div>';
+                            };
+                        } else if (media.tagName === 'VIDEO') {
+                            media.src = media.dataset.src;
+                            media.load(); // Start loading the video
+                            media.onloadeddata = () => { // Use onloadeddata for faster feedback
+                                media.removeAttribute('data-src');
+                                placeholderContainer.classList.remove('loading-placeholder');
+                            };
+                            media.onerror = () => {
+                                placeholderContainer.innerHTML = '<div class="error-placeholder">❌</div>';
+                            };
+                        }
+                        mediaObserver.unobserve(media);
                     }
                 });
             });
 
-            images.forEach(img => {
-                // Ensure the img element itself is observed, not just its parent
-                imageObserver.observe(img);
+            mediaElements.forEach(media => {
+                mediaObserver.observe(media);
+            });
+
+            // Hover-play functionality for video elements
+            document.querySelectorAll('.video-card').forEach(card => {
+                const video = card.querySelector('video');
+                if (video) {
+                    card.addEventListener('mouseenter', () => {
+                        video.play().catch(error => console.error("Error playing video:", error));
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        video.pause();
+                        video.currentTime = 0; // Reset video to start
+                    });
+                }
             });
         });
     </script>
 </body>
 </html>"""
+
+
+def is_video_url(url: str) -> bool:
+    """Checks if a URL points to a video file based on its extension."""
+    if not url:
+        return False
+    video_extensions = ('.mp4', '.webm', '.ogg', '.gif') # Include .gif for animated previews
+    return url.lower().endswith(video_extensions)
 
 
 async def build_enhanced_html_async(
@@ -1475,11 +1516,17 @@ async def build_enhanced_html_async(
                 meta_items.append(f'<span class="meta-item">👁️ {html.escape(video["meta"])}</span>')
 
             # Write video card HTML
+            media_tag = ""
+            if is_video_url(thumbnail):
+                media_tag = f'<video data-src="{html.escape(thumbnail)}" alt="{html.escape(video["title"])}" preload="none" loop muted playsinline></video>'
+            else:
+                media_tag = f'<img src="" data-src="{html.escape(thumbnail)}" alt="{html.escape(video["title"])}" loading="lazy">'
+
             f.write(f'''
             <div class="video-card">
                 <a href="{html.escape(video['link'])}" target="_blank" rel="noopener noreferrer">
                     <div class="thumbnail">
-                        <img src="" data-src="{html.escape(thumbnail)}" alt="{html.escape(video['title'])}" loading="lazy">
+                        {media_tag}
                         <div class="play-overlay"></div>
                     </div>
                 </a>

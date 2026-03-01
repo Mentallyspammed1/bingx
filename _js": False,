@@ -1,0 +1,176 @@
+[1m--- /data/data/com.termux/files/usr/tmp/sent_v1_1770641981223	2026-02-09 06:59:41.503542972 -0600[0m
+[1m+++ /data/data/com.termux/files/usr/tmp/sent_v2_1770641981224	2026-02-09 06:59:41.847542972 -0600[0m
+[36m@@ -1,6 +1,6 @@[0m
+ #!/usr/bin/env python3
+ """
+[31m-Standalone fullpornxxx.net video search scraper[0m
+[32m+Standalone pornhat.com video search scraper[0m
+ Optimized for performance, security, and pattern robustness.
+ """
+ 
+[36m@@ -21,13 +21,12 @@[0m
+ )
+ logger = logging.getLogger(__name__)
+ 
+[31m-class FullPornXXXScraper:[0m
+[31m-    BASE_URL = "https://fullpornxxx.net"[0m
+[32m+class PornhatScraper:[0m
+[32m+    BASE_URL = "https://www.pornhat.com"[0m
+     
+     ITEM_SELECTORS = (
+[31m-        'div.well-sm', 'div.well.well-sm', 'div.video-item', [0m
+[31m-        'div.thumb-video', '.video-block', '.thumb-block',[0m
+[31m-        'div.item', '.video-thumb'[0m
+[32m+        'div.video-item', 'div.thumb-block', 'div.item', [0m
+[32m+        '.video-thumb', '.thumb-video'[0m
+     )
+ 
+     def __init__(self, proxy=None, timeout=15):
+[36m@@ -50,14 +49,9 @@[0m
+             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+             'Accept-Language': 'en-US,en;q=0.5',
+[31m-            'Accept-Encoding': 'gzip, deflate, br',[0m
+             'DNT': '1',
+             'Connection': 'keep-alive',
+             'Upgrade-Insecure-Requests': '1',
+[31m-            'Sec-Fetch-Dest': 'document',[0m
+[31m-            'Sec-Fetch-Mode': 'navigate',[0m
+[31m-            'Sec-Fetch-Site': 'none',[0m
+[31m-            'Sec-Fetch-User': '?1',[0m
+         })
+         
+         if proxy:
+[36m@@ -67,17 +61,15 @@[0m
+     def search_videos(self, query, limit=50, pages=1):
+         all_results = []
+         encoded_query = quote(query)
+[31m-        [0m
+[31m-        # Use SoupStrainer to optimize parsing performance[0m
+         strainer = SoupStrainer(['div', 'span', 'a', 'img'])
+ 
+         for page in range(1, pages + 1):
+             if len(all_results) >= limit:
+                 break
+                 
+[31m-            search_url = f"{self.BASE_URL}/search/videos/{encoded_query}/"[0m
+[32m+            search_url = f"{self.BASE_URL}/search/{encoded_query}/"[0m
+             if page > 1:
+[31m-                search_url = f"{self.BASE_URL}/search/videos/{encoded_query}/page/{page}/"[0m
+[32m+                search_url = f"{self.BASE_URL}/search/{encoded_query}/?p={page}"[0m
+             
+             logger.info(f"Requesting page {page}: {search_url}")
+             
+[36m@@ -94,7 +86,7 @@[0m
+                         break
+                 
+                 if not items:
+[31m-                    logger.warning(f"No items found on page {page} using known selectors.")[0m
+[32m+                    logger.warning(f"No items found on page {page}.")[0m
+                     continue
+                 
+                 for item in items:
+[36m@@ -105,43 +97,35 @@[0m
+                         all_results.append(video_data)
+                 
+                 if page < pages:
+[31m-                    time.sleep(1.2) # Rate limiting compliance[0m
+[32m+                    time.sleep(1.5)[0m
+                     
+[31m-            except requests.exceptions.RequestException as e:[0m
+[31m-                logger.error(f"Network error on page {page}: {e}")[0m
+[31m-                continue[0m
+             except Exception as e:
+[31m-                logger.error(f"Unexpected error on page {page}: {e}")[0m
+[32m+                logger.error(f"Error on page {page}: {e}")[0m
+                 continue
+         
+         return all_results
+ 
+     def _extract_video_data(self, item):
+         try:
+[31m-            # Link extraction[0m
+[31m-            link_elem = item.select_one('a[href*="/video/"], a[href*="/watch/"], a')[0m
+[32m+            link_elem = item.select_one('a[href*="/video/"], a.title')[0m
+             if not link_elem or not link_elem.get('href'):
+                 return None
+             
+[31m-            raw_href = link_elem['href'][0m
+[31m-            link = urljoin(self.BASE_URL, raw_href)[0m
+[32m+            link = urljoin(self.BASE_URL, link_elem['href'])[0m
+             
+[31m-            # Title extraction[0m
+[31m-            title_elem = (item.select_one('span.video-title, .title, a[title], h3, h4') or link_elem)[0m
+[31m-            title = (title_elem.get('title') or title_elem.get_text() or 'Untitled').strip()[:255][0m
+[32m+            title_elem = item.select_one('a.title, .title, img[alt]')[0m
+[32m+            title = (title_elem.get('title') or title_elem.get('alt') or title_elem.get_text() or 'Untitled').strip()[0m
+             
+[31m-            # Thumbnail extraction[0m
+[31m-            img_elem = item.select_one('img[data-src], img[src*="thumb"], img')[0m
+[32m+            img_elem = item.select_one('img')[0m
+             thumb = ''
+             if img_elem:
+[31m-                thumb_url = img_elem.get('data-src') or img_elem.get('src') or ''[0m
+[32m+                thumb_url = img_elem.get('data-original') or img_elem.get('data-src') or img_elem.get('src') or ''[0m
+                 thumb = urljoin(self.BASE_URL, thumb_url.strip())
+             
+[31m-            # Metadata extraction[0m
+[31m-            duration_elem = item.select_one('span.duration, .duration, .time')[0m
+[32m+            duration_elem = item.select_one('.duration, span.time')[0m
+             duration = duration_elem.get_text(strip=True) if duration_elem else None
+             
+[31m-            views_elem = item.select_one('span.views, .views, .metadata')[0m
+[32m+            views_elem = item.select_one('.views, .metadata')[0m
+             views = views_elem.get_text(strip=True) if views_elem else None
+             
+             return {
+[36m@@ -151,21 +135,20 @@[0m
+                 'duration': duration,
+                 'views': views
+             }
+[31m-        except Exception as e:[0m
+[31m-            logger.debug(f"Extraction failed for item: {e}")[0m
+[32m+        except Exception:[0m
+             return None
+ 
+ def main():
+[31m-    parser = argparse.ArgumentParser(description="FullPornXXX Video Search Scraper")[0m
+[32m+    parser = argparse.ArgumentParser(description="Pornhat Video Search Scraper")[0m
+     parser.add_argument("query", help="Search term")
+[31m-    parser.add_argument("-l", "--limit", type=int, default=50, help="Maximum results (default: 50)")[0m
+[31m-    parser.add_argument("-p", "--pages", type=int, default=1, help="Pages to crawl (default: 1)")[0m
+[31m-    parser.add_argument("-o", "--output", help="Output JSON file path")[0m
+[31m-    parser.add_argument("--proxy", help="Proxy URL (e.g. http://user:pass@host:port)")[0m
+[32m+    parser.add_argument("-l", "--limit", type=int, default=50, help="Max results")[0m
+[32m+    parser.add_argument("-p", "--pages", type=int, default=1, help="Pages to crawl")[0m
+[32m+    parser.add_argument("-o", "--output", help="Output JSON file")[0m
+[32m+    parser.add_argument("--proxy", help="Proxy URL")[0m
+     
+     args = parser.parse_args()
+     
+[31m-    scraper = FullPornXXXScraper(proxy=args.proxy)[0m
+[32m+    scraper = PornhatScraper(proxy=args.proxy)[0m
+     results = scraper.search_videos(args.query, limit=args.limit, pages=args.pages)
+     
+     print(f"\nFound {len(results)} videos for '{args.query}':\n")
+[36m@@ -176,17 +159,16 @@[0m
+         if video['duration']:
+             print(f"     Duration: {video['duration']} | Views: {video.get('views', 'N/A')}")
+     
+[31m-    output_file = args.output or f"fpnet_{quote(args.query)}_{int(time.time())}.json"[0m
+[32m+    output_file = args.output or f"pornhat_{int(time.time())}.json"[0m
+     try:
+         with open(output_file, 'w', encoding='utf-8') as f:
+             json.dump(results, f, indent=2, ensure_ascii=False)
+         print(f"\nResults exported to {output_file}")
+     except IOError as e:
+[31m-        logger.error(f"Failed to save results: {e}")[0m
+[32m+        logger.error(f"Failed to save: {e}")[0m
+ 
+ if __name__ == "__main__":
+     try:
+         main()
+     except KeyboardInterrupt:
+[31m-        print("\nAborted by user.")[0m
+         sys.exit(0)
+\ No newline at end of file

@@ -38,16 +38,21 @@ import unicodedata
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
-from urllib.parse import quote_plus, urljoin, urlparse
+from typing import Any
+from urllib.parse import quote_plus
+from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
-from requests.adapters import HTTPAdapter, Retry
+from requests.adapters import HTTPAdapter
+from requests.adapters import Retry
 
 # --- Optional Dependencies (Graceful Degradation) ---
 try:
-    from colorama import Fore, Style, init as colorama_init
+    from colorama import Fore
+    from colorama import Style
+    from colorama import init as colorama_init
 
     COLORAMA_AVAILABLE = True
 except ImportError:
@@ -73,7 +78,8 @@ except ImportError:
 
 try:
     from selenium import webdriver
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.common.exceptions import TimeoutException
+    from selenium.common.exceptions import WebDriverException
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.chrome.service import Service as ChromeService
     from selenium.webdriver.common.by import By
@@ -142,7 +148,7 @@ USER_AGENTS = [
 ]
 
 
-def get_headers(referer: Optional[str] = None) -> dict[str, str]:
+def get_headers(referer: str | None = None) -> dict[str, str]:
     headers = {
         "User-Agent": random.choice(USER_AGENTS),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -420,7 +426,7 @@ ENGINE_MAP: dict[str, dict[str, Any]] = {
 class VideoResult:
     title: str
     link: str
-    img_url: Optional[str] = None
+    img_url: str | None = None
     time: str = "N/A"
     channel: str = "N/A"
     channel_link: str = "#"
@@ -428,7 +434,7 @@ class VideoResult:
     engine: str = ""
 
     # Output-only
-    local_thumb: Optional[str] = None
+    local_thumb: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d = dataclasses.asdict(self)
@@ -453,7 +459,7 @@ def smart_delay(delay_range: tuple[float, float]) -> None:
     time.sleep(random.uniform(*delay_range))
 
 
-def build_session(proxies: Optional[str] = None, timeout: int = DEFAULT_TIMEOUT) -> requests.Session:
+def build_session(proxies: str | None = None, timeout: int = DEFAULT_TIMEOUT) -> requests.Session:
     s = requests.Session()
     retries = Retry(
         total=3,
@@ -492,7 +498,7 @@ def first_select(element, selectors: str):
     return None
 
 
-def extract_text(element, selector: Optional[str]) -> str:
+def extract_text(element, selector: str | None) -> str:
     if not element or not selector:
         return "N/A"
     try:
@@ -505,7 +511,7 @@ def extract_text(element, selector: Optional[str]) -> str:
         return "N/A"
 
 
-def extract_attr(element, selector: Optional[str], attr: str) -> Optional[str]:
+def extract_attr(element, selector: str | None, attr: str) -> str | None:
     if not element or not selector:
         return None
     try:
@@ -526,7 +532,7 @@ def looks_like_url(u: str) -> bool:
         return False
 
 
-def process_item(item, cfg: dict[str, Any], base_url: str) -> Optional[VideoResult]:
+def process_item(item, cfg: dict[str, Any], base_url: str) -> VideoResult | None:
     try:
         # --- Title ---
         title = "Untitled"
@@ -556,7 +562,7 @@ def process_item(item, cfg: dict[str, Any], base_url: str) -> Optional[VideoResu
             link = urljoin(base_url, l_el.get("href"))
 
         # --- Image ---
-        img_url: Optional[str] = None
+        img_url: str | None = None
         i_el = first_select(item, cfg.get("img_selector", ""))
         if i_el:
             attrs_to_try = [
@@ -629,7 +635,7 @@ def build_search_url(cfg: dict[str, Any], query: str, page: int) -> str:
     return urljoin(cfg["url"], path)
 
 
-def create_selenium_driver(headless: bool = True) -> Optional["webdriver.Chrome"]:
+def create_selenium_driver(headless: bool = True) -> webdriver.Chrome | None:
     if not SELENIUM_AVAILABLE:
         return None
     try:

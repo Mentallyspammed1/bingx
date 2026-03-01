@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/data/data/com.termux/files/usr/bin/bash
 
 # ==============================================================================
 # NEON SEARCH APP - SETUP AND GENERATION SCRIPT - ENHANCED AND UPGRADED
@@ -247,7 +247,7 @@ EOF
 
 # server.js - Express backend with CORS and unified search API
 cat << 'EOF' > server.js
-#!/usr/bin/env node
+#!/data/data/com.termux/files/usr/bin/env node
 
 const express = require('express');
 const cors = require('cors');

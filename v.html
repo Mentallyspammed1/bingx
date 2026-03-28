@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -266,60 +266,27 @@
                 pornhub: {
                     base: 'https://www.pornhub.com/video/search?search=',
                     pageParam: '&page=',
-                    // Updated selectors for modern Pornhub
-                    selectors: { 
-                        item: '.videoItem, li.videoblock, div.thumb', 
-                        title: '.title a, a.title, .video-title, .thumbnail-title', 
-                        link: 'a', 
-                        duration: '.duration, .video-duration, .length', 
-                        thumb: 'img, .thumb-image' 
-                    }
+                    selectors: { item: '.pcVideoListItem, li.videoblock', title: '.title a, .video-title a', link: 'a', duration: '.duration, .video-duration', thumb: 'img' }
                 },
                 redtube: {
                     base: 'https://www.redtube.com/?search=',
                     pageParam: '&page=',
-                    // Redtube selectors
-                    selectors: { 
-                        item: 'div.video-item, li.videoblock', 
-                        title: 'a.video-title, .title a', 
-                        link: 'a', 
-                        duration: '.duration', 
-                        thumb: 'img' 
-                    }
+                    selectors: { item: 'li.videoblock, .video-block', title: '.video-title a, a', link: 'a', duration: '.duration', thumb: 'img' }
                 },
                 thumbzilla: {
                     base: 'https://www.thumbzilla.com/video/search?q=',
                     pageParam: '&page=',
-                    selectors: { 
-                        item: '.js-videoThumb, .video-item', 
-                        title: '.title a, a', 
-                        link: 'a', 
-                        duration: '.duration', 
-                        thumb: 'img' 
-                    }
+                    selectors: { item: '.js-videoThumb, .video-item', title: '.title, a', link: 'a', duration: '.duration', thumb: 'img' }
                 },
                 youporn: {
                     base: 'https://www.youporn.com/search/?query=',
                     pageParam: '&page=',
-                    // YouPorn selectors
-                    selectors: { 
-                        item: '.video-box, .teaser-video, div.videoItem', 
-                        title: '.video-title, a', 
-                        link: 'a', 
-                        duration: '.duration', 
-                        thumb: 'img' 
-                    }
+                    selectors: { item: '.video-box, .teaser-video', title: '.video-title, a', link: 'a', duration: '.duration', thumb: 'img' }
                 },
                 youtube: {
                     base: 'https://www.youtube.com/results?search_query=',
                     pageParam: '', 
-                    selectors: { 
-                        item: 'ytd-video-renderer, ytd-grid-video-renderer', 
-                        title: '#video-title, #title', 
-                        link: 'a#video-title, a#thumbnail', 
-                        duration: '#time-status, span.ytd-thumbnail-overlay-time-status-renderer', 
-                        thumb: '#img, #thumbnail img' 
-                    }
+                    selectors: { item: 'ytd-video-renderer', title: '#video-title', link: '#video-title', duration: '#time-status span', thumb: '#img' }
                 }
             }
         },
@@ -402,23 +369,6 @@
             });
 
             this.dom.mainGrid.addEventListener('click', (e) => {
-                const target = e.target;
-                const card = target.closest('.card');
-                if (!card) return;
-                const idx = parseInt(card.dataset.idx, 10);
-                const isVault = card.dataset.vault === 'true';
-
-                if (target.closest('.open-btn')) {
-                    window.open(card.dataset.link, '_blank');
-                } else if (target.closest('.vault-btn')) {
-                    this.toggleFav(idx, isVault);
-                } else if (target.closest('.bridge-btn')) {
-                    this.copyBridge(card.dataset.network, card.dataset.title);
-                }
-            });
-
-            // Also bind click events for favsGrid (since it has separate rendering)
-            this.dom.favsGrid.addEventListener('click', (e) => {
                 const target = e.target;
                 const card = target.closest('.card');
                 if (!card) return;
@@ -615,13 +565,6 @@
                     if (!titleEl || !linkEl) return;
 
                     let link = linkEl.getAttribute('href');
-                    // If no href, try the title element
-                    if (!link && titleEl) {
-                        link = titleEl.getAttribute('href');
-                    }
-                    // If still no link, skip
-                    if (!link) return;
-
                     try {
                         link = new URL(link, urlObj.origin).href;
                     } catch (e) { return; }
@@ -633,9 +576,7 @@
                         duration: durEl ? durEl.textContent.trim() : 'LIVE',
                         network: engineKey
                     });
-                } catch (e) { 
-                    /* Skip corrupted node */ 
-                }
+                } catch (e) { /* Skip corrupted node */ }
             });
 
             return results;
@@ -649,7 +590,6 @@
                 img.getAttribute('data-thumb_url'),
                 img.getAttribute('data-mediabook'),
                 img.getAttribute('data-poster'),
-                img.getAttribute('data-large-src'),
                 img.getAttribute('src')
             ];
 
@@ -725,16 +665,8 @@
             this.updateStats();
         },
 
-        toggleFav(idx, isVault = false) {
-            let item;
-            
-            // FIXED: Check if we are removing from Vault or adding from Search
-            if (isVault) {
-                item = this.state.favs[idx];
-            } else {
-                item = this.state.results[idx];
-            }
-
+        toggleFav(idx) {
+            const item = this.state.results[idx];
             if (!item) return;
 
             const existingIdx = this.state.favs.findIndex(f => f.link === item.link);
@@ -767,7 +699,7 @@
                 return `
                 <div class="card" data-idx="${idx}" data-vault="true" data-link="${item.link}" data-network="${item.network}" data-title="${safeTitle}">
                     <div class="thumb-box">
-                        <img src="${item.thumb}" loading="lazy" onerror="this.src='data:image/svg+xml;base64,PHN2ZnB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiI+PHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiBmaWxsPSIjMGEwYTBmIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZpbGw9IiNmZjMxMzEiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj48L3RleHQ+PC9zdmc+'">
+                        <img src="${item.thumb}" loading="lazy" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiI+PHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiBmaWxsPSIjMGEwYTBmIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZpbGw9IiNmZjMxMzEiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj48L3RleHQ+PC9zdmc+'">
                         <div class="tag">${item.network.toUpperCase()}</div>
                         <div class="duration">${item.duration}</div>
                     </div>

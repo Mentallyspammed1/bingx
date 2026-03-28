@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEON OVERDRIVE • APEX V32 • 2026</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Inter:wght@400;700;900&display=swap');
+
+        :root {
+            --bg: #020204;
+            --surface: #0a0a0f;
+            --surface-alt: #12121a;
+            --accent: #00f3ff;
+            --accent-dim: rgba(0, 243, 255, 0.15);
+            --neon-pink: #ff00ff;
+            --neon-green: #39ff14;
+            --neon-red: #ff3131;
+            --neon-yellow: #fcee0a;
+            --text-main: #f0f0f0;
+            --text-dim: #777;
+            --font-mono: 'Fira Code', monospace;
+            --font-sans: 'Inter', sans-serif;
+            --glow: 0 0 15px rgba(0, 243, 255, 0.4);
+            --glow-pink: 0 0 15px rgba(255, 0, 255, 0.4);
+            --border-radius: 4px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; cursor: crosshair; } 
+        
+        body {
+            background: var(--bg); color: var(--text-main); font-family: var(--font-sans);
+            overflow-x: hidden; min-height: 100vh; display: flex; flex-direction: column;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(0, 243, 255, 0.05) 0%, transparent 80%),
+                linear-gradient(var(--surface-alt) 1px, transparent 1px),
+                linear-gradient(90deg, var(--surface-alt) 1px, transparent 1px);
+            background-size: 100% 100%, 20px 20px, 20px 20px;
+        }
+
+        /* Scanlines & Grain */
+        body::before {
+            content: ""; position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+            background-size: 100% 3px, 3px 100%;
+            opacity: 0.3;
+        }
+
+        .container { max-width: 1600px; margin: 0 auto; padding: 20px; width: 100%; flex: 1; position: relative; z-index: 10; }
+
+        header {
+            display: flex; justify-content: space-between; align-items: flex-end;
+            border-bottom: 2px solid var(--accent); padding-bottom: 15px; margin-bottom: 25px;
+        }
+
+        .logo-group h1 { 
+            font-family: var(--font-mono); font-size: 28px; color: var(--accent);
+            text-shadow: var(--glow); letter-spacing: 3px; font-weight: 900;
+            animation: glitch 2.5s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch {
+            0% { text-shadow: 0.05em 0 0 var(--neon-red), -0.03em -0.04em 0 var(--neon-green), 0.025em 0.04em 0 var(--neon-pink); transform: skew(0deg); } 
+            15% { text-shadow: 0.05em 0 0 var(--neon-red), -0.03em -0.04em 0 var(--neon-green), 0.025em 0.04em 0 var(--neon-pink); transform: skew(-1deg); } 
+            16% { text-shadow: -0.05em 0 0 var(--neon-red), 0.025em 0.035em 0 var(--neon-green), -0.05em -0.05em 0 var(--neon-pink); transform: skew(3deg); } 
+            49% { text-shadow: -0.05em 0 0 var(--neon-red), 0.025em 0.035em 0 var(--neon-green), -0.05em -0.05em 0 var(--neon-pink); transform: skew(-2deg); } 
+            50% { text-shadow: 0.05em 0.035em 0 var(--neon-red), 0.03em 0 0 var(--neon-green), 0 -0.04em 0 var(--neon-pink); transform: translate(2px, 2px); } 
+            99% { text-shadow: 0.05em 0.035em 0 var(--neon-red), 0.03em 0 0 var(--neon-green), 0 -0.04em 0 var(--neon-pink); transform: translate(-1px, 0); } 
+            100% { text-shadow: -0.05em 0 0 var(--neon-red), -0.025em -0.04em 0 var(--neon-green), -0.04em 0.04em 0 var(--neon-pink); transform: skew(0deg); } 
+        }
+
+        .stats-bar { font-family: var(--font-mono); font-size: 11px; display: flex; gap: 20px; color: var(--text-dim); } 
+        .stats-bar span b { color: var(--accent); }
+
+        /* Search Interface */
+        .controls-panel {
+            background: var(--surface); padding: 20px; border: 1px solid var(--accent-dim);
+            border-radius: var(--border-radius); display: grid; grid-template-columns: 1fr auto auto auto; gap: 15px;
+            margin-bottom: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;
+        }
+
+        .suggest-box { position: relative; grid-column: 1; }
+
+        .suggestions {
+            position: absolute; top: calc(100% + 5px); left: 0; width: 100%;
+            background: var(--surface); border: 1px solid var(--accent-dim); max-height: 200px;
+            overflow-y: auto; z-index: 100; border-radius: var(--border-radius);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.9);
+        }
+
+        .suggest-item {
+            padding: 10px 15px; cursor: pointer; font-family: var(--font-mono); font-size: 14px;
+            border-bottom: 1px solid #222;
+        }
+
+        .suggest-item:hover { background: var(--accent-dim); color: var(--accent); }
+
+        input, select, button {
+            background: #000; color: var(--text-main); border: 1px solid var(--text-dim);
+            padding: 12px 18px; font-family: var(--font-mono); font-size: 14px;
+            border-radius: 2px;
+        }
+
+        input:focus { border-color: var(--accent); box-shadow: var(--glow); }
+
+        button {
+            cursor: pointer; font-weight: 700; text-transform: uppercase; border-color: var(--accent); color: var(--accent);
+            display: flex; align-items: center; gap: 8px; transition: all 0.2s;
+        }
+
+        button:hover { background: var(--accent); color: #000; box-shadow: var(--glow); transform: scale(1.02); }
+        button.pink { border-color: var(--neon-pink); color: var(--neon-pink); }
+        button.pink:hover { background: var(--neon-pink); color: #000; box-shadow: var(--glow-pink); }
+        button.green { border-color: var(--neon-green); color: var(--neon-green); }
+        button.green:hover { background: var(--neon-green); color: #000; box-shadow: 0 0 15px rgba(57, 255, 20, 0.4); }
+
+        /* Tabs */
+        .tab-system { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 1px solid #222; }
+        .tab { 
+            padding: 10px 25px; cursor: pointer; color: var(--text-dim); font-family: var(--font-mono);
+            font-size: 13px; border-bottom: 2px solid transparent; 
+        }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-dim); }
+
+        /* Main Display */
+        .grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px;
+        }
+
+        .card {
+            background: var(--surface); border: 1px solid #1a1a25; border-radius: var(--border-radius);
+            overflow: hidden; position: relative; display: flex; flex-direction: column;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } 
+
+        .card:hover { border-color: var(--accent); transform: translateY(-5px); box-shadow: var(--glow); }
+
+        .thumb-box { position: relative; width: 100%; aspect-ratio: 16/9; background: #050505; overflow: hidden; }
+        .thumb-box img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
+        .card:hover .thumb-box img { transform: scale(1.08); }
+
+        .tag {
+            position: absolute; top: 10px; right: 10px; padding: 3px 8px; 
+            font-size: 10px; font-family: var(--font-mono); background: rgba(0,0,0,0.8);
+            border: 1px solid var(--accent); color: var(--accent);
+        }
+
+        .duration {
+            position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.85);
+            padding: 2px 6px; font-size: 11px; font-family: var(--font-mono); color: var(--neon-green);
+        }
+
+        .card-body { padding: 15px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .card-title { font-size: 14px; font-weight: 600; line-height: 1.4; margin-bottom: 12px; height: 40px; overflow: hidden; }
+        
+        .card-footer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .card-footer button { font-size: 10px; padding: 8px 4px; }
+        .full-width { grid-column: span 2; }
+
+        /* Console */
+        .console {
+            background: #000; border-top: 2px solid var(--neon-green); height: 160px;
+            padding: 10px; font-family: var(--font-mono); font-size: 12px; overflow-y: auto;
+            color: #ccc;
+        }
+        .console p { margin-bottom: 4px; line-height: 1.2; }
+        .log-info { color: var(--accent); }
+        .log-warn { color: var(--neon-yellow); }
+        .log-err { color: var(--neon-red); }
+        .log-sys { color: var(--neon-green); }
+        .log-success { color: var(--neon-green); }
+
+        .loader { width: 40px; height: 40px; border: 3px solid #111; border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 50px auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .hidden { display: none !important; }
+
+        .status-msg { text-align: center; padding: 100px 0; color: var(--text-dim); font-family: var(--font-mono); }
+
+        .tab-controls { margin-bottom: 15px; text-align: right; }
+
+        @media (max-width: 800px) {
+            .controls-panel { grid-template-columns: 1fr; }
+            .grid { grid-template-columns: 1fr; }
+            .suggest-box { grid-column: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="logo-group">
+            <h1 id="glitch">NEON OVERDRIVE</h1>
+            <div class="stats-bar">
+                <span>MEM: <b id="mem-stat">0MB</b></span>
+                <span>NODES: <b id="node-stat">0</b></span>
+                <span>LATENCY: <b id="lat-stat">0ms</b></span>
+                <span>PROXY: <b id="proxy-stat">ALLORIGINS</b></span>
+            </div>
+        </div>
+        <div style="color: var(--neon-pink); font-family: var(--font-mono); font-size: 12px;">APEX_V32_2026_PREDATOR</div>
+    </header>
+
+    <div class="controls-panel">
+        <div class="suggest-box">
+            <input type="text" id="queryInput" placeholder="ENTER SEARCH_STRING..." autocomplete="off">
+            <div id="suggestions" class="suggestions hidden"></div>
+        </div>
+        <select id="networkSelect">
+            <optgroup label="PREMIUM_NODES">
+                <option value="pornhub">PH_NETWORK</option>
+                <option value="redtube">RT_LEGACY</option>
+                <option value="thumbzilla">TZ_MOBILE</option>
+                <option value="youporn">YP_CORE</option>
+            </optgroup>
+            <optgroup label="APEX_NODES">
+                <option value="xnxx">XN_DEEP</option>
+                <option value="xvideos">XV_RECON</option>
+                <option value="spankbang">SB_STRICK</option>
+                <option value="eporner">EP_HIGH_RES</option>
+            </optgroup>
+            <option value="youtube">YT_SAFE</option>
+        </select>
+        <button id="searchBtn" onclick="Core.search()">INITIALIZE SCAN</button>
+        <button class="pink" onclick="Core.clear()">PURGE</button>
+    </div>
+
+    <div class="tab-system">
+        <div class="tab active" onclick="Core.setTab('grid', this)">DATA_GRID</div>
+        <div class="tab" onclick="Core.setTab('history', this)">SCAN_HISTORY</div>
+        <div class="tab" onclick="Core.setTab('favs', this)">VAULT</div>
+    </div>
+
+    <div id="grid-view">
+        <div id="mainGrid" class="grid"></div>
+        <button id="loadMore" class="hidden" style="margin: 20px auto; display: block;" onclick="Core.loadMore()">SUMMON MORE NODES</button>
+        <div id="loader" class="loader hidden"></div>
+        <div id="emptyMsg" class="status-msg">SYSTEM IDLE... AWAITING UPLINK.</div>
+    </div>
+
+    <div id="history-view" class="hidden">
+        <div class="tab-controls">
+            <button class="pink" onclick="Core.clearHistory()">PURGE HISTORY</button>
+        </div>
+        <div id="historyList"></div>
+    </div>
+
+    <div id="favs-view" class="hidden">
+        <div class="tab-controls">
+            <button class="pink" onclick="Core.clearFavs()">PURGE VAULT</button>
+        </div>
+        <div id="favsGrid" class="grid"></div>
+    </div>
+</div>
+
+<div class="console" id="console">
+    <p class="log-sys">[SYS] NEON OVERDRIVE V32 APEX PREDATOR ONLINE.</p>
+    <p class="log-info">[INFO] ENHANCEMENT 2026.03: MULTI-PROXY ROTATION, APEX ENGINE MAP, BRIDGE-V2 COMMANDS.</p>
+</div>
+
+<script>
+    /**
+     * NEON OVERDRIVE - V32 APEX PREDATOR
+     * Optimized for Termux Environment | 2026 Architecture
+     */
+    const Core = {
+        config: {
+            proxies: [
+                'https://api.allorigins.win/get?url=',
+                'https://thingproxy.freeboard.io/fetch/',
+                'https://api.codetabs.com/v1/proxy?quest='
+            ],
+            proxyIndex: 0,
+            perPage: 24,
+            engines: {
+                pornhub: {
+                    base: 'https://www.pornhub.com/video/search?search=',
+                    pageParam: '&page=',
+                    selectors: {
+                        item: '.pcVideoListItem, li.videoblock',
+                        title: '.title a, .video-title a',
+                        link: 'a',
+                        duration: '.duration, .video-duration',
+                        thumb: 'img'
+                    }
+                },
+                redtube: {
+                    base: 'https://www.redtube.com/?search=',
+                    pageParam: '&page=',
+                    selectors: {
+                        item: 'li.videoblock, .video-block',
+                        title: '.video-title a',
+                        link: 'a',
+                        duration: '.duration',
+                        thumb: 'img'
+                    }
+                },
+                thumbzilla: {
+                    base: 'https://www.thumbzilla.com/video/search?q=',
+                    pageParam: '&page=',
+                    selectors: {
+                        item: '.js-videoThumb',
+                        title: '.title',
+                        link: 'a',
+                        duration: '.duration',
+                        thumb: 'img'
+                    }
+                },
+                youporn: {
+                    base: 'https://www.youporn.com/search/?query=',
+                    pageParam: '&page=',
+                    selectors: {
+                        item: '.video-box',
+                        title: '.video-title',
+                        link: 'a',
+                        duration: '.duration',
+                        thumb: 'img'
+                    }
+                },
+                xnxx: {
+                    base: 'https://www.xnxx.com/search/',
+                    pageParam: '/',
+                    selectors: {
+                        item: '.thumb-block',
+                        title: '.title a',
+                        link: '.title a',
+                        duration: '.duration',
+                        thumb: 'img'
+                    }
+                },
+                xvideos: {
+                    base: 'https://www.xvideos.com/?k=',
+                    pageParam: '&p=',
+                    selectors: {
+                        item: '.thumb-block',
+                        title: '.title a',
+                        link: '.title a',
+                        duration: '.duration',
+                        thumb: 'img'
+                    }
+                },
+                spankbang: {
+                    base: 'https://spankbang.com/s/',
+                    pageParam: '/',
+                    selectors: {
+                        item: '.video-item',
+                        title: '.n',
+                        link: 'a.n',
+                        duration: '.d',
+                        thumb: 'img'
+                    }
+                },
+                eporner: {
+                    base: 'https://www.eporner.com/search/',
+                    pageParam: '/',
+                    selectors: {
+                        item: '.post-container',
+                        title: '.post-title a',
+                        link: '.post-title a',
+                        duration: '.post-duration',
+                        thumb: 'img'
+                    }
+                },
+                youtube: {
+                    base: 'https://www.youtube.com/results?search_query=',
+                    pageParam: '',
+                    selectors: {
+                        item: 'ytd-video-renderer',
+                        title: '#video-title',
+                        link: '#video-title',
+                        duration: '#time-status span',
+                        thumb: '#img'
+                    }
+                }
+            }
+        },
+
+        state: {
+            history: JSON.parse(localStorage.getItem('neon_history') || '[]'),
+            favs: JSON.parse(localStorage.getItem('neon_favs') || '[]'),
+            results: [],
+            isSearching: false,
+            currentQuery: '',
+            currentEngine: '',
+            currentPage: 1
+        },
+
+        init() {
+            this.log('Initializing apex subsystems...', 'sys');
+            this.updateStats();
+            this.renderHistory();
+            this.renderFavs();
+            
+            const queryInput = document.getElementById('queryInput');
+            queryInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.search();
+            });
+            queryInput.addEventListener('input', () => this.showSuggestions());
+            queryInput.addEventListener('blur', () => {
+                setTimeout(() => document.getElementById('suggestions').classList.add('hidden'), 200);
+            });
+
+            setInterval(() => {
+                const mem = (Math.random() * 15 + 32).toFixed(1);
+                document.getElementById('mem-stat').innerText = `${mem}MB`;
+            }, 5000);
+        },
+
+        log(msg, type = 'info') {
+            const con = document.getElementById('console');
+            const p = document.createElement('p');
+            p.className = `log-${type}`;
+            const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
+            p.innerHTML = `[${time}] ${msg}`;
+            con.appendChild(p);
+            con.scrollTop = con.scrollHeight;
+        },
+
+        updateStats(latency = 0) {
+            document.getElementById('node-stat').innerText = this.state.results.length;
+            document.getElementById('lat-stat').innerText = `${latency}ms`;
+            document.getElementById('proxy-stat').innerText = new URL(this.config.proxies[this.config.proxyIndex]).hostname.split('.')[1].toUpperCase();
+        },
+
+        rotateProxy() {
+            this.config.proxyIndex = (this.config.proxyIndex + 1) % this.config.proxies.length;
+            this.log(`PROXY_ROTATED: UPLINK SHIFTED TO ${this.config.proxies[this.config.proxyIndex]}`, 'warn');
+            this.updateStats();
+        },
+
+        async search() {
+            const query = document.getElementById('queryInput').value.trim();
+            const network = document.getElementById('networkSelect').value;
+
+            if (!query) return this.log('ERR: VOID_QUERY_DETECTED', 'err');
+            if (this.state.isSearching) return;
+
+            this.state.currentQuery = query;
+            this.state.currentEngine = network;
+            this.state.currentPage = 1;
+            this.state.results = [];
+            this.state.isSearching = true;
+            this.toggleLoader(true);
+            const startTime = Date.now();
+            this.log(`INITIALIZING RECON: ${network.toUpperCase()} // QUERY: "${query}"`, 'info');
+
+            try {
+                const data = await this.fetchResultsWithRetry(network, query, 1);
+                this.state.results = data;
+                this.renderGrid();
+                this.toggleLoadMore(data.length >= 10 && this.config.engines[network].pageParam);
+                
+                if (!this.state.history.includes(query)) {
+                    this.state.history.unshift(query);
+                    if (this.state.history.length > 50) this.state.history.pop();
+                    localStorage.setItem('neon_history', JSON.stringify(this.state.history));
+                    this.renderHistory();
+                }
+
+                const lat = Date.now() - startTime;
+                this.updateStats(lat);
+                this.log(`RECON_COMPLETE: ${data.length} DATA_POINTS CAPTURED.`, 'success');
+            } catch (err) {
+                this.log(`CRITICAL_FAILURE: ${err.message}`, 'err');
+                this.rotateProxy();
+            } finally {
+                this.state.isSearching = false;
+                this.toggleLoader(false);
+            }
+        },
+
+        async fetchResultsWithRetry(engineKey, query, page, retries = 2) {
+            try {
+                return await this.fetchResults(engineKey, query, page);
+            } catch (e) {
+                if (retries > 0) {
+                    this.log('RETRYING_SCAN: UPLINK UNSTABLE...', 'warn');
+                    this.rotateProxy();
+                    return await this.fetchResultsWithRetry(engineKey, query, page, retries - 1);
+                }
+                throw e;
+            }
+        },
+
+        async fetchResults(engineKey, query, page = 1) {
+            const engine = this.config.engines[engineKey];
+            if (!engine) throw new Error("ENGINE_MAPPING_LOST");
+
+            const pageStr = page > 1 ? (engine.pageParam || '') + page : '';
+            const url = engine.base + encodeURIComponent(query) + pageStr;
+            const currentProxy = this.config.proxies[this.config.proxyIndex];
+            
+            const response = await fetch(currentProxy + encodeURIComponent(url));
+            const json = await response.json();
+            
+            // Handle different proxy response structures
+            const html = json.contents || json;
+            if (typeof html !== 'string') throw new Error("MALFORMED_DATA_PACKET");
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const items = doc.querySelectorAll(engine.selectors.item);
+            
+            const results = [];
+            items.forEach((item, i) => {
+                if (i >= this.config.perPage) return;
+
+                try {
+                    const titleEl = item.querySelector(engine.selectors.title);
+                    const linkEl = item.querySelector(engine.selectors.link);
+                    const thumbEl = item.querySelector(engine.selectors.thumb);
+                    const durEl = item.querySelector(engine.selectors.duration);
+
+                    if (!titleEl || !linkEl) return;
+
+                    let link = linkEl.getAttribute('href');
+                    if (!link.startsWith('http')) {
+                        const base = new URL(url).origin;
+                        link = base + (link.startsWith('/') ? '' : '/') + link;
+                    }
+
+                    results.push({
+                        title: (titleEl.innerText || titleEl.getAttribute('title') || '').trim(),
+                        link: link,
+                        thumb: this.resolveThumb(thumbEl, item),
+                        duration: durEl ? durEl.innerText.trim() : 'N/A',
+                        network: engineKey
+                    });
+                } catch (e) {}
+            });
+
+            return results;
+        },
+
+        resolveThumb(img, container) {
+            if (!img) return '';
+            const candidates = [
+                img.getAttribute('data-src'),
+                img.getAttribute('data-thumb_url'),
+                img.getAttribute('data-mediabook'),
+                img.getAttribute('data-poster'),
+                img.getAttribute('src'),
+                img.getAttribute('data-original')
+            ];
+
+            const valid = candidates.find(c => c && c.startsWith('http'));
+            return valid || 'https://via.placeholder.com/640x360/050505/00f3ff?text=SIGNAL_LOST';
+        },
+
+        renderGrid() {
+            const grid = document.getElementById('mainGrid');
+            const empty = document.getElementById('emptyMsg');
+            
+            if (this.state.results.length === 0) {
+                grid.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+            grid.innerHTML = this.state.results.map((item, idx) => this.createCard(item, idx)).join('');
+        },
+
+        createCard(item, idx, isVault = false) {
+            const isFav = this.state.favs.some(f => f.link === item.link);
+            const safeTitle = item.title.replace(/"/g, '&quot;').replace(/'/g, "\'");
+            const safeLink = item.link;
+            
+            return `
+                <div class="card">
+                    <div class="thumb-box">
+                        <img src="${item.thumb}" loading="lazy" onerror="this.src='https://via.placeholder.com/640x360/0a0a0f/ff3131?text=DATA_CORRUPT'">
+                        <div class="tag">${item.network.toUpperCase()}</div>
+                        <div class="duration">${item.duration}</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-title" title="${safeTitle}">${item.title}</div>
+                        <div class="card-footer">
+                            <button onclick="window.open('${safeLink}', '_blank')">OPEN_NODE</button>
+                            <button class="pink ${isFav ? 'active' : ''}" onclick="Core.toggleFav(${idx}, ${isVault})">
+                                ${isFav ? 'SECURED' : 'VAULT'}
+                            </button>
+                            <button class="green" onclick="Core.copyBridge('${item.network}', '${safeTitle}')">BRIDGE</button>
+                            <button class="green" onclick="Core.copyDownload('${safeLink}')">DOWNLOAD</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        },
+
+        toggleFav(idx, isFromVault) {
+            const item = isFromVault ? this.state.favs[idx] : this.state.results[idx];
+            const existingIdx = this.state.favs.findIndex(f => f.link === item.link);
+
+            if (existingIdx > -1) {
+                this.state.favs.splice(existingIdx, 1);
+                this.log('NODE_RELEASED_FROM_VAULT', 'warn');
+            } else {
+                this.state.favs.push(item);
+                this.log('NODE_SECURED_IN_VAULT', 'success');
+            }
+
+            localStorage.setItem('neon_favs', JSON.stringify(this.state.favs));
+            this.renderGrid();
+            this.renderFavs();
+        },
+
+        renderFavs() {
+            const container = document.getElementById('favsGrid');
+            if (this.state.favs.length === 0) {
+                container.innerHTML = '<div class="status-msg">VAULT IS EMPTY.</div>';
+                return;
+            }
+            container.innerHTML = this.state.favs.map((item, idx) => this.createCard(item, idx, true)).join('');
+        },
+
+        renderHistory() {
+            const container = document.getElementById('historyList');
+            if (this.state.history.length === 0) {
+                container.innerHTML = '<div class="status-msg">HISTORY CLEAN.</div>';
+                return;
+            }
+            container.innerHTML = this.state.history.map(q => `
+                <div style="background: var(--surface-alt); padding: 15px; border-left: 3px solid var(--accent); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-radius: 4px;">
+                    <span style="font-family: var(--font-mono)">> ${q}</span>
+                    <button onclick="document.getElementById('queryInput').value='${q}'; Core.search();">RESTORE SCAN</button>
+                </div>
+            `).join('');
+        },
+
+        showSuggestions() {
+            const val = document.getElementById('queryInput').value.toLowerCase();
+            const suggestions = document.getElementById('suggestions');
+            if (!val) {
+                suggestions.classList.add('hidden');
+                return;
+            }
+            const matches = this.state.history.filter(h => h.toLowerCase().includes(val));
+            if (matches.length === 0) {
+                suggestions.classList.add('hidden');
+                return;
+            }
+            suggestions.innerHTML = matches.map(m => `
+                <div class="suggest-item" onclick="Core.selectSuggest('${m}')">${m}</div>
+            `).join('');
+            suggestions.classList.remove('hidden');
+        },
+
+        selectSuggest(q) {
+            document.getElementById('queryInput').value = q;
+            document.getElementById('suggestions').classList.add('hidden');
+            this.search();
+        },
+
+        copyBridge(engine, title) {
+            const cmd = `python3 vid.py "${title}" -e ${engine}`;
+            this.toClipboard(cmd);
+            this.log('BRIDGE_COMMAND_COPIED', 'info');
+        },
+
+        copyDownload(link) {
+            const cmd = `python3 vid.py "${link}" --download`;
+            this.toClipboard(cmd);
+            this.log('DOWNLOAD_COMMAND_COPIED', 'info');
+        },
+
+        toClipboard(text) {
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+        },
+
+        setTab(view, el) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            ['grid', 'history', 'favs'].forEach(v => {
+                document.getElementById(`${v}-view`).classList.add('hidden');
+            });
+            document.getElementById(`${view}-view`).classList.remove('hidden');
+        },
+
+        toggleLoader(show) {
+            const loader = document.getElementById('loader');
+            const grid = document.getElementById('mainGrid');
+            if (show) {
+                loader.classList.remove('hidden');
+                grid.classList.add('hidden');
+            } else {
+                loader.classList.add('hidden');
+                grid.classList.remove('hidden');
+            }
+        },
+
+        toggleLoadMore(show) {
+            const loadMore = document.getElementById('loadMore');
+            loadMore.classList.toggle('hidden', !show);
+        },
+
+        clear() {
+            this.state.results = [];
+            this.renderGrid();
+            this.toggleLoadMore(false);
+            document.getElementById('queryInput').value = '';
+            this.log('GRID_PURGED.', 'warn');
+        },
+
+        clearHistory() {
+            this.state.history = [];
+            localStorage.removeItem('neon_history');
+            this.renderHistory();
+            this.log('HISTORY_PURGED.', 'warn');
+        },
+
+        clearFavs() {
+            this.state.favs = [];
+            localStorage.removeItem('neon_favs');
+            this.renderFavs();
+            this.log('VAULT_PURGED.', 'warn');
+        }
+    };
+
+    window.onload = () => Core.init();
+</script>
+</body>
+</html>

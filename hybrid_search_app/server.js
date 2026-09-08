@@ -16,6 +16,7 @@ const CACHE_DURATION_MS = parseInt(process.env.CACHE_DURATION_MS || (5 * 60 * 10
 const CONFIG_FILE_PATH = path.resolve(__dirname, 'config.json')
 
 const cache = new Map()
+const MAX_CACHE_ENTRIES = 500
 let appConfig = { defaultStrategy: 'custom', siteOverrides: {}, customScrapersMap: {} }
 let pornsearchOrchestrator
 
@@ -40,13 +41,21 @@ function loadConfig() {
  * Watches the config.json file for changes and reloads the configuration.
  */
 function watchConfig() {
+    if (!fs.existsSync(CONFIG_FILE_PATH)) {
+        log.warn(`[CONFIG_WATCH] Cannot watch missing file: ${CONFIG_FILE_PATH}`)
+        return
+    }
+    let reloadTimer
     fs.watch(CONFIG_FILE_PATH, (eventType, filename) => {
         if (filename && eventType === 'change') {
-            log.info(`[CONFIG_WATCH] ${filename} changed. Reloading configuration and re-initializing orchestrator...`)
-            loadConfig()
-            initializeOrchestrator().catch(err => {
-                log.error('[CONFIG_WATCH] Failed to re-initialize orchestrator after config change.', err)
-            })
+            clearTimeout(reloadTimer)
+            reloadTimer = setTimeout(() => {
+                log.info(`[CONFIG_WATCH] ${filename} changed. Reloading configuration and re-initializing orchestrator...`)
+                loadConfig()
+                initializeOrchestrator().catch(err => {
+                    log.error('[CONFIG_WATCH] Failed to re-initialize orchestrator after config change.', err)
+                })
+            }, 150)
         }
     })
     log.info(`[CONFIG_WATCH] Watching for changes in ${CONFIG_FILE_PATH}`)
@@ -107,12 +116,21 @@ app.use(express.static(path.join(__dirname, 'public')))
 app.get('/api/search', async (req, res, next) => {
     const { query, driver, type = 'videos', page = '1' } = req.query
 
-    if (!query) {
-        return res.status(400).json({ error: 'Missing required parameter: query' })
+    if (typeof query !== 'string' || query.trim() === '') {
+        return res.status(400).json({ error: 'Query must be a non-empty string.' })
+    }
+    if (query.length > 200) {
+        return res.status(400).json({ error: 'Query must be 200 characters or fewer.' })
+    }
+    if (typeof type !== 'string' || !['videos', 'gifs'].includes(type.toLowerCase())) {
+        return res.status(400).json({ error: "Type must be either 'videos' or 'gifs'." })
+    }
+    if (driver !== undefined && (typeof driver !== 'string' || !/^[a-z0-9_-]+$/i.test(driver))) {
+        return res.status(400).json({ error: 'Invalid driver.' })
     }
 
-    const pageNumber = parseInt(page, 10) || 1
-    if (pageNumber <= 0) {
+    const pageNumber = Number(page)
+    if (!Number.isInteger(pageNumber) || pageNumber <= 0 || pageNumber > 1000) {
         return res.status(400).json({ error: 'Page number must be positive.' })
     }
 
@@ -139,14 +157,18 @@ app.get('/api/search', async (req, res, next) => {
             message: `Results for query '${query}'`,
             query,
             platform: platform || 'all',
-            type,
+            type: type.toLowerCase(),
             page: pageNumber,
-            results_count: resultsData.length,
-            data: resultsData || [],
+            results_count: Array.isArray(resultsData) ? resultsData.length : 0,
+            data: Array.isArray(resultsData) ? resultsData : [],
         }
 
         cache.set(cacheKey, { timestamp: Date.now(), data: responsePayload })
-        log.info(`[SEARCH] Success for key: ${cacheKey}, found ${resultsData.length} results.`)
+        if (cache.size > MAX_CACHE_ENTRIES) {
+            const oldestKey = cache.keys().next().value
+            if (oldestKey) cache.delete(oldestKey)
+        }
+        log.info(`[SEARCH] Success for key: ${cacheKey}, found ${responsePayload.results_count} results.`)
         res.status(200).json(responsePayload)
 
     } catch (error) {
@@ -163,10 +185,12 @@ app.get('/api/drivers', (req, res) => {
 })
 
 app.get('/api/health', (req, res) => {
+    const ready = Boolean(pornsearchOrchestrator)
     res.status(200).json({
-        status: pornsearchOrchestrator ? 'ok' : 'degraded',
-        message: pornsearchOrchestrator ? 'Orchestrator is initialized.' : 'Orchestrator not available.',
-        uptime: `${process.uptime().toFixed(2)}s`
+        status: ready ? 'ok' : 'degraded',
+        message: ready ? 'Orchestrator is initialized.' : 'Orchestrator not available.',
+        uptime: Number(process.uptime().toFixed(2)),
+        drivers: ready ? pornsearchOrchestrator.getAvailablePlatforms() : []
     })
 })
 

@@ -9,7 +9,8 @@ const LOG_LEVELS = {
   error: 3,
 }
 
-const currentLevel = process.env.LOG_LEVEL || 'info'
+const configuredLevel = (process.env.LOG_LEVEL || 'info').toLowerCase()
+const currentLevel = Object.prototype.hasOwnProperty.call(LOG_LEVELS, configuredLevel) ? configuredLevel : 'info'
 const logFilePath = path.join(__dirname, '..', 'app.log')
 const maxLogSize = 1024 * 1024 * 5 // 5MB
 

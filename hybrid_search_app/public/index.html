@@ -164,19 +164,36 @@
         throw new Error(data.error || `HTTP error! status: ${res.status}`);
       }
 
-      statsDiv.innerHTML = `Found ${data.length} items from ${driver} (${type}) in ${duration}s`;
+      const items = Array.isArray(data.data) ? data.data : [];
+      statsDiv.textContent = `Found ${items.length} items from ${driver} (${type}) in ${duration}s`;
 
-      if (data.length === 0) {
-        resultsDiv.innerHTML = '<p class="loading">No results found for your query.</p>';
+      if (items.length === 0) {
+        resultsDiv.textContent = 'No results found for your query.';
+        resultsDiv.className = 'loading';
         return;
       }
 
-      resultsDiv.innerHTML = data.map(d => `
-        <div class="card" onclick="window.open('${d.url}', '_blank')" title="${d.title}">
-          <img src="${d.thumbnail}" alt="${d.title || 'Video Thumbnail'}" loading="lazy" onerror="this.onerror=null;this.src='https://via.placeholder.com/220x160/000000/00FFFF?text=NO+IMAGE+FOUND';" />
-          <div class="title">${d.title}</div>
-        </div>
-      `).join('');
+      resultsDiv.className = '';
+      resultsDiv.replaceChildren();
+      items.forEach(item => {
+        const card = document.createElement('article');
+        card.className = 'card';
+        const link = document.createElement('a');
+        link.href = item.url || '#';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        const image = document.createElement('img');
+        image.src = item.thumbnail || '';
+        image.alt = item.title || 'Video thumbnail';
+        image.loading = 'lazy';
+        image.onerror = () => { image.removeAttribute('src'); image.alt = 'Thumbnail unavailable'; };
+        const title = document.createElement('div');
+        title.className = 'title';
+        title.textContent = item.title || 'Untitled';
+        link.append(image, title);
+        card.appendChild(link);
+        resultsDiv.appendChild(card);
+      });
 
     } catch(e) {
       console.error("Search error:", e);
@@ -202,15 +219,16 @@
       // Get all current option values to prevent duplicates
       const currentOptions = new Set([...driverSelect.options].map(opt => opt.value.toLowerCase()));
 
-      // Add new options from the API health check
-      data.drivers.forEach(driverName => {
+      // Add current drivers from the health response without duplicating options.
+      (Array.isArray(data.drivers) ? data.drivers : []).forEach(driverInfo => {
+        const driverName = typeof driverInfo === 'string' ? driverInfo : driverInfo.name;
+        if (!driverName) return;
         if (!currentOptions.has(driverName.toLowerCase())) {
             const option = document.createElement('option');
-            option.value = driverName;
-            // Capitalize for display, keeping value lowercased for consistency
-            option.textContent = driverName.charAt(0).toUpperCase() + driverName.slice(1); 
+            option.value = driverName.toLowerCase();
+            option.textContent = driverName;
             driverSelect.appendChild(option);
-            currentOptions.add(driverName.toLowerCase()); // Add to set
+            currentOptions.add(driverName.toLowerCase());
         }
       });
     })

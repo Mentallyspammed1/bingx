@@ -55,7 +55,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    * Indicates if this driver supports video searches.
    * @returns {boolean}
    */
-  get supportsVideos() {
+  hasVideoSupport() {
     return true
   }
 
@@ -63,7 +63,7 @@ class XhamsterDriver extends BaseXhamsterClass {
    * Indicates if this driver supports GIF searches.
    * @returns {boolean}
    */
-  get supportsGifs() {
+  hasGifSupport() {
     return true
   }
 
@@ -120,7 +120,7 @@ class XhamsterDriver extends BaseXhamsterClass {
     logger.info(`[${sourceName}] Parsing ${type} results...`)
 
     if (type === 'videos') {
-      const videoItems = $('div.video-thumb')
+      const videoItems = $('div.thumb-list__item.video-thumb, div.video-thumb')
 
       if (!videoItems.length) {
         logger.warn(`[${sourceName}] No video items found with current selectors. Page structure may have changed.`)
@@ -130,16 +130,16 @@ class XhamsterDriver extends BaseXhamsterClass {
       videoItems.each((index, element) => {
         const item = $(element)
 
-        const linkElement = item.find('a.video-thumb__image-container').first()
+        const linkElement = item.find('a.video-thumb__image-container, a[data-role="thumb-link"]').first()
         let videoUrl = linkElement.attr('href')
-        let title = item.find('a.video-thumb__name').text() || linkElement.attr('title')
+        let title = item.find('a.video-thumb__name, a.video-thumb-info__name').text() || linkElement.attr('title')
 
         let videoId = item.attr('data-video-id')
         
-        const thumbElement = item.find('img.video-thumb__image').first()
-        let thumbnailUrl = thumbElement.attr('src')
+        const thumbElement = item.find('img.video-thumb__image, img.thumb-image-container__image').first()
+        let thumbnailUrl = thumbElement.attr('data-src') || thumbElement.attr('src')
 
-        let duration = item.find('.video-thumb__duration').text()
+        let duration = item.find('.video-thumb__duration, [data-role="video-duration"]').text()
         duration = sanitizeText(duration)
 
         const previewVideoUrl = extractPreview($, item, sourceName, this.baseUrl)

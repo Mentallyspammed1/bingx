@@ -27,14 +27,19 @@ from typing import Any
 # Third-party Libraries
 # requests is used implicitly by bing_image_downloader
 # It's good practice to explicitly import if you're using it directly elsewhere too
-import requests
+try:
+    import requests
+except ImportError:  # Only needed to classify downloader network errors.
+    requests = None  # type: ignore
 
 try:
     from bing_image_downloader import downloader
 except ImportError:
-    print("Error: The 'bing-image-downloader' library is not installed.")
-    print("Please install it using: pip install bing-image-downloader")
-    sys.exit(1)
+    # Keep utility functions importable for tests and metadata-only use.
+    downloader = None  # type: ignore
+    logging.getLogger(__name__).warning(
+        "bing-image-downloader is not installed; downloading is unavailable."
+    )
 
 try:
     from colorama import Back
@@ -56,7 +61,17 @@ try:
     TQDM_AVAILABLE = True
 except ImportError:
     TQDM_AVAILABLE = False
-    def tqdm(iterable, *args, **kwargs): return iterable # Dummy tqdm
+    class _TqdmFallback:
+        def __init__(self, iterable=(), **kwargs):
+            self._iterable = iterable
+        def __iter__(self):
+            return iter(self._iterable)
+        def update(self, _n=1):
+            pass
+        def close(self):
+            pass
+    def tqdm(iterable=(), *args, **kwargs):
+        return _TqdmFallback(iterable, **kwargs)
 
 
 # Attempt to import Pillow for image metadata; provide guidance if missing
@@ -84,7 +99,7 @@ except ImportError:
 class Config:
     """Centralized configuration for the image downloader script."""
     DEFAULT_OUTPUT_DIR: Path = Path("bing_images")
-    MAX_FILENAME_LENGTH: int = 128
+    MAX_FILENAME_LENGTH: int = 200
     METADATA_FILENAME_PREFIX: str = "metadata_query_"
     MASTER_MANIFEST_FILENAME: str = "master_manifest.json"
     # Increased workers for I/O bound task, capped at reasonable number
@@ -168,14 +183,20 @@ def print_info(text: str) -> None:
 
 # --- Utility Functions: Tools of the Trade ---
 def sanitize_filename(name: str) -> str:
-    """Cleanses a string for use as a filename, removing impurities and truncating."""
-    # Remove characters that might displease file systems, keep alphanumeric, spaces, underscores, hyphens
-    sanitized = "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).strip()
-    # Replace sequences of spaces/underscores with a single underscore
-    sanitized = "_".join(filter(None, sanitized.split())) # Splits by any whitespace and joins with '_'
-    sanitized = "_".join(filter(None, sanitized.split("_"))) # Normalize multiple underscores
-    # Limit length to prevent overflow
-    return sanitized[:Config.MAX_FILENAME_LENGTH]
+    """Return a portable, bounded filename stem with no traversal components."""
+    if not isinstance(name, str):
+        return ""
+    sanitized = "".join(
+        char for char in name.strip()
+        if char.isalnum() or char in (" ", "_", "-", ".")
+    )
+    sanitized = sanitized.replace(".", "_")
+    sanitized = "_".join(part for part in sanitized.split() if part)
+    sanitized = "_".join(part for part in sanitized.split("_") if part)
+    sanitized = sanitized[:Config.MAX_FILENAME_LENGTH].rstrip(" .")
+    if sanitized.upper() in {"CON", "PRN", "AUX", "NUL"}:
+        sanitized = f"_{sanitized}"
+    return sanitized
 
 
 def create_directory(path: Path) -> bool:
@@ -251,14 +272,10 @@ def rename_files(file_paths: list[Path], base_query: str) -> list[Path]:
             collision_counter: int = 1
 
             while target_path_for_rename.exists():
-                # Check if the file already has the desired name and points to the same inode
-                # This prevents renaming a file onto itself unnecessarily.
-                if old_path.samefile(target_path_for_rename):
-                    logger.debug(f"Skipping rename for {old_path.name} as target name '{target_path_for_rename.name}' is identical and points to the same file.")
-                    target_path_for_rename = old_path # Effectively, no rename
-                    break # Exit collision loop
-
-                # Generate a new name to resolve collision
+                # Always allocate a new collision-safe name, including when the
+                # source already has the requested basename. This keeps repeated
+                # imports deterministic and avoids silently reporting a no-op.
+                # Generate a new name to resolve collision.
                 new_filename = f"{new_base_name}_{collision_counter}{ext_str}"
                 target_path_for_rename = dir_path / new_filename
                 collision_counter += 1
@@ -370,6 +387,10 @@ def download_images_with_bing(
             logger.info("No extra filters applied.")
 
         # Invoke the downloader. It manages its own ethereal connections.
+        if downloader is None:
+            raise RuntimeError(
+                "bing-image-downloader is required for downloads; install requirements.txt first."
+            )
         downloader.download(
             query=effective_query,
             limit=limit,
@@ -404,19 +425,18 @@ def download_images_with_bing(
     except KeyboardInterrupt:
         print_warning("Download ritual interrupted by the seeker's will.")
         raise
-    except requests.exceptions.HTTPError as e:
-        print_error(f"HTTP Error during download: {e.response.status_code} - {e.response.reason}")
-        logger.debug("Traceback for HTTP error:", exc_info=True)
-        return [], query_based_subdir_name
-    except requests.exceptions.RequestException as e:
-        print_error(f"Network or connection error during download: {e}")
-        logger.debug("Traceback for request error:", exc_info=True)
-        return [], query_based_subdir_name
     except Exception as e:
-        print_error(f"The download ritual failed: {e}")
+        if requests is not None and isinstance(e, requests.exceptions.HTTPError):
+            response = getattr(e, "response", None)
+            status = getattr(response, "status_code", "unknown")
+            reason = getattr(response, "reason", "unknown")
+            print_error(f"HTTP Error during download: {status} - {reason}")
+        elif requests is not None and isinstance(e, requests.exceptions.RequestException):
+            print_error(f"Network or connection error during download: {e}")
+        else:
+            print_error(f"The download ritual failed: {e}")
         logger.debug("Traceback for downloader error:", exc_info=True)
         return [], query_based_subdir_name
-
     return downloaded_files, query_based_subdir_name
 
 
@@ -602,8 +622,10 @@ def save_metadata(metadata_list: list[dict[str, Any]], output_dir_base: Path, qu
              print_error(f"Cannot inscribe metadata, base output directory '{output_dir_base}' does not exist and couldn't be forged.")
              return False
 
-        with open(metadata_file_path, "w", encoding="utf-8") as f:
+        temp_path = metadata_file_path.with_suffix(metadata_file_path.suffix + ".tmp")
+        with open(temp_path, "w", encoding="utf-8") as f:
             json.dump(metadata_list, f, indent=4, ensure_ascii=False)
+        temp_path.replace(metadata_file_path)
         print_success(f"Metadata inscribed successfully to: {metadata_file_path}")
         return True
     except OSError as e:
@@ -675,8 +697,10 @@ def generate_master_manifest(output_dir_base: Path, all_metadata_entries: dict[s
     tqdm_instance.close()
 
     try:
-        with open(master_manifest_file_path, "w", encoding="utf-8") as f:
+        temp_path = master_manifest_file_path.with_suffix(master_manifest_file_path.suffix + ".tmp")
+        with open(temp_path, "w", encoding="utf-8") as f:
             json.dump(valid_manifest_entries, f, indent=4, ensure_ascii=False)
+        temp_path.replace(master_manifest_file_path)
         print_success(f"Master manifest forged successfully: {master_manifest_file_path} (Contains {len(valid_manifest_entries)} unique entries).")
     except OSError as e:
         print_error(f"Failed to forge master manifest to {master_manifest_file_path}: {e}")
@@ -889,8 +913,15 @@ def main() -> None:
     if args.phash_threshold is None:
         args.phash_threshold = Config.PHASH_THRESHOLD
 
-    # Ensure adult filter is always off (safe search off)
-    args.adult_filter_off = True
+    if args.limit <= 0:
+        print_error("Limit must be a positive integer.")
+        return
+    if args.timeout <= 0:
+        print_error("Timeout must be a positive integer.")
+        return
+    if args.phash_threshold < 0:
+        print_error("pHash threshold must be non-negative.")
+        return
 
     logger.setLevel(getattr(logging, args.log_level.upper()))
 

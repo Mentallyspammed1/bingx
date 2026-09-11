@@ -3,14 +3,33 @@
 const fs = require('fs').promises
 const path = require('path')
 const cheerio = require('cheerio')
-let pLimitModule
+// Keep concurrency control local so the CommonJS service works in Node and Jest
+// without relying on an ESM-only dependency at runtime.
+function createLimit(concurrency) {
+    const max = Math.max(1, Number.isInteger(concurrency) ? concurrency : 1)
+    const queue = []
+    let active = 0
 
-// Dynamically import p-limit as it's an ESM module
-async function loadPLimit() {
-    if (!pLimitModule) {
-        pLimitModule = require('p-limit')
+    const drain = () => {
+        while (active < max && queue.length) {
+            const { task, resolve, reject } = queue.shift()
+            active += 1
+            Promise.resolve()
+                .then(task)
+                .then(resolve, reject)
+                .finally(() => {
+                    active -= 1
+                    drain()
+                })
+        }
     }
-    return pLimitModule
+
+    return task => new Promise((resolve, reject) => {
+        queue.push({ task, resolve, reject })
+        drain()
+    })
+}
+
 const log = require('./core/log.js')
 const { fetchWithRetry, getRandomUserAgent } = require('./modules/driver-utils.js')
 
@@ -195,7 +214,7 @@ class Pornsearch {
             try {
                 const mockContent = await fs.readFile(mockFilePath, 'utf8')
                 this.logger.debug(`Loaded mock data for ${driver.name} from ${mockFileName}`, { component: 'FETCH_MOCK' })
-                return mockContent
+                return { content: mockContent, isMock: true }
             } catch (fileError) {
                 this.logger.error(`Failed to load mock data for ${driver.name} (${mockFileName}): ${fileError.message}`, { component: 'FETCH_MOCK_ERROR' })
                 return null // Return null if mock data not found
@@ -214,7 +233,7 @@ class Pornsearch {
             try {
                 this.logger.debug(`Fetching ${searchUrl} for ${driver.name}`, { component: 'FETCH' })
                 const response = await fetchWithRetry(searchUrl, options)
-                return response.data
+                return { content: response.data, isMock: false }
             } catch (error) {
                 this.logger.error(`Fetch failed for ${driver.name} at ${searchUrl}: ${error.message}`, { component: 'FETCH_ERROR' })
                 return null
@@ -223,7 +242,7 @@ class Pornsearch {
     }
 
     async _parse(driver, rawContentWrapper, parserOptions) {
-        const { content: rawContent, isMock } = rawContentWrapper
+        const { content: rawContent } = rawContentWrapper || {}
 
         if (!rawContent) {
             this.logger.debug(`No raw content to parse for ${driver.name}.`, { component: 'PARSE' })
@@ -255,7 +274,11 @@ class Pornsearch {
 
         try {
             this.logger.debug(`Parsing content for ${driver.name}.`, { component: 'PARSE' })
-            const results = await driver.parseResults(cheerioInstance, jsonData || rawContent, parserOptions)
+            const results = await driver.parseResults(
+                cheerioInstance,
+                jsonData || rawContent,
+                { ...parserOptions, isMock: Boolean(rawContentWrapper && rawContentWrapper.isMock) }
+            )
 
             if (!Array.isArray(results)) {
                 this.logger.warn(`Driver ${driver.name} did not return an array from parseResults.`, { component: 'PARSE_WARN' })
@@ -313,7 +336,12 @@ class Pornsearch {
     async search(options) {
         const { query, page = 1, type = 'videos', useMockData = false, platform = null } = options
 
-        if (!query) throw new Error("Search query is required.")
+        if (typeof query !== 'string' || query.trim() === '') {
+            throw new Error('Search query is required.')
+        }
+        if (!Number.isInteger(page) || page < 1) {
+            throw new Error('Page must be a positive integer.')
+        }
         if (!['videos', 'gifs'].includes(type)) throw new Error(`Invalid search type: ${type}. Must be 'videos' or 'gifs'.`)
 
         const startTime = process.hrtime.bigint()
@@ -329,8 +357,7 @@ class Pornsearch {
             driversToSearch = [specificDriver]
         }
 
-        const { default: pLimit } = await loadPLimit()
-        const limit = pLimit(this.config.global.maxConcurrentSearches)
+        const limit = createLimit(this.config.global.maxConcurrentSearches)
 
         const searchPromises = driversToSearch.map(driver => limit(async () => {
             let getUrlMethod

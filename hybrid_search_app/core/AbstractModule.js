@@ -6,8 +6,9 @@ const { logger } = require('../modules/driver-utils.js')
 
 class AbstractModule {
   constructor(options = {}) {
-    this.query = (options.query || '').trim()
-    this.page = parseInt(options.page, 10) || this.firstpage
+    this.query = typeof options.query === 'string' ? options.query.trim() : ''
+    const requestedPage = Number(options.page)
+    this.page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : this.firstpage
     this.logger = logger // Assign logger to instance
 
     this.httpClient = axios.create({
@@ -75,6 +76,7 @@ class AbstractModule {
     if (urlString.startsWith('data:')) return urlString
     if (urlString.startsWith('http:') || urlString.startsWith('https:')) return urlString
     if (urlString.startsWith('//')) return `https:${urlString}`
+    if (typeof baseUrl !== 'string' || baseUrl.trim() === '') return undefined
 
     try {
       const effectiveBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`

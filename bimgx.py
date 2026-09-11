@@ -17,14 +17,26 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any
 
-# Third-party Libraries
-# requests is used implicitly by bing_image_downloader
-from bing_image_downloader import downloader
-from colorama import Back
-from colorama import Fore
-from colorama import Style
-from colorama import init
-from tqdm import tqdm
+# Optional third-party libraries. Utility functions remain importable when
+# download-only dependencies are not installed.
+try:
+    from bing_image_downloader import downloader
+except ImportError:
+    downloader = None  # type: ignore
+try:
+    from colorama import Back, Fore, Style, init
+except ImportError:
+    class _NoColor:
+        def __getattr__(self, _name: str) -> str:
+            return ""
+    Back = Fore = Style = _NoColor()  # type: ignore
+    def init(autoreset: bool = True) -> None:
+        pass
+try:
+    from tqdm import tqdm
+except ImportError:
+    def tqdm(iterable, **kwargs):
+        return iterable
 
 # Attempt to import Pillow for image metadata; provide guidance if missing
 try:
@@ -107,14 +119,16 @@ def print_info(text: str) -> None:
 
 # --- Utility Functions ---
 def sanitize_filename(name: str) -> str:
-    """Removes/replaces invalid filename chars and truncates."""
-    # Replace invalid characters with an underscore
-    sanitized = re.sub(r'[<>:"/\\|?*]', '_', name)
-    # Replace spaces with underscores and collapse multiple underscores
+    """Create a portable filename stem without traversal or reserved names."""
+    if not isinstance(name, str):
+        return ""
+    sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', name.strip())
     sanitized = re.sub(r'\s+', '_', sanitized)
-    sanitized = re.sub(r'_+', '_', sanitized).strip('_')
-    # Limit length
-    return sanitized[:MAX_FILENAME_LENGTH]
+    sanitized = re.sub(r'_+', '_', sanitized).strip('_. ')
+    sanitized = sanitized[:MAX_FILENAME_LENGTH].rstrip(' .')
+    if sanitized.upper() in {"CON", "PRN", "AUX", "NUL"}:
+        sanitized = f"_{sanitized}"
+    return sanitized
 
 
 def create_directory(path: str) -> bool:
@@ -170,6 +184,9 @@ def rename_files(file_paths: list[str], base_query: str) -> list[str]:
             if not os.path.isfile(old_path):
                 print_warning(f"Path is not a file, skipping rename: {old_path}")
                 continue # Skip, not a file
+            if os.path.dirname(os.path.abspath(old_path)) != os.path.abspath(dir_name):
+                print_warning(f"Skipping file outside the target directory: {old_path}")
+                continue
 
             _, ext = os.path.splitext(old_path)
             new_base_name = f"{sanitized_query}_{idx}"
@@ -245,6 +262,8 @@ def apply_filters(**kwargs: str | None) -> str:
     }
 
     for key, value in kwargs.items():
+        if value is not None and not isinstance(value, str):
+            value = str(value)
         if value and value.strip():
             formatted_value = value.strip()
             # Bing expects precise casing for some filters, e.g. 'ColorOnly', 'Monochrome'
@@ -278,8 +297,15 @@ def download_images_with_bing(
     extra_filters: str,
     site_filter: str | None = None
 ) -> list[str]:
-    """Handles image downloading using bing-image-downloader and returns actual file paths."""
-    effective_query = query
+    """Download images and return only files found in the query directory."""
+    if not isinstance(query, str) or not query.strip():
+        raise ValueError("query must be a non-empty string")
+    if limit <= 0 or timeout <= 0:
+        raise ValueError("limit and timeout must be positive")
+    if downloader is None:
+        print_error("bing-image-downloader is not installed; install requirements.txt first.")
+        return []
+    effective_query = query.strip()
     if site_filter:
         effective_query += f" site:{site_filter}"
 
@@ -311,9 +337,10 @@ def download_images_with_bing(
         print_info(f"Checking for downloaded files in: {query_specific_output_dir}")
         if os.path.isdir(query_specific_output_dir):
             found_count = 0
-            for filename in os.listdir(query_specific_output_dir):
+            for filename in sorted(os.listdir(query_specific_output_dir)):
                 full_path = os.path.join(query_specific_output_dir, filename)
-                if os.path.isfile(full_path):
+                # Ignore directories and symlinks escaping the output directory.
+                if os.path.isfile(full_path) and not os.path.islink(full_path):
                     downloaded_files.append(full_path)
                     found_count += 1
             if found_count > 0:
@@ -337,9 +364,10 @@ def download_images_with_bing(
 
 
 def get_local_file_metadata(file_path: str) -> dict[str, Any]:
-    """Extracts metadata (size, dimensions) from a local image file."""
+    """Extract metadata without allowing a single bad file to abort the batch."""
+    file_path = os.fspath(file_path)
     metadata: dict[str, Any] = {
-        "file_path": file_path,
+        "file_path": os.path.abspath(file_path),
         "filename": os.path.basename(file_path),
         "file_size_bytes": None,
         "dimensions": None,
@@ -401,7 +429,7 @@ def extract_metadata_parallel(image_paths: list[str]) -> list[dict[str, Any]]:
         print_warning("Install it using: pip install Pillow")
 
     metadata_list: list[dict[str, Any]] = []
-    max_workers = min(16, (os.cpu_count() or 1) * 2 + 4)
+    max_workers = min(16, max(1, len(image_paths), (os.cpu_count() or 1) * 2 + 4))
 
     print_info(f"Extracting metadata from {len(image_paths)} local files using up to {max_workers} workers...")
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -447,8 +475,10 @@ def save_metadata(metadata_list: list[dict[str, Any]], output_dir_base: str, que
              print_error(f"Cannot save metadata, base output directory '{output_dir_base}' does not exist and couldn't be created.")
              return False
 
-        with open(metadata_file_path, "w", encoding="utf-8") as f:
+        temp_path = f"{metadata_file_path}.tmp"
+        with open(temp_path, "w", encoding="utf-8") as f:
             json.dump(metadata_list, f, indent=4, ensure_ascii=False)
+        os.replace(temp_path, metadata_file_path)
         print_success(f"Metadata saved successfully to: {metadata_file_path}")
         return True
     except OSError as e:

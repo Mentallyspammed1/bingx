@@ -1,13 +1,13 @@
 # This configuration is read by the custom action at ./.github/actions/gemini-code-reviewer
 version: 1.0 # Version of this config schema
 debug:
-  auto_apply_fixes: true
+  auto_apply_fixes: false
   auto_debug: true
   log_level: INFO # DEBUG, INFO, WARNING, ERROR, CRITICAL
   log_output_file: .gemini/logs/gemini_codeassist.log
 analysis:
   enhancement_suggestions:
-    auto_apply_enhancements: true
+    auto_apply_enhancements: false
     max_suggestions_per_file: 10
   code_quality:
     enforce_style_guides: true
@@ -24,10 +24,10 @@ analysis:
       - snyk
 source_control:
   auto_commit_push:
-    enabled: true
-    commit_on_fix_applied: true
-    commit_on_enhancement_applied: true
-    push_after_commit: true
+    enabled: false
+    commit_on_fix_applied: false
+    commit_on_enhancement_applied: false
+    push_after_commit: false
     commit_author_name: "Gemini AI Assistant"
     commit_author_email: "gemini-ai-assistant[bot]@users.noreply.github.com"
     commit_message_template: "feat(gemini): AI auto-fix and enhancements for {{file_count}} files. {{issue_summary}}"

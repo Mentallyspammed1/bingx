@@ -7,7 +7,7 @@ Review-only: never edits code, never pushes.
 
 Env:
   NVIDIA_API_KEY    required (GitHub secret) - if unset, prints a skip notice
-  NVIDIA_NIM_MODEL  optional, default meta/llama-3.3-70b-instruct
+  NVIDIA_NIM_MODEL  optional, default z-ai/glm-5.3
   NIM_BASE_URL      optional, default https://integrate.api.nvidia.com/v1
 """
 import json
@@ -45,7 +45,7 @@ def main() -> int:
     if len(diff) > MAX_DIFF_CHARS:
         diff = diff[:MAX_DIFF_CHARS] + "\n\n[diff truncated]\n"
 
-    model = os.environ.get("NVIDIA_NIM_MODEL", "meta/llama-3.3-70b-instruct")
+    model = os.environ.get("NVIDIA_NIM_MODEL", "z-ai/glm-5.3")
     base = os.environ.get("NIM_BASE_URL", "https://integrate.api.nvidia.com/v1").rstrip("/")
     payload = {
         "model": model,

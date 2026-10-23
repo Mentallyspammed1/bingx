@@ -62,7 +62,7 @@ def main() -> int:
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=120) as resp:
+    with urllib.request.urlopen(req, timeout=300) as resp:
         data = json.load(resp)
     text = data["choices"][0]["message"]["content"].strip()
     print(f"## NVIDIA NIM review ({model})\n\n{text}")

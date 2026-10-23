@@ -43,3 +43,34 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+
+# junk / backups / logs / editor shadow
+*.bak
+*.log
+*.tmp
+*.orig
+.fs_shadow/
+.gemini/logs/
+
+# scraped / generated output — do not commit (use external storage)
+ /bing_images/
+ /downloads/
+ /scraper_output/
+ /downloaded_thumbnails/
+bing_images/
+downloads/
+scraper_output/
+downloaded_thumbnails/
+
+# binaries — download in setup/CI, do not commit
+/chromedriver-linux64/
+chromedriver*
+chromedriver*.zip
